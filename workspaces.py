@@ -1,10 +1,10 @@
-"""Workspaces : des groupes d'agents, enregistrés dans un fichier JSON local (0600).
+"""Workspaces: groups of agents, saved in a local JSON file (0600).
 
-Un agent est désigné par l'identifiant de sa session Claude Code (ou, tant qu'elle n'a pas
-démarré, par celui de sa discussion ziggy-one). Il appartient à un seul workspace à la fois.
+An agent is designated by the id of its Claude Code session (or, until it has started, by the id of
+its ziggy-one conversation). It belongs to a single workspace at a time.
 
-`shareActivity` : les agents du workspace qui travaillent dans le même dépôt reçoivent, avec chaque
-message, ce que les autres ont fait depuis (voir activity.py). Activé par défaut.
+`shareActivity`: the agents of the workspace that work in the same repository receive, with each
+message, what the others have done since (see activity.py). On by default.
 """
 
 import json
@@ -14,6 +14,7 @@ import threading
 import time
 from pathlib import Path
 
+from i18n import tr
 from storage import is_agent_key, read_json, write_json
 
 WORKSPACE_ID_RE = re.compile(r"^[0-9a-f]{12}$")
@@ -23,22 +24,22 @@ MAX_AGENTS = 200
 
 
 def clean_hue(hue):
-    """Teinte de l'avatar (0 à 359), ou None pour la couleur automatique."""
+    """Hue of the avatar (0 to 359), or None for the automatic color."""
     if hue is None:
         return None
     if isinstance(hue, bool) or not isinstance(hue, int) or not 0 <= hue < 360:
-        raise ValueError("couleur invalide (teinte de 0 à 359)")
+        raise ValueError(tr("Invalid color (hue from 0 to 359)"))
     return hue
 
 
 def clean_name(name):
     if not isinstance(name, str) or not name.strip():
-        raise ValueError("le nom du workspace est vide")
+        raise ValueError(tr("The workspace name is empty"))
     return " ".join(name.split())[:MAX_NAME]
 
 
 class Workspaces:
-    """`event` : nom de l'événement publié à chaque changement (les tableaux Kanban ont leurs propres workspaces)."""
+    """`event`: name of the event published on every change (Kanban boards have their own workspaces)."""
 
     def __init__(self, bus, path, event="workspaces"):
         self._bus = bus
@@ -47,10 +48,10 @@ class Workspaces:
         self._lock = threading.Lock()
         self._items = self._load()
 
-    # --- fichier ----------------------------------------------------------------
+    # --- file -------------------------------------------------------------------
 
     def _load(self):
-        """Lecture défensive : un fichier absent ou abîmé donne une liste vide, jamais une erreur."""
+        """Defensive reading: a missing or damaged file gives an empty list, never an error."""
         data = read_json(self._path, [])
         items = []
         for raw in data if isinstance(data, list) else []:
@@ -72,19 +73,19 @@ class Workspaces:
         return items[:MAX_WORKSPACES]
 
     def _changed(self):
-        # Appelé avec _lock acquis.
+        # Called with _lock held.
         write_json(self._path, self._items)
         snapshot = json.loads(json.dumps(self._items))
         self._bus.publish(self._event, snapshot)
 
-    # --- lecture -------------------------------------------------------------------
+    # --- reading -------------------------------------------------------------------
 
     def list(self):
         with self._lock:
             return json.loads(json.dumps(self._items))
 
     def workspace_for(self, keys):
-        """Workspace qui contient l'agent (sous l'un de ses identifiants), ou None."""
+        """Workspace that contains the agent (under one of its ids), or None."""
         with self._lock:
             item = next((item for item in self._items if any(key in item["agents"] for key in keys)), None)
             return json.loads(json.dumps(item)) if item else None
@@ -93,7 +94,7 @@ class Workspaces:
         with self._lock:
             return [key for item in self._items for key in item["agents"]]
 
-    # --- modifications ------------------------------------------------------------------
+    # --- changes ------------------------------------------------------------------------
 
     def _find(self, workspace_id):
         return next((item for item in self._items if item["id"] == workspace_id), None)
@@ -102,7 +103,7 @@ class Workspaces:
         name = clean_name(name)
         with self._lock:
             if len(self._items) >= MAX_WORKSPACES:
-                raise ValueError(f"{MAX_WORKSPACES} workspaces au maximum")
+                raise ValueError(tr("{count} workspaces at most", count=MAX_WORKSPACES))
             item = {"id": secrets.token_hex(6), "name": name, "hue": None, "agents": [], "shareActivity": True,
                     "createdAt": time.time()}
             self._items.append(item)
@@ -110,12 +111,12 @@ class Workspaces:
             return dict(item, agents=[])
 
     def update(self, workspace_id, changes):
-        """Nom, couleur, partage de l'activité : seules les clés présentes (« name », « hue »,
-        « shareActivity ») sont modifiées."""
+        """Name, color, activity sharing: only the keys present ("name", "hue", "shareActivity")
+        are changed."""
         name = clean_name(changes["name"]) if "name" in changes else None
         hue = clean_hue(changes["hue"]) if "hue" in changes else None
         if "shareActivity" in changes and not isinstance(changes["shareActivity"], bool):
-            raise ValueError("shareActivity doit valoir true ou false")
+            raise ValueError(tr("shareActivity must be true or false"))
         with self._lock:
             item = self._find(workspace_id)
             if item is None:
@@ -130,7 +131,7 @@ class Workspaces:
             return True
 
     def delete(self, workspace_id):
-        """Supprime le workspace ; ses agents reviennent dans la liste générale."""
+        """Deletes the workspace; its agents go back to the general list."""
         with self._lock:
             item = self._find(workspace_id)
             if item is None:
@@ -140,9 +141,9 @@ class Workspaces:
             return True
 
     def add_agent(self, workspace_id, key):
-        """Ajoute un agent ; s'il était dans un autre workspace, il en est retiré."""
+        """Adds an agent; if it was in another workspace, it is removed from it."""
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         with self._lock:
             item = self._find(workspace_id)
             if item is None:
@@ -152,13 +153,13 @@ class Workspaces:
                     other["agents"].remove(key)
             if key not in item["agents"]:
                 if len(item["agents"]) >= MAX_AGENTS:
-                    raise ValueError(f"{MAX_AGENTS} agents au maximum par workspace")
+                    raise ValueError(tr("{count} agents at most per workspace", count=MAX_AGENTS))
                 item["agents"].append(key)
             self._changed()
             return True
 
     def remove_agent_everywhere(self, keys):
-        """Retire l'agent (sous n'importe lequel de ses identifiants) de tous les workspaces."""
+        """Removes the agent (under any of its ids) from all workspaces."""
         with self._lock:
             changed = False
             for item in self._items:
@@ -180,7 +181,7 @@ class Workspaces:
             return True
 
     def replace_agent_key(self, old, new):
-        """Une discussion démarrée a désormais une session : on la désigne par celle-ci, qui dure."""
+        """A started conversation now has a session: it is designated by the session, which lasts."""
         if not is_agent_key(new):
             return
         with self._lock:

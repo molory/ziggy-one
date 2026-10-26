@@ -1,4 +1,4 @@
-"""Tests de la génération du message de commit (faux claude, aucun quota) : python3 -m unittest discover -s tests"""
+"""Tests of the commit message generation (fake claude, no quota): python3 -m unittest discover -s tests"""
 
 import json
 import os
@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import commit_message  # noqa: E402
 from gitops import GitError  # noqa: E402
 
-# Faux `claude -p --output-format json` : garde la consigne reçue et renvoie la réponse préparée.
+# Fake `claude -p --output-format json`: keeps the received prompt and returns the prepared answer.
 FAKE = f"""#!{sys.executable}
 import json, os, sys
 prompt = sys.stdin.read()
@@ -42,13 +42,13 @@ class CommitMessageTest(unittest.TestCase):
         })
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.repo = base / "depot"
+        self.repo = base / "repo"
         self.repo.mkdir()
         for args in (["init", "-q", "-b", "main"], ["config", "user.name", "T"], ["config", "user.email", "t@example.com"]):
             git(self.repo, *args)
         (self.repo / "app.py").write_text("print('v1')\n")
         git(self.repo, "add", "app.py")
-        git(self.repo, "commit", "-q", "-m", "Ajoute l'application")
+        git(self.repo, "commit", "-q", "-m", "Add the application")
 
     def reply(self, payload):
         self.reply_file.write_text(json.dumps(payload))
@@ -56,15 +56,15 @@ class CommitMessageTest(unittest.TestCase):
     def test_generates_a_cleaned_message_from_the_staged_diff(self):
         (self.repo / "app.py").write_text("print('v2')\n")
         git(self.repo, "add", "app.py")
-        self.reply({"result": "```\nMessage de commit : Passe à la version 2\n```", "is_error": False})
-        self.assertEqual(commit_message.generate(str(self.repo)), "Passe à la version 2")
+        self.reply({"result": "```\nCommit message: Bump to version 2\n```", "is_error": False})
+        self.assertEqual(commit_message.generate(str(self.repo)), "Bump to version 2")
         prompt = self.prompt_file.read_text()
-        self.assertIn("- Ajoute l'application", prompt)  # style des commits récents
-        self.assertIn("+print('v2')", prompt)  # le diff indexé
+        self.assertIn("- Add the application", prompt)  # style of the recent commits
+        self.assertIn("+print('v2')", prompt)  # the staged diff
 
     def test_nothing_staged(self):
-        (self.repo / "app.py").write_text("non indexé\n")
-        with self.assertRaisesRegex(GitError, "Aucun fichier indexé"):
+        (self.repo / "app.py").write_text("not staged\n")
+        with self.assertRaisesRegex(GitError, "No staged files"):
             commit_message.generate(str(self.repo))
 
     def test_claude_error(self):
@@ -76,13 +76,13 @@ class CommitMessageTest(unittest.TestCase):
                 commit_message.generate(str(self.repo))
 
     def test_clean(self):
-        self.assertEqual(commit_message.clean('"Corrige le bug"'), "Corrige le bug")
-        self.assertEqual(commit_message.clean("```text\nTitre\n\n- puce\n```"), "Titre\n\n- puce")
+        self.assertEqual(commit_message.clean('"Fix the bug"'), "Fix the bug")
+        self.assertEqual(commit_message.clean("```text\nTitle\n\n- item\n```"), "Title\n\n- item")
         self.assertEqual(commit_message.clean("Commit message: Fix"), "Fix")
-        # Cas réel : une phrase d'introduction, puis le message dans un bloc de code non refermé.
-        intro = "Message de commit proposé, en français, aligné sur les commits récents :\n\n```\nAjoute un écran Git\n\n- puce"
-        self.assertEqual(commit_message.clean(intro), "Ajoute un écran Git\n\n- puce")
-        self.assertEqual(commit_message.clean("Voici le message :\nCorrige le bug"), "Corrige le bug")
+        # Real case: an introductory sentence, then the message in an unclosed code block.
+        intro = "Proposed commit message, aligned with the recent commits:\n\n```\nAdd a Git screen\n\n- item"
+        self.assertEqual(commit_message.clean(intro), "Add a Git screen\n\n- item")
+        self.assertEqual(commit_message.clean("Here is the message:\nFix the bug"), "Fix the bug")
 
 
 if __name__ == "__main__":

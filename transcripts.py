@@ -1,8 +1,8 @@
-"""Lecture seule des transcripts de Claude Code : ~/.claude/projects/<dossier>/<sessionId>.jsonl
+"""Read-only access to Claude Code transcripts: ~/.claude/projects/<folder>/<sessionId>.jsonl
 
-Le format n'est pas documenté officiellement : l'analyse est défensive. On ne garde que les
-types connus et on ignore le reste, si bien qu'un changement de format donne au pire un
-historique incomplet, jamais une erreur.
+The format is not officially documented: parsing is defensive. Only known types are kept
+and the rest is ignored, so a format change gives at worst an incomplete history,
+never an error.
 """
 
 import json
@@ -19,19 +19,19 @@ UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 MAX_PROMPT = 200
 TAIL_BYTES = 256 * 1024
 MAX_CACHED = 2000
-# Onglet Discussion : conversation relue et mise en forme (lecture seule).
+# Conversation tab: conversation read back and formatted (read-only).
 MAX_MESSAGES = 500
 MAX_TEXT = 8000
 MAX_TOOL_INPUT = 2000
 MAX_TOOL_RESULT = 1500
-MAX_SUBAGENTS = 50  # sous-agents relus par session (les derniers lancés)
+MAX_SUBAGENTS = 50  # subagents read per session (the last ones launched)
 MAX_SUBAGENT_MESSAGES = 200
 SUBAGENT_TOOLS = ("Agent", "Task")
-# Champs d'une action qui la résument (commande, fichier, motif…), gardés même quand son entrée est trop longue.
+# Fields of an action that summarize it (command, file, pattern…), kept even when its input is too long.
 SUMMARY_FIELDS = ("command", "description", "file_path", "notebook_path", "path", "pattern", "url", "query", "prompt",
                   "subagent_type")
 
-# Résumés déjà lus, par fichier : relus seulement si le fichier a changé (date de modification, taille).
+# Summaries already read, per file: read again only if the file changed (modification time, size).
 _summaries = {}
 _summaries_lock = threading.Lock()
 
@@ -52,14 +52,14 @@ def _clip(text, limit):
 
 
 def find_transcript(session_id, projects_dir=PROJECTS_DIR):
-    """Chemin du transcript d'une session, quel que soit son dossier de projet. None si absent."""
+    """Path of a session's transcript, whatever its project folder. None if missing."""
     if not isinstance(session_id, str) or not UUID_RE.match(session_id):
         return None
     return next(projects_dir.glob(f"*/{session_id}.jsonl"), None)
 
 
 def transcript_cwd(path):
-    """Dossier de travail de la session, lu sur la première entrée qui l'indique."""
+    """Working folder of the session, read from the first entry that gives it."""
     for entry in _entries(path):
         if isinstance(entry.get("cwd"), str):
             return entry["cwd"]
@@ -67,13 +67,13 @@ def transcript_cwd(path):
 
 
 def last_assistant_text(path):
-    """Dernier texte de l'agent principal dans une session (fin du tour, hook Stop) ; "" s'il n'y en a pas."""
+    """Last text of the main agent in a session (end of turn, Stop hook); "" if there is none."""
     text = ""
     with Path(path).open("rb") as file:
         size = file.seek(0, 2)
         file.seek(max(0, size - TAIL_BYTES))
         if size > TAIL_BYTES:
-            file.readline()  # ligne coupée par le seek
+            file.readline()  # line cut by the seek
         for raw in file:
             try:
                 entry = json.loads(raw)
@@ -89,7 +89,7 @@ def last_assistant_text(path):
 
 
 def signature(path):
-    """Empreinte du fichier (date et taille) : l'onglet Discussion ne relit la session que si elle a changé."""
+    """File fingerprint (time and size): the Conversation tab reads the session again only if it changed."""
     stat = Path(path).stat()
     return f"{stat.st_mtime_ns}:{stat.st_size}"
 
@@ -118,12 +118,12 @@ def _clean_block(block):
         tool_input = block.get("input")
         raw = json.dumps(tool_input, ensure_ascii=False)
         if len(raw) > MAX_TOOL_INPUT:
-            # Entrée trop longue (gros fichier écrit…) : ses champs courts et lisibles, raccourcis.
+            # Input too long (big file written…): its short, readable fields, shortened.
             tool_input = {
                 key: _clip(value, 500) for key, value in (tool_input.items() if isinstance(tool_input, dict) else [])
                 if key in SUMMARY_FIELDS and isinstance(value, str)
             }
-            tool_input["tronqué"] = True
+            tool_input["truncated"] = True
         return {"type": "tool_use", "id": block.get("id"), "name": block.get("name"), "input": tool_input}
     if kind == "tool_result":
         return {
@@ -134,7 +134,7 @@ def _clean_block(block):
         }
     if kind in ("thinking", "redacted_thinking"):
         return None
-    # Image, document… : seul le type est conservé, pas le contenu.
+    # Image, document…: only the type is kept, not the content.
     return {"type": str(kind)}
 
 
@@ -145,7 +145,7 @@ def _clean_message(entry):
     content = message.get("content")
     shared = None
     if entry["type"] == "user" and isinstance(content, str):
-        # Anciennes sessions : contexte partagé ajouté au message par ziggy-one, affiché à part.
+        # Old sessions: shared context added to the message by ziggy-one, shown separately.
         shared, content = split_shared(content)
     if isinstance(content, str):
         blocks = [{"type": "text", "text": _clip(content, MAX_TEXT)}]
@@ -162,10 +162,10 @@ def _clean_message(entry):
 
 
 def read_transcript(path):
-    """Conversation principale d'une session, pour l'onglet Discussion.
+    """Main conversation of a session, for the Conversation tab.
 
-    Les entrées forment un arbre (parentUuid) : retours en arrière et sous-agents créent des branches.
-    On part du dernier message de la conversation principale et on remonte la chaîne.
+    Entries form a tree (parentUuid): rewinds and subagents create branches.
+    We start from the last message of the main conversation and walk up the chain.
     """
     by_uuid = {}
     leaf = None
@@ -187,7 +187,7 @@ def read_transcript(path):
         seen.add(uuid)
         entry = by_uuid[uuid]
         chain.append(entry)
-        # Après une compaction, le lien vers l'avant-compaction passe par logicalParentUuid.
+        # After a compaction, the link to the pre-compaction part goes through logicalParentUuid.
         uuid = entry.get("parentUuid") or entry.get("logicalParentUuid")
     chain.reverse()
 
@@ -213,10 +213,10 @@ def read_transcript(path):
 
 
 def read_subagents(path, tool_use_ids):
-    """Travail des sous-agents lancés dans la session, rangé par appel de l'outil Agent.
+    """Work of the subagents launched in the session, keyed by Agent tool call.
 
-    Claude Code les enregistre à part : <session>/subagents/agent-<id>.jsonl, avec un .meta.json qui
-    donne l'appel (toolUseId), la description et le type de l'agent.
+    Claude Code saves them separately: <session>/subagents/agent-<id>.jsonl, with a .meta.json that
+    gives the call (toolUseId), the description and the agent type.
     """
     folder = path.parent / path.stem / "subagents"
     wanted = set(tool_use_ids)
@@ -252,13 +252,13 @@ def read_subagents(path, tool_use_ids):
 
 
 def summarize(path):
-    """Résumé d'une session pour la liste, relu seulement si son fichier a changé depuis la dernière fois."""
+    """Summary of a session for the list, read again only if its file changed since last time."""
     stat = path.stat()
     signature = (stat.st_mtime_ns, stat.st_size)
     with _summaries_lock:
         cached = _summaries.get(path)
     if cached and cached[0] == signature:
-        return dict(cached[1])  # copie : l'appelant peut la modifier
+        return dict(cached[1])  # copy: the caller may modify it
     summary = _summarize(path, stat)
     with _summaries_lock:
         if len(_summaries) >= MAX_CACHED:
@@ -268,7 +268,7 @@ def summarize(path):
 
 
 def _summarize(path, stat):
-    """Résumé d'une session : seule la fin du fichier est lue."""
+    """Summary of a session: only the end of the file is read."""
     last_prompt = None
     cost = None
     context_tokens = None
@@ -276,7 +276,7 @@ def _summarize(path, stat):
     with path.open("rb") as file:
         if stat.st_size > TAIL_BYTES:
             file.seek(-TAIL_BYTES, 2)
-            file.readline()  # ligne coupée par le seek
+            file.readline()  # line cut by the seek
         for raw in file:
             try:
                 entry = json.loads(raw)
@@ -307,7 +307,7 @@ def _summarize(path, stat):
 
 
 def list_recent(limit=50, projects_dir=PROJECTS_DIR):
-    """Sessions les plus récentes, tous dossiers confondus."""
+    """Most recent sessions, across all folders."""
     candidates = []
     for path in projects_dir.glob("*/*.jsonl"):
         if not UUID_RE.match(path.stem):

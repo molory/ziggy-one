@@ -1,6 +1,8 @@
 // @ts-check
-// Fenêtre de confirmation réutilisable, basée sur <dialog> : le navigateur gère le focus,
-// la touche Échap et le blocage de la page en arrière-plan.
+// Reusable confirmation window, based on <dialog>: the browser handles the focus,
+// the Esc key and blocking the page in the background.
+
+import { t } from "./i18n.js";
 
 const dialog = /** @type {HTMLDialogElement} */ (document.getElementById("modal"));
 const title = /** @type {HTMLElement} */ (document.getElementById("modal-title"));
@@ -9,7 +11,7 @@ const confirmButton = /** @type {HTMLButtonElement} */ (document.getElementById(
 const cancelButton = /** @type {HTMLButtonElement} */ (document.getElementById("modal-cancel"));
 const extra = /** @type {HTMLElement} */ (document.getElementById("modal-extra"));
 
-/** Le bouton de confirmation n'est actif que si le contenu ajouté (formulaire…) le permet. */
+/** The confirm button is only enabled if the added content (form…) allows it. */
 let canConfirm = () => true;
 const refreshConfirm = () => {
   confirmButton.disabled = !canConfirm();
@@ -17,36 +19,36 @@ const refreshConfirm = () => {
 dialog.addEventListener("input", refreshConfirm);
 dialog.addEventListener("change", refreshConfirm);
 
-// Un clic sur le fond (hors du contenu) annule.
+// A click on the backdrop (outside the content) cancels.
 dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close("cancel");
 });
 
 export const isDialogOpen = () => dialog.open;
 
-/** Ferme la fenêtre sans réponse : la promesse de confirmDialog renvoie false. */
+/** Closes the window without an answer: the confirmDialog promise returns false. */
 export function dismissDialog() {
   if (dialog.open) dialog.close("dismiss");
 }
 
-/** @param {() => void} listener appelé à chaque fermeture de la fenêtre */
+/** @param {() => void} listener called each time the window closes */
 export const onDialogClose = (listener) => dialog.addEventListener("close", listener);
 
 /**
- * Affiche une demande de confirmation et attend la réponse.
+ * Shows a confirmation request and waits for the answer.
  *
  * @param {object} options
  * @param {string} options.title
  * @param {string} options.message
  * @param {string} [options.confirmLabel]
  * @param {string} [options.cancelLabel]
- * @param {boolean} [options.danger] bouton de confirmation en rouge, focus initial sur « Annuler »
- * @param {HTMLElement} [options.content] contenu affiché sous le message (un formulaire…)
- * @param {() => boolean} [options.canConfirm] la confirmation n'est possible que si elle renvoie true
- * @returns {Promise<boolean>} true si l'utilisateur confirme
+ * @param {boolean} [options.danger] confirm button in red, initial focus on "Cancel"
+ * @param {HTMLElement} [options.content] content shown below the message (a form…)
+ * @param {() => boolean} [options.canConfirm] confirming is only possible if it returns true
+ * @returns {Promise<boolean>} true if the user confirms
  */
 export function confirmDialog({
-  title: heading, message: text, confirmLabel = "Confirmer", cancelLabel = "Annuler", danger = false,
+  title: heading, message: text, confirmLabel = t("Confirm"), cancelLabel = t("Cancel"), danger = false,
   content = undefined, canConfirm: check = () => true,
 }) {
   if (dialog.open) return Promise.resolve(false);

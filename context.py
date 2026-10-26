@@ -1,8 +1,8 @@
-"""Remplissage du contexte d'un agent : tokens envoyés au modèle au dernier appel, taille de sa fenêtre.
+"""How full an agent's context is: tokens sent to the model on the last call, size of its window.
 
-Les tokens viennent de l'usage du dernier message de l'assistant (entrée + cache lu + cache écrit).
-La taille de la fenêtre n'est donnée par Claude Code qu'en fin de tour (`modelUsage[].contextWindow`) :
-on la retient par modèle, dans un fichier, pour les sessions qui n'ont pas tourné ici.
+The tokens come from the usage of the assistant's last message (input + cache read + cache written).
+Claude Code gives the window size only at the end of a turn (`modelUsage[].contextWindow`):
+it is remembered per model, in a file, for the sessions that did not run here.
 """
 
 import threading
@@ -20,7 +20,7 @@ def _count(value):
 
 
 def used_tokens(usage):
-    """Tokens du contexte d'après l'usage d'un message de l'assistant ; None si l'usage est illisible."""
+    """Context tokens from the usage of an assistant message; None if the usage is unreadable."""
     if not isinstance(usage, dict):
         return None
     counts = [usage[field] for field in USAGE_FIELDS if _count(usage.get(field))]
@@ -28,17 +28,17 @@ def used_tokens(usage):
 
 
 def base_model(model):
-    """Modèle sans le suffixe « [1m] » que Claude Code ajoute pour la fenêtre d'un million de tokens."""
+    """Model without the "[1m]" suffix that Claude Code adds for the one-million-token window."""
     return model.removesuffix("[1m]") if isinstance(model, str) else None
 
 
 def is_compact_boundary(entry):
-    """Compaction : le contexte d'avant ne compte plus (le prochain message dira la nouvelle taille)."""
+    """Compaction: the previous context no longer counts (the next message will give the new size)."""
     return entry.get("type") == "system" and entry.get("subtype") == "compact_boundary"
 
 
 class ContextWindows:
-    """Taille de fenêtre de chaque modèle, apprise des fins de tour."""
+    """Window size of each model, learned from turn ends."""
 
     def __init__(self, path=None):
         self._path = Path(path) if path else None
@@ -50,7 +50,7 @@ class ContextWindows:
         }
 
     def learn(self, model_usage):
-        """Retient les fenêtres d'un `modelUsage` de fin de tour."""
+        """Remembers the windows of an end-of-turn `modelUsage`."""
         if not isinstance(model_usage, dict):
             return
         with self._lock:
@@ -63,7 +63,7 @@ class ContextWindows:
                 write_json(self._path, self._windows)
 
     def observe(self, model, tokens):
-        """Un modèle vu au-delà de 200 000 tokens a la grande fenêtre, s'il n'en a pas déjà une apprise."""
+        """A model seen beyond 200,000 tokens has the large window, unless it already has a learned one."""
         model = base_model(model)
         if not model or not _count(tokens) or tokens <= DEFAULT_WINDOW:
             return
@@ -75,7 +75,7 @@ class ContextWindows:
                 write_json(self._path, self._windows)
 
     def window(self, model, tokens=None):
-        """Fenêtre du modèle : apprise, sinon 200 000 tokens (un million si on l'a déjà dépassée)."""
+        """Window of the model: learned, else 200,000 tokens (one million if it was already exceeded)."""
         with self._lock:
             known = self._windows.get(base_model(model))
         if known:
@@ -85,7 +85,7 @@ class ContextWindows:
         return DEFAULT_WINDOW
 
     def describe(self, model, tokens):
-        """{"tokens", "window"} pour l'interface ; None si on ne connaît pas encore le contexte."""
+        """{"tokens", "window"} for the interface; None if the context is not known yet."""
         if tokens is None:
             return None
         return {"tokens": tokens, "window": self.window(model, tokens)}

@@ -1,7 +1,7 @@
-"""Onglet Fichiers : parcourir, lire, chercher et modifier les fichiers du dossier d'un agent.
+"""Files tab: browse, read, search and edit the files of an agent's folder.
 
-Tout chemin demandé est relatif au dossier de l'agent et doit y rester une fois les liens
-symboliques résolus. Le dossier `.git` n'est jamais lu, listé, cherché ni modifié.
+Every requested path is relative to the agent's folder and must stay in it once symbolic links are
+resolved. The `.git` folder is never read, listed, searched or changed.
 """
 
 import mimetypes
@@ -14,6 +14,7 @@ import time
 
 import gitops
 from folders import in_git_repo, resolve_dir
+from i18n import tr
 
 MAX_ENTRIES = 2000
 MAX_TEXT = 1_000_000
@@ -29,53 +30,54 @@ SEARCH_TIMEOUT = 10
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp"}
 IMAGE_MIME = {".svg": "image/svg+xml", ".webp": "image/webp", ".ico": "image/x-icon", ".bmp": "image/bmp"}
 SKIPPED_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "target", ".idea", ".cache"}
-OUTSIDE = "chemin en dehors du dossier de l'agent"
-CONFLICT = ("Le fichier a changé sur le disque depuis son ouverture (un agent l'a peut-être modifié) : "
-            "recharge-le avant d'enregistrer.")
+# English sources, translated (tr) when raised.
+OUTSIDE = "Path outside the agent's folder"
+CONFLICT = ("The file changed on disk since it was opened (an agent may have edited it): "
+            "reload it before saving.")
 
 
 class FileConflict(Exception):
-    """Le fichier a changé depuis son ouverture ; `version` est celle sur le disque."""
+    """The file changed since it was opened; `version` is the one on disk."""
 
     def __init__(self, version):
-        super().__init__(CONFLICT)
+        super().__init__(tr(CONFLICT))
         self.version = version
 
 
-# --- chemins ---------------------------------------------------------------------------
+# --- paths -----------------------------------------------------------------------------
 
 def _root(path):
-    """Dossier de l'agent, résolu ; refusé s'il est dans un `.git`."""
+    """The agent's folder, resolved; refused if it is inside a `.git`."""
     root = resolve_dir(path)
     if ".git" in root.parts:
-        raise ValueError("le dossier .git n'est pas accessible")
+        raise ValueError(tr("The .git folder is not accessible"))
     return str(root)
 
 
 def _inside(root, real):
-    """Chemin relatif (« / ») de `real` dans `root` ; ValueError s'il en sort ou passe par `.git`."""
+    """Relative path ("/") of `real` in `root`; ValueError if it goes outside or through `.git`."""
     if real != root and not real.startswith(root.rstrip(os.sep) + os.sep):
-        raise ValueError(OUTSIDE)
+        raise ValueError(tr(OUTSIDE))
     rel = os.path.relpath(real, root)
     parts = [] if rel == "." else rel.split(os.sep)
     if ".git" in parts:
-        raise ValueError("le dossier .git n'est pas accessible")
+        raise ValueError(tr("The .git folder is not accessible"))
     return parts
 
 
 def _resolve(root, rel):
-    """(chemin réel, chemin relatif normalisé) d'un chemin relatif au dossier de l'agent."""
+    """(real path, normalized relative path) of a path relative to the agent's folder."""
     if rel is None:
         rel = ""
     if not isinstance(rel, str) or "\0" in rel:
-        raise ValueError("chemin invalide")
+        raise ValueError(tr("Invalid path"))
     if rel.startswith("/") or os.path.isabs(rel):
-        raise ValueError(OUTSIDE)
+        raise ValueError(tr(OUTSIDE))
     parts = [part for part in rel.split("/") if part not in ("", ".")]
     if ".." in parts:
-        raise ValueError(OUTSIDE)
+        raise ValueError(tr(OUTSIDE))
     if ".git" in parts:
-        raise ValueError("le dossier .git n'est pas accessible")
+        raise ValueError(tr("The .git folder is not accessible"))
     real = os.path.realpath(os.path.join(root, *parts))
     _inside(root, real)
     return real, "/".join(parts)
@@ -86,27 +88,27 @@ def _version(info):
 
 
 def _regular_file(root, rel):
-    """(chemin réel, chemin relatif, stat) d'un fichier existant du dossier de l'agent."""
+    """(real path, relative path, stat) of an existing file of the agent's folder."""
     real, rel = _resolve(root, rel)
     if not rel:
-        raise ValueError("fichier attendu")
+        raise ValueError(tr("Expected a file"))
     try:
         info = os.stat(real)
     except FileNotFoundError:
-        raise ValueError("ce fichier n'existe pas") from None
+        raise ValueError(tr("This file does not exist")) from None
     if not stat.S_ISREG(info.st_mode):
-        raise ValueError("ce n'est pas un fichier")
+        raise ValueError(tr("This is not a file"))
     return real, rel, info
 
 
-# --- lecture ---------------------------------------------------------------------------
+# --- reading ---------------------------------------------------------------------------
 
 def list_dir(path, rel=""):
-    """Contenu d'un seul dossier : dossiers puis fichiers, par nom ; sans `.git`."""
+    """Content of a single folder: folders then files, by name; without `.git`."""
     root = _root(path)
     real, rel = _resolve(root, rel)
     if not os.path.isdir(real):
-        raise ValueError("ce dossier n'existe pas")
+        raise ValueError(tr("This folder does not exist"))
     entries = []
     try:
         with os.scandir(real) as scan:
@@ -118,13 +120,13 @@ def list_dir(path, rel=""):
                         _inside(root, os.path.realpath(entry.path))
                     info = entry.stat()
                 except (OSError, ValueError):
-                    continue  # lien cassé, hors du dossier ou vers .git
+                    continue  # broken link, outside the folder or to .git
                 if stat.S_ISDIR(info.st_mode):
                     entries.append({"name": entry.name, "type": "dir", "size": None})
                 else:
                     entries.append({"name": entry.name, "type": "file", "size": info.st_size})
     except PermissionError:
-        raise ValueError("accès refusé à ce dossier") from None
+        raise ValueError(tr("Access to this folder denied")) from None
     entries.sort(key=lambda e: (e["type"] != "dir", e["name"].lower(), e["name"]))
     return {"dir": rel, "entries": entries[:MAX_ENTRIES], "truncated": len(entries) > MAX_ENTRIES}
 
@@ -134,7 +136,7 @@ def _image_mime(extension):
 
 
 def _describe(real, rel, info):
-    """Nature d'un fichier (texte, image, binaire, trop gros) et, pour un texte, son contenu."""
+    """Kind of a file (text, image, binary, too large) and, for a text, its content."""
     size = info.st_size
     result = {"file": rel, "size": size, "version": _version(info), "editable": False}
     extension = os.path.splitext(real)[1].lower()
@@ -156,44 +158,44 @@ def _describe(real, rel, info):
 
 
 def read_file(path, rel):
-    """Fichier à afficher : texte (contenu), image, binaire ou trop gros ; avec sa version."""
+    """File to display: text (content), image, binary or too large; with its version."""
     root = _root(path)
     real, rel, info = _regular_file(root, rel)
     return _describe(real, rel, info)
 
 
 def read_image(path, rel):
-    """(octets, type MIME) d'une image du dossier de l'agent ; ValueError pour tout autre fichier."""
+    """(bytes, MIME type) of an image of the agent's folder; ValueError for any other file."""
     root = _root(path)
     real, rel, info = _regular_file(root, rel)
     described = _describe(real, rel, info)
     if described["kind"] != "image":
-        raise ValueError("ce fichier n'est pas une image affichable")
+        raise ValueError(tr("This file is not a displayable image"))
     with open(real, "rb") as handle:
         return handle.read(MAX_IMAGE + 1)[:MAX_IMAGE], described["mime"]
 
 
-# --- écriture --------------------------------------------------------------------------
+# --- writing ---------------------------------------------------------------------------
 
 def write_file(path, rel, content, version):
-    """Remplace le contenu d'un fichier texte existant, sauf s'il a changé depuis `version`.
+    """Replaces the content of an existing text file, unless it changed since `version`.
 
-    Écriture atomique (fichier temporaire puis renommage), droits du fichier conservés.
+    Atomic write (temporary file then rename), file permissions kept.
     """
     if not isinstance(content, str):
-        raise ValueError("contenu texte attendu")
+        raise ValueError(tr("Expected text content"))
     if not isinstance(version, str) or not version:
-        raise ValueError("version attendue")
+        raise ValueError(tr("Expected a version"))
     root = _root(path)
     real, rel, info = _regular_file(root, rel)
     if _version(info) != version:
         raise FileConflict(_version(info))
     described = _describe(real, rel, info)
     if described["kind"] != "text" or not described["editable"]:
-        raise ValueError("ce fichier ne peut pas être modifié ici (binaire ou trop gros)")
+        raise ValueError(tr("This file cannot be edited here (binary or too large)"))
     data = content.encode("utf-8")
     if len(data) > MAX_EDITABLE:
-        raise ValueError("contenu trop gros (512 Ko au plus)")
+        raise ValueError(tr("Content too large (512 KB at most)"))
     folder, name = os.path.split(real)
     fd, tmp = tempfile.mkstemp(dir=folder, prefix=f".{name}.", suffix=".tmp")
     try:
@@ -213,10 +215,10 @@ def write_file(path, rel, content, version):
     return {"file": rel, "version": _version(after), "size": after.st_size}
 
 
-# --- recherche -------------------------------------------------------------------------
+# --- search ----------------------------------------------------------------------------
 
 def _in_git(root):
-    """Le dossier est-il dans l'arbre de travail d'un vrai dépôt git ?"""
+    """Is the folder in the working tree of a real git repository?"""
     if not in_git_repo(root):
         return False
     try:
@@ -227,7 +229,7 @@ def _in_git(root):
 
 
 def _git_files(root):
-    """Fichiers suivis et non suivis (hors .gitignore) sous `root`, ou None hors dépôt git."""
+    """Tracked and untracked files (excluding .gitignore) under `root`, or None outside a git repository."""
     if not _in_git(root):
         return None
     try:
@@ -238,11 +240,11 @@ def _git_files(root):
     if result.returncode != 0:
         return None
     names = [name for name in result.stdout.split("\0") if name and ".git" not in name.split("/")]
-    return list(dict.fromkeys(names))  # un fichier en conflit apparaît plusieurs fois
+    return list(dict.fromkeys(names))  # a conflicted file appears several times
 
 
 def _walk_files(root):
-    """Fichiers sous `root` hors dossiers ignorés (.git, node_modules…) ; (liste, tronquée)."""
+    """Files under `root` excluding ignored folders (.git, node_modules…); (list, truncated)."""
     found = []
     for folder, dirs, names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in SKIPPED_DIRS)
@@ -273,7 +275,7 @@ def _is_subsequence(query, text):
 
 
 def _name_rank(query, rel):
-    """Rang d'un chemin pour la recherche par nom (plus petit = meilleur), None s'il ne correspond pas."""
+    """Rank of a path for the name search (smaller = better), None if it does not match."""
     lower = rel.lower()
     base = lower.rsplit("/", 1)[-1]
     if query in base:
@@ -294,7 +296,7 @@ def _search_names(root, query, files, truncated):
     ranked = sorted((rank, rel) for rel in files if (rank := _name_rank(query, rel)) is not None)
     results = []
     for _, rel in ranked:
-        if os.path.isfile(os.path.join(root, rel)):  # git peut lister un fichier supprimé
+        if os.path.isfile(os.path.join(root, rel)):  # git may list a deleted file
             results.append({"file": rel})
             if len(results) >= MAX_NAME_RESULTS:
                 return {"results": results, "truncated": True}
@@ -302,14 +304,14 @@ def _search_names(root, query, files, truncated):
 
 
 def _git_grep(root, query):
-    """Recherche par `git grep` (fichiers suivis et non suivis, sans binaires) ; arrêtée à 500 lignes."""
+    """Search with `git grep` (tracked and untracked files, no binaries); stopped at 500 lines."""
     command = ["git", "grep", "-n", "-I", "-i", "-F", "-z", "--untracked", "--no-color", "-e", query, "--"]
     with tempfile.TemporaryFile() as errors:
         try:
             process = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                        stderr=errors, env=gitops._env())
         except OSError as exc:
-            raise ValueError(f"impossible de lancer git : {exc}") from None
+            raise ValueError(tr("Could not run git: {error}", error=exc)) from None
         timer = threading.Timer(SEARCH_TIMEOUT, process.kill)
         timer.start()
         results, truncated = [], False
@@ -332,17 +334,17 @@ def _git_grep(root, query):
             process.stdout.close()
             code = process.wait()
             timer.cancel()
-        if code not in (0, 1) and not truncated:  # 1 : aucune ligne trouvée
-            if code < 0:  # arrêtée par le délai
+        if code not in (0, 1) and not truncated:  # 1: no line found
+            if code < 0:  # stopped by the timeout
                 return {"results": results, "truncated": True}
             errors.seek(0)
             detail = errors.read().decode("utf-8", "replace").strip()
-            raise ValueError(f"recherche impossible : {detail[-500:] or f'git grep a échoué ({code})'}")
+            raise ValueError(tr("Search failed: {detail}", detail=detail[-500:] or f"git grep failed ({code})"))
     return {"results": results, "truncated": truncated}
 
 
 def _scan_contents(root, query, files, truncated):
-    """Recherche ligne à ligne hors dépôt git, sans binaires ni fichiers de plus de 1 Mo."""
+    """Line-by-line search outside a git repository, without binaries or files over 1 MB."""
     query = query.lower()
     deadline = time.monotonic() + SEARCH_TIMEOUT
     results = []
@@ -369,14 +371,14 @@ def _scan_contents(root, query, files, truncated):
 
 
 def search(path, query, mode="name"):
-    """Recherche dans le dossier de l'agent, par nom de fichier (approchée) ou par contenu (texte exact)."""
+    """Search in the agent's folder, by file name (fuzzy) or by content (exact text)."""
     root = _root(path)
     if not isinstance(query, str) or not query.strip():
-        raise ValueError("recherche vide")
+        raise ValueError(tr("Empty search"))
     if "\0" in query or len(query) > MAX_QUERY:
-        raise ValueError("recherche invalide")
+        raise ValueError(tr("Invalid search"))
     if mode not in ("name", "content"):
-        raise ValueError("mode de recherche inconnu (name ou content)")
+        raise ValueError(tr("Unknown search mode (name or content)"))
     if mode == "name":
         files, truncated, _ = _all_files(root)
         return _search_names(root, query.strip(), files, truncated)

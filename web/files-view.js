@@ -1,18 +1,19 @@
 // @ts-check
-// Écran Fichiers de la carte de discussion : arborescence du dossier de l'agent (chargée dossier par
-// dossier), recherche par nom ou dans le contenu (Ctrl+P), aperçu des fichiers (texte numéroté,
-// Markdown, images) et édition simple d'un fichier texte, avec détection des conflits à l'enregistrement.
-// Le contenu et les noms de fichiers ne passent jamais par innerHTML : uniquement des nœuds texte.
+// Files screen of the chat card: tree of the agent's folder (loaded folder by folder), search by name
+// or in the content (Ctrl+P), file preview (numbered text, Markdown, images) and simple editing of a text
+// file, with conflict detection on save.
+// Content and file names never go through innerHTML: text nodes only.
 
 import {
   breadcrumbs, detectIndent, formatSize, fuzzyIndices, groupByFile, highlightOccurrences,
   indentSelection, isMarkdown, parentDirs, segmentsFromIndices,
 } from "./files-tree.js";
+import { t } from "./i18n.js";
 
 const SEARCH_DELAY = 250; // ms
-const LINE_HEIGHT = 1.5; // em, doit suivre .files-code dans style.css
+const LINE_HEIGHT = 1.5; // em, must match .files-code in style.css
 
-/** Icônes par défaut, si l'appelant n'en fournit pas. */
+/** Default icons, if the caller provides none. */
 const DEFAULT_ICONS = {
   refresh: "M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5",
@@ -40,49 +41,49 @@ const DEFAULT_ICONS = {
 
 /** @param {unknown} err */
 function errorText(err) {
-  if (err instanceof TypeError) return "Le serveur ziggy-one ne répond pas : vérifie qu'il tourne, puis recharge la page.";
+  if (err instanceof TypeError) return t("The ziggy-one server is not responding: check that it is running, then reload the page.");
   return err instanceof Error ? err.message : String(err);
 }
 
 /**
- * @param {HTMLElement} root conteneur de l'écran
+ * @param {HTMLElement} root container of the screen
  * @param {FilesViewDeps} deps
  */
 export function mountFilesView(root, deps) {
   const { api, el, icon, confirmDialog, renderMarkdown } = deps;
   const icons = { ...DEFAULT_ICONS, ...deps.icons };
-  /** @type {string | null} dossier de l'agent */
+  /** @type {string | null} folder of the agent */
   let folder = null;
-  /** @type {Map<string, {entries: Entry[], truncated: boolean}>} contenu des dossiers déjà lus */
+  /** @type {Map<string, {entries: Entry[], truncated: boolean}>} content of the folders already read */
   let listings = new Map();
-  /** @type {Set<string>} dossiers dépliés */
+  /** @type {Set<string>} expanded folders */
   const expanded = new Set();
-  /** @type {FileData | null} fichier ouvert */
+  /** @type {FileData | null} open file */
   let current = null;
   let editing = false;
-  let draft = ""; // texte de l'éditeur
-  let showSource = false; // Markdown : source plutôt qu'aperçu
-  let conflict = false; // le fichier a changé sur le disque depuis sa lecture
+  let draft = ""; // editor text
+  let showSource = false; // Markdown: source rather than preview
+  let conflict = false; // the file changed on disk since it was read
   let highlightLine = 0;
   let busy = false;
   let searchTimer = 0;
-  let searchSeq = 0; // ignore les réponses de recherche dépassées
-  let openSeq = 0; // idem pour l'ouverture de fichiers
+  let searchSeq = 0; // ignores outdated search answers
+  let openSeq = 0; // same for opening files
 
   // --- structure ---------------------------------------------------------------------
   root.classList.add("files-view");
   const side = el("nav", "files-side");
-  side.setAttribute("aria-label", "Fichiers du dossier");
+  side.setAttribute("aria-label", t("Files of the folder"));
   const searchRow = el("div", "files-search");
   const searchInput = /** @type {HTMLInputElement} */ (el("input", "text-input"));
-  Object.assign(searchInput, { type: "search", placeholder: "Rechercher un fichier… (Ctrl+P)", autocomplete: "off", spellcheck: false });
-  searchInput.setAttribute("aria-label", "Rechercher un fichier");
-  const refreshButton = toolButton(icons.refresh, "", "Actualiser", () => refresh());
+  Object.assign(searchInput, { type: "search", placeholder: t("Search for a file… (Ctrl+P)"), autocomplete: "off", spellcheck: false });
+  searchInput.setAttribute("aria-label", t("Search for a file"));
+  const refreshButton = toolButton(icons.refresh, "", t("Refresh"), () => refresh());
   searchRow.append(searchInput, refreshButton);
   const contentToggle = el("label", "files-toggle");
   const contentBox = /** @type {HTMLInputElement} */ (el("input"));
   contentBox.type = "checkbox";
-  contentToggle.append(contentBox, el("span", "", "Dans le contenu"));
+  contentToggle.append(contentBox, el("span", "", t("In the content")));
   const list = el("div", "files-list");
   side.append(searchRow, contentToggle, list);
 
@@ -90,25 +91,25 @@ export function mountFilesView(root, deps) {
   const header = el("div", "files-header");
   const crumbs = el("div", "files-crumbs");
   const meta = el("span", "files-meta");
-  const dirtyMark = el("span", "files-dirty", "• modifié");
+  const dirtyMark = el("span", "files-dirty", t("• modified"));
   const actions = el("div", "files-actions");
-  const copyButton = toolButton(icons.copy, "Copier le chemin", "Copier le chemin complet du fichier", () => copyPath());
-  const sourceButton = toolButton("", "Source", "Basculer entre l'aperçu et la source", () => {
+  const copyButton = toolButton(icons.copy, t("Copy path"), t("Copy the full path of the file"), () => copyPath());
+  const sourceButton = toolButton("", t("Source"), t("Switch between the preview and the source"), () => {
     showSource = !showSource;
     renderHeader();
     renderContent();
   });
-  const editButton = toolButton(icons.edit, "Modifier", "Modifier le fichier", () => startEditing());
-  const saveButton = toolButton(icons.save, "Enregistrer", "Enregistrer (Ctrl+S)", () => save());
+  const editButton = toolButton(icons.edit, t("Edit"), t("Edit the file"), () => startEditing());
+  const saveButton = toolButton(icons.save, t("Save"), t("Save (Ctrl+S)"), () => save());
   saveButton.classList.add("primary-tool");
-  const cancelButton = toolButton(icons.close, "Annuler", "Quitter l'édition sans enregistrer", () => cancelEditing());
+  const cancelButton = toolButton(icons.close, t("Cancel"), t("Leave editing without saving"), () => cancelEditing());
   actions.append(copyButton, sourceButton, editButton, cancelButton, saveButton);
   header.append(crumbs, meta, dirtyMark, actions);
   const conflictBar = el("div", "files-conflict");
-  const reloadButton = el("button", "", "Recharger");
-  const keepButton = el("button", "", "Continuer à modifier");
+  const reloadButton = el("button", "", t("Reload"));
+  const keepButton = el("button", "", t("Keep editing"));
   for (const b of [reloadButton, keepButton]) /** @type {HTMLButtonElement} */ (b).type = "button";
-  conflictBar.append(el("span", "", "Le fichier a changé sur le disque depuis que tu l'as ouvert."), reloadButton, keepButton);
+  conflictBar.append(el("span", "", t("The file changed on disk since you opened it.")), reloadButton, keepButton);
   reloadButton.addEventListener("click", () => reload());
   keepButton.addEventListener("click", () => {
     conflict = false;
@@ -163,7 +164,7 @@ export function mountFilesView(root, deps) {
     for (const s of segments) parent.append(s.match ? el("mark", "", s.text) : document.createTextNode(s.text));
   }
 
-  // --- données -----------------------------------------------------------------------
+  // --- data ------------------------------------------------------------------------
 
   const query = (/** @type {Record<string, string>} */ params) =>
     Object.entries({ path: folder ?? "", ...params }).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
@@ -185,7 +186,7 @@ export function mountFilesView(root, deps) {
     }
   }
 
-  /** Relit la racine et les dossiers dépliés (ceux qui ont disparu se replient). */
+  /** Rereads the root and the expanded folders (those that disappeared collapse). */
   async function refreshTree() {
     if (!folder) return;
     const asked = folder;
@@ -202,7 +203,7 @@ export function mountFilesView(root, deps) {
     renderTree();
   }
 
-  // --- arborescence et résultats -------------------------------------------------------
+  // --- tree and results ----------------------------------------------------------------
 
   const searching = () => searchInput.value.trim() !== "";
 
@@ -210,7 +211,7 @@ export function mountFilesView(root, deps) {
     if (searching()) return;
     const focused = /** @type {HTMLElement | null} */ (list.querySelector(":focus"))?.dataset.path;
     if (!folder || !listings.has("")) {
-      list.replaceChildren(el("p", "muted small files-note", folder ? "Chargement…" : ""));
+      list.replaceChildren(el("p", "muted small files-note", folder ? t("Loading…") : ""));
       return;
     }
     /** @type {HTMLElement[]} */
@@ -218,7 +219,7 @@ export function mountFilesView(root, deps) {
     const walk = (/** @type {string} */ dir, /** @type {number} */ depth) => {
       const listing = listings.get(dir);
       if (!listing) {
-        items.push(note("Chargement…", depth));
+        items.push(note(t("Loading…"), depth));
         return;
       }
       for (const entry of listing.entries) {
@@ -226,8 +227,8 @@ export function mountFilesView(root, deps) {
         items.push(treeItem(entry, path, depth));
         if (entry.type === "dir" && expanded.has(path)) walk(path, depth + 1);
       }
-      if (listing.truncated) items.push(note("… liste tronquée", depth));
-      if (!dir && !listing.entries.length) items.push(note("Dossier vide.", 0));
+      if (listing.truncated) items.push(note(t("… list truncated"), depth));
+      if (!dir && !listing.entries.length) items.push(note(t("Empty folder."), 0));
     };
     walk("", 0);
     list.replaceChildren(...items);
@@ -287,7 +288,7 @@ export function mountFilesView(root, deps) {
   }
 
   /**
-   * Déplie les dossiers qui mènent à ce chemin (et ce dossier lui-même s'il en est un).
+   * Expands the folders leading to this path (and this folder itself if it is one).
    *
    * @param {string[]} dirs
    */
@@ -305,7 +306,7 @@ export function mountFilesView(root, deps) {
     /** @type {HTMLElement | null} */ (list.querySelector(`[data-path="${CSS.escape(dir)}"]`))?.focus();
   }
 
-  // Clavier : flèches pour se déplacer, droite/gauche pour déplier/replier.
+  // Keyboard: arrows to move, right/left to expand/collapse.
   list.addEventListener("keydown", (event) => {
     const items = /** @type {HTMLElement[]} */ ([...list.querySelectorAll("button")]);
     const target = /** @type {HTMLElement} */ (event.target);
@@ -324,7 +325,7 @@ export function mountFilesView(root, deps) {
     }
   });
 
-  // --- recherche -----------------------------------------------------------------------
+  // --- search --------------------------------------------------------------------------
 
   /** @param {number} [delay] */
   function scheduleSearch(delay = SEARCH_DELAY) {
@@ -398,8 +399,8 @@ export function mountFilesView(root, deps) {
         }
       }
     }
-    if (!results.length) items.push(el("p", "muted small files-note", "Aucun résultat."));
-    if (truncated) items.push(el("p", "muted small files-note", "Résultats tronqués : précise ta recherche."));
+    if (!results.length) items.push(el("p", "muted small files-note", t("No results.")));
+    if (truncated) items.push(el("p", "muted small files-note", t("Results truncated: refine your search.")));
     list.replaceChildren(...items);
   }
 
@@ -422,24 +423,30 @@ export function mountFilesView(root, deps) {
     }
   });
 
-  // --- fichier ouvert ------------------------------------------------------------------
+  // --- open file -----------------------------------------------------------------------
 
   const isDirty = () => editing && current !== null && draft !== (current.content ?? "");
 
-  /** Demande confirmation avant de perdre des modifications non enregistrées. */
-  async function confirmDiscard(/** @type {string} */ reason) {
+  /** Asks for confirmation before losing unsaved changes. */
+  async function confirmDiscard(/** @type {"open" | "leave" | "agent"} */ reason) {
     if (!isDirty()) return true;
+    const file = current?.file;
+    const messages = {
+      open: () => t("The changes to \"{file}\" are not saved: they will be lost if you open another file.", { file }),
+      leave: () => t("The changes to \"{file}\" are not saved: they will be lost if you leave editing.", { file }),
+      agent: () => t("The changes to \"{file}\" are not saved: they will be lost if you switch agents.", { file }),
+    };
     return confirmDialog({
-      title: "Abandonner tes modifications ?",
-      message: `Les modifications de « ${current?.file} » ne sont pas enregistrées : elles seront perdues ${reason}.`,
-      confirmLabel: "Abandonner",
+      title: t("Discard your changes?"),
+      message: messages[reason](),
+      confirmLabel: t("Discard"),
       danger: true,
     });
   }
 
   /**
    * @param {string} file
-   * @param {number} [line] ligne à montrer (recherche dans le contenu)
+   * @param {number} [line] line to show (content search)
    */
   async function openFile(file, line = 0) {
     if (current?.file === file) {
@@ -448,7 +455,7 @@ export function mountFilesView(root, deps) {
       else renderContent();
       return;
     }
-    if (!(await confirmDiscard("si tu ouvres un autre fichier"))) return;
+    if (!(await confirmDiscard("open"))) return;
     const seq = ++openSeq;
     try {
       const data = await readFile(file);
@@ -483,15 +490,15 @@ export function mountFilesView(root, deps) {
   async function reload() {
     if (!current) return;
     const confirmed = !isDirty() || await confirmDialog({
-      title: "Recharger le fichier ?",
-      message: "Tes modifications non enregistrées seront remplacées par la version du disque.",
-      confirmLabel: "Recharger",
+      title: t("Reload the file?"),
+      message: t("Your unsaved changes will be replaced by the version on disk."),
+      confirmLabel: t("Reload"),
       danger: true,
     });
     if (!confirmed) return;
     try {
       showFile(await readFile(current.file));
-      setStatus("Fichier rechargé depuis le disque.");
+      setStatus(t("File reloaded from disk."));
     } catch (err) {
       setStatus(errorText(err), "error");
     }
@@ -511,17 +518,17 @@ export function mountFilesView(root, deps) {
       }
       const button = el("button", "files-crumb", crumb.name);
       /** @type {HTMLButtonElement} */ (button).type = "button";
-      button.title = `Montrer ${crumb.path} dans l'arborescence`;
+      button.title = t("Show {path} in the tree", { path: crumb.path });
       button.addEventListener("click", () => revealDir(crumb.path));
       crumbs.append(button);
     });
     crumbs.title = file;
     const text = current.kind === "text";
-    meta.textContent = `${formatSize(current.size)}${text && !current.editable ? " · lecture seule" : ""}`;
+    meta.textContent = text && !current.editable ? t("{size} · read-only", { size: formatSize(current.size) }) : formatSize(current.size);
     const markdown = text && isMarkdown(file) && !editing;
     sourceButton.hidden = !markdown;
-    sourceButton.replaceChildren(el("span", "", showSource ? "Aperçu" : "Source"));
-    sourceButton.setAttribute("aria-label", showSource ? "Afficher l'aperçu" : "Afficher la source");
+    sourceButton.replaceChildren(el("span", "", showSource ? t("Preview") : t("Source")));
+    sourceButton.setAttribute("aria-label", showSource ? t("Show the preview") : t("Show the source"));
     editButton.hidden = editing || !(text && current.editable);
     saveButton.hidden = !editing;
     cancelButton.hidden = !editing;
@@ -536,7 +543,7 @@ export function mountFilesView(root, deps) {
 
   function renderContent() {
     if (!current) {
-      content.replaceChildren(el("p", "muted files-placeholder", "Choisis un fichier à gauche, ou cherche-le avec Ctrl+P."));
+      content.replaceChildren(el("p", "muted files-placeholder", t("Choose a file on the left, or find it with Ctrl+P.")));
       return;
     }
     const { kind, file } = current;
@@ -548,9 +555,9 @@ export function mountFilesView(root, deps) {
       frame.append(img);
       content.replaceChildren(frame);
     } else if (kind === "too_large") {
-      content.replaceChildren(el("p", "muted files-placeholder", `Fichier trop volumineux pour l'aperçu (${formatSize(current.size)}).`));
+      content.replaceChildren(el("p", "muted files-placeholder", t("File too large to preview ({size}).", { size: formatSize(current.size) })));
     } else if (kind !== "text") {
-      content.replaceChildren(el("p", "muted files-placeholder", "Fichier binaire : pas d'aperçu."));
+      content.replaceChildren(el("p", "muted files-placeholder", t("Binary file: no preview.")));
     } else if (editing) {
       content.replaceChildren(editor());
       placeCaret();
@@ -568,7 +575,7 @@ export function mountFilesView(root, deps) {
     const scroller = el("div", "files-code");
     const inner = el("div", "files-code-inner");
     const lines = text.split("\n");
-    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop(); // saut de ligne final
+    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop(); // final line break
     const gutter = el("pre", "files-gutter", lines.map((_, i) => i + 1).join("\n"));
     gutter.setAttribute("aria-hidden", "true");
     inner.append(gutter, el("pre", "files-text", text));
@@ -584,7 +591,7 @@ export function mountFilesView(root, deps) {
     return scroller;
   }
 
-  // --- édition -------------------------------------------------------------------------
+  // --- editing -------------------------------------------------------------------------
 
   /** @type {HTMLTextAreaElement | null} */
   let area = null;
@@ -593,7 +600,7 @@ export function mountFilesView(root, deps) {
     const textarea = /** @type {HTMLTextAreaElement} */ (el("textarea", "files-editor"));
     Object.assign(textarea, { value: draft, spellcheck: false, wrap: "off" });
     textarea.setAttribute("autocapitalize", "off");
-    textarea.setAttribute("aria-label", `Contenu de ${current?.file}`);
+    textarea.setAttribute("aria-label", t("Content of {file}", { file: current?.file }));
     const unit = detectIndent(current?.content ?? "");
     textarea.addEventListener("input", () => {
       draft = textarea.value;
@@ -611,8 +618,8 @@ export function mountFilesView(root, deps) {
   }
 
   /**
-   * Remplace le texte en ne touchant que la partie modifiée, via insertText quand le navigateur le
-   * permet : l'annulation (Ctrl+Z) continue de marcher.
+   * Replaces the text touching only the changed part, through insertText when the browser allows it:
+   * undo (Ctrl+Z) keeps working.
    *
    * @param {HTMLTextAreaElement} textarea
    * @param {string} next
@@ -630,7 +637,7 @@ export function mountFilesView(root, deps) {
     updateDirty();
   }
 
-  /** Met le curseur au début de la ligne demandée (ou du fichier) et donne le focus à l'éditeur. */
+  /** Puts the cursor at the start of the requested line (or of the file) and focuses the editor. */
   function placeCaret() {
     if (!area) return;
     const textarea = area;
@@ -652,7 +659,7 @@ export function mountFilesView(root, deps) {
   }
 
   async function cancelEditing() {
-    if (!(await confirmDiscard("si tu quittes l'édition"))) return;
+    if (!(await confirmDiscard("leave"))) return;
     editing = false;
     conflict = false;
     draft = current?.content ?? "";
@@ -666,19 +673,19 @@ export function mountFilesView(root, deps) {
     const file = current.file;
     const text = draft;
     setBusy(true);
-    setStatus("Enregistrement…");
+    setStatus(t("Saving…"));
     try {
       const result = await api("/api/files/write", { path: folder, file, content: text, version: current.version });
       current = { ...current, content: text, version: result.version, size: result.size };
       editing = false;
       conflict = false;
       area = null;
-      setStatus("Enregistré.");
+      setStatus(t("Saved."));
       renderHeader();
       renderContent();
     } catch (err) {
-      // Conflit (HTTP 409) : le fichier a changé sur le disque. L'erreur ne porte pas toujours le
-      // code HTTP : on compare alors la version du disque avec celle qu'on a lue.
+      // Conflict (HTTP 409): the file changed on disk. The error does not always carry the HTTP code:
+      // then compare the version on disk with the one that was read.
       conflict = /** @type {any} */ (err)?.status === 409 || await changedOnDisk(file);
       setStatus(errorText(err), "error");
       renderHeader();
@@ -701,13 +708,13 @@ export function mountFilesView(root, deps) {
     const absolute = `${folder.replace(/\/+$/, "")}/${current.file}`;
     try {
       await navigator.clipboard.writeText(absolute);
-      setStatus(`Chemin copié : ${absolute}`);
+      setStatus(t("Path copied: {path}", { path: absolute }));
     } catch {
-      setStatus(`Copie impossible (presse-papiers refusé par le navigateur) : ${absolute}`, "error");
+      setStatus(t("Copy failed (clipboard refused by the browser): {path}", { path: absolute }), "error");
     }
   }
 
-  // Raccourcis : Ctrl+S enregistre, Ctrl+P cherche un fichier.
+  // Shortcuts: Ctrl+S saves, Ctrl+P searches for a file.
   root.addEventListener("keydown", (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const key = event.key.toLowerCase();
@@ -725,7 +732,7 @@ export function mountFilesView(root, deps) {
     searchInput.select();
   }
 
-  /** Relit l'arborescence (ou relance la recherche) et le fichier ouvert s'il n'est pas en édition. */
+  /** Rereads the tree (or reruns the search) and the open file if it is not being edited. */
   async function refresh() {
     if (!folder) return;
     if (searching()) runSearch();
@@ -745,7 +752,7 @@ export function mountFilesView(root, deps) {
 
   return {
     /**
-     * Affiche les fichiers de ce dossier. Même dossier : on garde l'état et on relit l'arborescence.
+     * Shows the files of this folder. Same folder: keep the state and reread the tree.
      *
      * @param {string} next
      */
@@ -754,7 +761,7 @@ export function mountFilesView(root, deps) {
         await refreshTree();
         return;
       }
-      if (!(await confirmDiscard("si tu changes d'agent"))) return;
+      if (!(await confirmDiscard("agent"))) return;
       folder = next;
       listings = new Map();
       expanded.clear();

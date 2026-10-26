@@ -1,8 +1,8 @@
 // @ts-check
-// Agents épinglés en haut de la liste. Sans DOM : testable avec Node.
+// Agents pinned at the top of the list. Without DOM: testable with Node.
 //
-// Un même agent peut être désigné par plusieurs identifiants : sa session, sa discussion
-// ziggy-one, la session dont elle est la copie… Une épingle le suit quel que soit l'identifiant.
+// One agent can be designated by several ids: its session, its ziggy-one
+// discussion, the session it is a copy of… A pin follows it whatever the id.
 
 /**
  * @typedef {{sessionId?: string | null, active?: boolean,
@@ -10,7 +10,7 @@
  */
 
 /**
- * Identifiants d'un agent, du plus stable au moins stable.
+ * Ids of an agent, from the most stable to the least stable.
  *
  * @param {AgentRow} row
  * @returns {string[]}
@@ -21,7 +21,7 @@ export function rowKeys(row) {
 }
 
 /**
- * Position de l'épingle de l'agent, ou -1 s'il n'est pas épinglé.
+ * Position of the agent's pin, or -1 if it is not pinned.
  *
  * @param {string[]} pins
  * @param {AgentRow} row
@@ -32,7 +32,7 @@ export function pinIndex(pins, row) {
 }
 
 /**
- * Épingle (à la fin) ou désépingle un agent. Retourne une nouvelle liste.
+ * Pins (at the end) or unpins an agent. Returns a new list.
  *
  * @param {string[]} pins
  * @param {AgentRow} row
@@ -44,8 +44,8 @@ export function togglePin(pins, row) {
 }
 
 /**
- * Remplace les épingles posées sur un identifiant provisoire (discussion pas encore démarrée)
- * par l'identifiant de session, qui survit au redémarrage du serveur.
+ * Replaces the pins set on a temporary id (discussion not started yet)
+ * with the session id, which survives a server restart.
  *
  * @param {string[]} pins
  * @param {AgentRow[]} rows
@@ -59,13 +59,13 @@ export function migratePins(pins, rows) {
 }
 
 /**
- * Lignes à afficher : les épinglées d'abord (dans l'ordre des épingles, quel que soit le filtre),
- * puis les autres dans l'ordre reçu, filtrées.
+ * Rows to show: the pinned ones first (in pin order, whatever the filter),
+ * then the others in the order received, filtered.
  *
  * @template {AgentRow} T
  * @param {T[]} rows
  * @param {string[]} pins
- * @param {(row: T) => boolean} keep filtre appliqué aux agents non épinglés
+ * @param {(row: T) => boolean} keep filter applied to the unpinned agents
  * @returns {{pinned: T[], others: T[]}}
  */
 export function orderRows(rows, pins, keep) {
@@ -73,7 +73,7 @@ export function orderRows(rows, pins, keep) {
   const seenConversations = new Set();
   for (const row of rows) {
     if (pinIndex(pins, row) === -1) continue;
-    // Une copie et sa session d'origine mènent à la même discussion : une seule ligne épinglée.
+    // A copy and its original session lead to the same discussion: a single pinned row.
     const conversationId = row.conversation?.id;
     if (conversationId && seenConversations.has(conversationId)) continue;
     if (conversationId) seenConversations.add(conversationId);
@@ -85,8 +85,8 @@ export function orderRows(rows, pins, keep) {
 }
 
 /**
- * Les agents épinglés d'abord (dans l'ordre des épingles), puis les autres dans l'ordre reçu.
- * Sert à l'intérieur d'un workspace, où tous les agents sont affichés quel que soit le filtre.
+ * The pinned agents first (in pin order), then the others in the order received.
+ * Used inside a workspace, where all agents are shown whatever the filter.
  *
  * @template {AgentRow} T
  * @param {T[]} rows

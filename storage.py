@@ -1,4 +1,4 @@
-"""Fichiers de données de ziggy-one : un dossier privé, des fichiers écrits atomiquement (JSON, token)."""
+"""Data files of ziggy-one: a private folder, files written atomically (JSON, token)."""
 
 import json
 import os
@@ -7,8 +7,8 @@ import secrets
 import tempfile
 from pathlib import Path
 
-# Identifiant d'un agent : sa session Claude Code (UUID) ou, tant qu'elle n'a pas démarré,
-# sa discussion ziggy-one (12 caractères hexadécimaux).
+# Identifier of an agent: its Claude Code session (UUID) or, until that session has started,
+# its ziggy-one conversation (12 hexadecimal characters).
 AGENT_KEY_RE = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{12})$")
 
 
@@ -21,9 +21,9 @@ def is_agent_key(value):
 
 
 def persistent_token(path, renew=False):
-    """Token d'accès gardé d'un démarrage à l'autre (fichier 0600) : les onglets restent connectés.
+    """Access token kept from one start to the next (0600 file): tabs stay signed in.
 
-    Créé au premier lancement, ou recréé si `renew` (par exemple si l'adresse a fuité).
+    Created on the first launch, or created again if `renew` (for example if the address leaked).
     """
     path = Path(path)
     if not renew:
@@ -43,7 +43,7 @@ def persistent_token(path, renew=False):
 
 
 def write_private(path, text):
-    """Fichier texte privé (0600, dossier 0700), écrit atomiquement."""
+    """Private text file (0600, folder 0700), written atomically."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}-")
@@ -57,7 +57,7 @@ def write_private(path, text):
 
 
 def read_json(path, default):
-    """Lecture défensive : un fichier absent ou illisible donne `default`, jamais une erreur."""
+    """Defensive read: a missing or unreadable file gives `default`, never an error."""
     try:
         return json.loads(Path(path).read_text())
     except (OSError, ValueError):
@@ -65,7 +65,7 @@ def read_json(path, default):
 
 
 def write_json(path, data):
-    """Écriture atomique (fichier temporaire puis remplacement), fichier 0600 dans un dossier 0700."""
+    """Atomic write (temporary file then replace), 0600 file in a 0700 folder."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}-", suffix=".json")

@@ -1,8 +1,10 @@
 // @ts-check
-// Écran d'accueil (aucun agent ouvert) : Ziggy en chef d'orchestre. L'emblème Z au centre, tes agents qui
-// gravitent autour sur trois orbites inclinées (devant / derrière, en 3D), reliés par des faisceaux où passent
-// des « notes » : les consignes du chef d'orchestre. Puis le titre et les deux boutons pour créer.
-// SVG et JavaScript, sans bibliothèque. Sans animation si le système le demande ; en pause onglet caché.
+// Welcome screen (no agent open): Ziggy as conductor. The Z emblem in the center, your agents
+// orbiting around it on three tilted orbits (in front / behind, in 3D), linked by beams carrying
+// "notes": the conductor's instructions. Then the title and the two buttons to create.
+// SVG and JavaScript, no library. No animation if the system asks for it; paused when the tab is hidden.
+
+import { t } from "./i18n.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 const ORBITS = [
@@ -18,8 +20,8 @@ const MAX_AGENTS = 12;
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  * @property {(d: string) => SVGElement} icon
  * @property {{agent: string, workspace: string}} icons
- * @property {HeroAgent[]} agents tes agents (actifs d'abord) : ils gravitent autour de Ziggy
- * @property {string} stats ligne de chiffres sous le titre
+ * @property {HeroAgent[]} agents your agents (active first): they orbit around Ziggy
+ * @property {string} stats line of figures below the title
  * @property {() => void} onAgent
  * @property {() => void} onWorkspace
  */
@@ -35,7 +37,7 @@ function svg(tag, attrs = {}) {
 }
 
 /**
- * Construit l'écran et lance l'animation ; elle s'arrête d'elle-même quand l'écran quitte la page.
+ * Builds the screen and starts the animation; it stops by itself when the screen leaves the page.
  *
  * @param {HeroOptions} options
  * @returns {HTMLElement}
@@ -45,12 +47,12 @@ export function createHero(options) {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   const root = el("div", `hero${reduced ? " reduced" : ""}`);
 
-  // Fond : une aurore de taches colorées qui dérivent.
+  // Background: an aurora of drifting colored blobs.
   const aurora = el("div", "hero-aurora");
   aurora.setAttribute("aria-hidden", "true");
   aurora.append(el("span", "blob b1"), el("span", "blob b2"), el("span", "blob b3"));
 
-  // Scène : orbites, faisceaux, agents, emblème.
+  // Scene: orbits, beams, agents, emblem.
   const stage = el("div", "hero-stage");
   stage.setAttribute("aria-hidden", "true");
   const scene = svg("svg", { viewBox: "-300 -150 600 300", class: "hero-scene" });
@@ -70,7 +72,7 @@ export function createHero(options) {
   const back = svg("g");
   const beams = svg("g", { class: "hero-beams" });
   const front = svg("g");
-  // Emblème : halo, anneau qui tourne, carré dégradé, Z.
+  // Emblem: halo, spinning ring, gradient square, Z.
   const emblem = svg("g", { class: "hero-emblem" });
   emblem.append(
     svg("circle", { r: 70, fill: "url(#hero-glow)", class: "hero-halo" }),
@@ -80,9 +82,9 @@ export function createHero(options) {
   const z = svg("text", { x: 0, y: 1, class: "hero-z" });
   z.textContent = "Z";
   emblem.append(z);
-  // Parallaxe par plans, en déplacements 2D dans le SVG (le dessin reste vectoriel, donc net) : les orbites
-  // et les agents bougent plus que l'emblème. Chaque plan a son groupe : les animations CSS des éléments
-  // (apparition de l'emblème, ouverture des orbites) n'entrent pas en conflit avec ce déplacement.
+  // Parallax by planes, as 2D moves in the SVG (the drawing stays vector, so sharp): the orbits
+  // and the agents move more than the emblem. Each plane has its group: the CSS animations of the elements
+  // (emblem appearing, orbits opening) do not conflict with this move.
   const farPlane = svg("g");
   farPlane.append(orbitLayer, back, beams);
   const emblemPlane = svg("g");
@@ -92,7 +94,7 @@ export function createHero(options) {
   scene.append(farPlane, emblemPlane, nearPlane);
   stage.append(scene);
 
-  // Agents : répartis sur les orbites, chacun avec sa couleur, son initiale et son état.
+  // Agents: spread over the orbits, each with its color, its initial and its state.
   const agents = options.agents.slice(0, MAX_AGENTS).map((agent, index) => {
     const orbit = ORBITS[index % ORBITS.length];
     const onOrbit = Math.floor(index / ORBITS.length);
@@ -110,7 +112,7 @@ export function createHero(options) {
     return { node, beam, note, orbit, phase: (onOrbit / perOrbit) * Math.PI * 2 + index * 0.7, delay: 0.45 + index * 0.06 };
   });
 
-  // Texte et boutons.
+  // Text and buttons.
   const copy = el("div", "hero-copy");
   const title = el("h2", "hero-title");
   [..."Ziggy One"].forEach((char, i) => {
@@ -133,13 +135,13 @@ export function createHero(options) {
     return button;
   };
   actions.append(
-    make("Nouvel agent", "Claude Code dans le dossier de ton choix", options.icons.agent, "primary-hero", options.onAgent),
-    make("Nouveau workspace", "Un groupe pour ranger tes agents", options.icons.workspace, "ghost-hero", options.onWorkspace),
+    make(t("New agent"), t("Claude Code in the folder of your choice"), options.icons.agent, "primary-hero", options.onAgent),
+    make(t("New workspace"), t("A group to organize your agents"), options.icons.workspace, "ghost-hero", options.onWorkspace),
   );
-  copy.append(actions, el("p", "hero-hint", "ou reprends un agent dans la liste à gauche"));
+  copy.append(actions, el("p", "hero-hint", t("or resume an agent from the list on the left")));
   root.append(aurora, stage, copy);
 
-  // Parallaxe : la scène s'incline un peu vers la souris.
+  // Parallax: the scene tilts slightly towards the mouse.
   let tiltX = 0;
   let tiltY = 0;
   root.addEventListener("pointermove", (event) => {
@@ -152,14 +154,14 @@ export function createHero(options) {
     tiltY = 0;
   });
 
-  // Animation : position de chaque agent sur son orbite, devant ou derrière l'emblème, faisceaux et notes.
+  // Animation: position of each agent on its orbit, in front of or behind the emblem, beams and notes.
   const start = performance.now();
   let smoothX = 0;
   let smoothY = 0;
   /** @param {number} now */
   function frame(now) {
-    if (!root.isConnected) return; // écran quitté : l'animation s'arrête
-    const t = (now - start) / 1000;
+    if (!root.isConnected) return; // screen left: the animation stops
+    const time = (now - start) / 1000;
     smoothX += (tiltX - smoothX) * 0.06;
     smoothY += (tiltY - smoothY) * 0.06;
     const shift = (/** @type {number} */ x, /** @type {number} */ y) => `translate(${(smoothX * x).toFixed(2)} ${(smoothY * y).toFixed(2)})`;
@@ -168,27 +170,27 @@ export function createHero(options) {
     nearPlane.setAttribute("transform", shift(18, 11));
     for (const agent of agents) {
       const { orbit } = agent;
-      const angle = agent.phase + t * orbit.speed;
+      const angle = agent.phase + time * orbit.speed;
       const ex = Math.cos(angle) * orbit.rx;
       const ey = Math.sin(angle) * orbit.ry;
       const rad = (orbit.tilt * Math.PI) / 180;
-      // Entrée : chaque agent jaillit du centre vers son orbite.
-      const enter = Math.min(1, Math.max(0, (t - agent.delay) / 0.9));
+      // Entrance: each agent springs from the center to its orbit.
+      const enter = Math.min(1, Math.max(0, (time - agent.delay) / 0.9));
       const ease = 1 - (1 - enter) ** 3;
       const x = (ex * Math.cos(rad) - ey * Math.sin(rad)) * ease;
       const y = (ex * Math.sin(rad) + ey * Math.cos(rad)) * ease;
-      const depth = Math.sin(angle); // > 0 : devant
+      const depth = Math.sin(angle); // > 0: in front
       const scale = (0.78 + (depth + 1) * 0.17) * (0.4 + 0.6 * ease);
       agent.node.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${scale.toFixed(3)})`);
-      // Profondeur : un peu moins présent à l'arrière, sans voile (78 % au moins une fois entré).
+      // Depth: a little less present at the back, without a veil (at least 78% once entered).
       agent.node.style.opacity = String(((0.78 + (depth + 1) * 0.11) * ease).toFixed(3));
       const layer = depth > 0 ? front : back;
       if (agent.node.parentNode !== layer) layer.append(agent.node);
       agent.beam.setAttribute("x2", x.toFixed(1));
       agent.beam.setAttribute("y2", y.toFixed(1));
-      agent.beam.style.opacity = String((0.12 + 0.18 * (0.5 + 0.5 * Math.sin(t * 1.6 + agent.phase * 3))) * ease);
-      // Une note part de Ziggy vers l'agent, régulièrement.
-      const travel = (t * 0.45 + agent.phase) % 1;
+      agent.beam.style.opacity = String((0.12 + 0.18 * (0.5 + 0.5 * Math.sin(time * 1.6 + agent.phase * 3))) * ease);
+      // A note goes from Ziggy to the agent, regularly.
+      const travel = (time * 0.45 + agent.phase) % 1;
       agent.note.setAttribute("cx", (x * travel).toFixed(1));
       agent.note.setAttribute("cy", (y * travel).toFixed(1));
       agent.note.style.opacity = String((Math.sin(travel * Math.PI) * 0.9 * ease).toFixed(3));
@@ -196,7 +198,7 @@ export function createHero(options) {
     requestAnimationFrame(frame);
   }
   if (reduced) {
-    // Sans mouvement : agents posés sur leurs orbites, pas de boucle.
+    // Without motion: agents placed on their orbits, no loop.
     for (const agent of agents) {
       const { orbit } = agent;
       const rad = (orbit.tilt * Math.PI) / 180;

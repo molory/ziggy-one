@@ -1,8 +1,8 @@
-"""Commandes shell lancées depuis la saisie (« !! commande »), dans le dossier de l'agent.
+"""Shell commands run from the input box ("!! command"), in the agent's folder.
 
-La commande passe par le shell de l'utilisateur ($SHELL -c), sans entrée (stdin fermé), avec un délai
-maximal. Sa sortie (stdout et stderr mêlés, dans l'ordre) est diffusée par morceaux sur le flux SSE
-au fil de l'exécution. Elle n'est pas envoyée à Claude : c'est une console à côté de la discussion.
+The command goes through the user's shell ($SHELL -c), with no input (stdin closed) and a maximum
+duration. Its output (stdout and stderr merged, in order) is streamed in chunks on the SSE stream
+as it runs. It is not sent to Claude: it is a console next to the conversation.
 """
 
 import codecs
@@ -14,12 +14,14 @@ import subprocess
 import threading
 import time
 
-TIMEOUT = 10 * 60  # secondes avant d'arrêter une commande
-MAX_OUTPUT = 1_000_000  # caractères diffusés par commande ; le reste est ignoré (la commande continue)
+from i18n import tr
+
+TIMEOUT = 10 * 60  # seconds before stopping a command
+MAX_OUTPUT = 1_000_000  # characters streamed per command; the rest is dropped (the command goes on)
 MAX_COMMAND = 10_000
 MAX_RUNNING = 5
 READ_SIZE = 4096
-# Séquences de contrôle du terminal (couleurs, curseur) : illisibles hors d'un terminal.
+# Terminal control sequences (colours, cursor): unreadable outside a terminal.
 ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
 
 
@@ -29,7 +31,7 @@ def _shell():
 
 
 def _env():
-    # Ni pager, ni couleurs, ni demande de mot de passe : la commande n'a pas de terminal.
+    # No pager, no colours, no password prompt: the command has no terminal.
     return {
         **os.environ, "TERM": "dumb", "NO_COLOR": "1", "PAGER": "cat", "GIT_PAGER": "cat",
         "GIT_TERMINAL_PROMPT": "0", "SYSTEMD_PAGER": "",
@@ -37,30 +39,30 @@ def _env():
 
 
 class ShellRuns:
-    """Commandes en cours, par discussion. Événements : shell (début, sortie, fin)."""
+    """Running commands, per conversation. Events: shell (start, output, end)."""
 
     def __init__(self, bus, timeout=TIMEOUT, max_running=MAX_RUNNING):
         self._bus = bus
         self._timeout = timeout
         self._max_running = max_running
         self._lock = threading.Lock()
-        self._runs = {}  # identifiant → {"conversation", "proc"}
+        self._runs = {}  # id → {"conversation", "proc"}
 
     def running(self, conversation=None):
         with self._lock:
             return [run_id for run_id, run in self._runs.items() if conversation in (None, run["conversation"])]
 
     def start(self, conversation, cwd, command):
-        """Lance la commande dans `cwd` et rend son identifiant ; la sortie arrive par le flux."""
+        """Starts the command in `cwd` and returns its id; the output comes through the stream."""
         if not isinstance(command, str) or not command.strip():
-            raise ValueError("commande vide")
+            raise ValueError(tr("Empty command"))
         if len(command) > MAX_COMMAND:
-            raise ValueError("commande trop longue")
+            raise ValueError(tr("Command too long"))
         if not isinstance(cwd, str) or not os.path.isdir(cwd):
-            raise ValueError("dossier de l'agent introuvable")
+            raise ValueError(tr("Agent folder not found"))
         with self._lock:
             if len(self._runs) >= self._max_running:
-                raise RuntimeError(f"{self._max_running} commandes tournent déjà : attends qu'une se termine.")
+                raise RuntimeError(tr("{count} commands are already running: wait for one to finish.", count=self._max_running))
             run_id = secrets.token_hex(6)
             proc = subprocess.Popen(
                 [_shell(), "-c", command], cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -72,7 +74,7 @@ class ShellRuns:
         return run_id
 
     def stop(self, run_id):
-        """Arrête la commande et tout ce qu'elle a lancé (son groupe de processus)."""
+        """Stops the command and everything it launched (its process group)."""
         with self._lock:
             run = self._runs.get(run_id)
         if run is None:
@@ -109,7 +111,7 @@ class ShellRuns:
             text = ANSI_RE.sub("", decoder.decode(chunk)).replace("\r\n", "\n")
             if sent >= MAX_OUTPUT:
                 truncated = True
-                continue  # on vide le tuyau pour que la commande ne se bloque pas
+                continue  # drain the pipe so that the command does not block
             text = text[: MAX_OUTPUT - sent]
             sent += len(text)
             if text:

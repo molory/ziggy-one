@@ -1,11 +1,11 @@
-"""Réglages des agents : nom personnalisé, avatar, réglages de Claude (modèle, permissions, Chrome) et agents
-supprimés de la liste (fichier JSON local, 0600).
+"""Agent settings: custom name, avatar, Claude settings (model, permissions, Chrome) and agents
+deleted from the list (local JSON file, 0600).
 
-L'avatar : une abréviation (1 ou 2 caractères), affichée seule, ou un animal (image Twemoji servie avec la
-page), ou une image choisie sur le disque, recadrée par le navigateur et gardée dans `avatars/` (0600).
+The avatar: an abbreviation (1 or 2 characters), shown alone, or an animal (Twemoji image served with the
+page), or an image picked from the disk, cropped by the browser and kept in `avatars/` (0600).
 
-Supprimer un agent le retire de ziggy-one sans toucher à son historique Claude Code : on garde
-de quoi l'afficher dans « Agents supprimés » (nom, dossier, date) pour pouvoir le restaurer.
+Deleting an agent removes it from ziggy-one without touching its Claude Code history: we keep
+what is needed to show it in "Deleted agents" (name, folder, date) so it can be restored.
 """
 
 import json
@@ -17,31 +17,32 @@ import time
 import unicodedata
 from pathlib import Path
 
-from names import ANIMALS, generate_name
+from i18n import tr
+from names import ANIMALS, FRENCH_ANIMALS, generate_name
 from storage import is_agent_key, read_json, write_json
 
 MAX_NAME = 80
 MAX_LABEL = 200
 MAX_PATH = 500
-MAX_ROLE = 600  # rôle : ce qu'on peut confier à l'agent, donné aux autres agents (annuaire)
+MAX_ROLE = 600  # role: what can be entrusted to the agent, given to the other agents (directory)
 MODELS = ("opus", "sonnet", "haiku")
 PERMISSION_MODES = ("auto", "default", "acceptEdits", "plan")
 AVATAR_KINDS = ("letters", "animal", "image")
-# 2 caractères visibles, limite tenue par le navigateur ; un emoji composé compte plusieurs points de code.
+# 2 visible characters, a limit enforced by the browser; a composed emoji counts several code points.
 MAX_ABBR = 16
-MAX_AVATAR_IMAGE = 300_000  # image déjà recadrée et réduite (256 px) par le navigateur
+MAX_AVATAR_IMAGE = 300_000  # image already cropped and scaled down (256 px) by the browser
 AVATAR_IMAGE_RE = re.compile(r"^[0-9a-f]{16}$")
 AVATAR_IMAGE_TYPES = {"png": "image/png", "jpeg": "image/jpeg", "webp": "image/webp"}
 
 
 def clean_options(raw, strict=False):
-    """Réglages de Claude d'un agent ; une valeur absente (ou None, "") laisse la valeur par défaut.
+    """Claude settings of an agent; a missing value (or None, "") keeps the default value.
 
-    En mode strict, une valeur inconnue est une erreur ; sinon (lecture du fichier) elle est ignorée.
+    In strict mode, an unknown value is an error; otherwise (reading the file) it is ignored.
     """
     if not isinstance(raw, dict):
         if strict:
-            raise ValueError("réglages invalides")
+            raise ValueError(tr("Invalid settings"))
         return {}
     options = {}
     checks = {
@@ -56,31 +57,32 @@ def clean_options(raw, strict=False):
         if valid(value):
             options[name] = value
         elif strict:
-            raise ValueError(f"valeur invalide pour {name} : {value!r}")
+            raise ValueError(tr("Invalid value for {name}: {value}", name=name, value=repr(value)))
     return options
 
 
 def clean_abbr(value):
-    """Abréviation de l'avatar : sans espace ni caractère de contrôle (le ZWJ des emoji composés reste)."""
+    """Avatar abbreviation: no spaces or control characters (the ZWJ of composed emoji stays)."""
     if value is None or value == "":
         return ""
     if not isinstance(value, str) or len(value) > MAX_ABBR:
-        raise ValueError("abréviation invalide")
+        raise ValueError(tr("Invalid abbreviation"))
     if any(char.isspace() or (unicodedata.category(char).startswith("C") and unicodedata.category(char) != "Cf")
            for char in value):
-        raise ValueError("abréviation invalide")
+        raise ValueError(tr("Invalid abbreviation"))
     return value
 
 
 def clean_avatar(raw, strict=False):
-    """Avatar d'un agent ({abbr, kind, animal, image}) ; vide = l'avatar par défaut (initiale sur sa couleur).
+    """Avatar of an agent ({abbr, kind, animal, image}); empty = the default avatar (initial on its color).
 
-    En mode strict (requête), une valeur invalide est une erreur ; sinon (lecture du fichier) elle est ignorée.
-    L'identifiant d'image ne vient jamais du navigateur : `strict` l'écarte.
+    In strict mode (request), an invalid value is an error; otherwise (reading the file) it is ignored.
+    The image id never comes from the browser: `strict` drops it. An animal saved under its French name
+    (older avatars) becomes its English name.
     """
     if not isinstance(raw, dict):
         if strict:
-            raise ValueError("avatar invalide")
+            raise ValueError(tr("Invalid avatar"))
         return {}
     avatar = {}
     try:
@@ -94,17 +96,19 @@ def clean_avatar(raw, strict=False):
     kind = raw.get("kind") or "letters"
     if kind not in AVATAR_KINDS:
         if strict:
-            raise ValueError(f"type d'avatar invalide : {kind!r}")
+            raise ValueError(tr("Invalid avatar type: {kind}", kind=repr(kind)))
         kind = "letters"
     animal = raw.get("animal")
+    if isinstance(animal, str):
+        animal = FRENCH_ANIMALS.get(animal, animal)
     if animal not in (None, "") and animal not in ANIMALS:
         if strict:
-            raise ValueError(f"animal inconnu : {animal!r}")
+            raise ValueError(tr("Unknown animal: {animal}", animal=repr(animal)))
         animal = None
     if kind == "animal":
         if not animal:
             if strict:
-                raise ValueError("animal manquant")
+                raise ValueError(tr("Missing animal"))
             kind = "letters"
         else:
             avatar["animal"] = animal
@@ -120,7 +124,7 @@ def clean_avatar(raw, strict=False):
 
 
 def image_type(data):
-    """Type d'une image d'avatar, d'après ses premiers octets (PNG, JPEG ou WebP) ; None sinon."""
+    """Type of an avatar image, from its first bytes (PNG, JPEG or WebP); None otherwise."""
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -131,7 +135,7 @@ def image_type(data):
 
 
 def clean_role(value):
-    """Rôle d'un agent : texte libre, espaces et sauts de ligne réduits, sans caractère de contrôle."""
+    """Role of an agent: free text, spaces and line breaks collapsed, without control characters."""
     if not isinstance(value, str):
         return ""
     return " ".join("".join(ch for ch in value if ch.isprintable() or ch.isspace()).split())[:MAX_ROLE]
@@ -180,7 +184,7 @@ class AgentSettings:
         return items
 
     def _changed(self):
-        # Appelé avec _lock acquis. Une entrée vide (ni nom, ni suppression) n'est pas gardée.
+        # Called with _lock held. An empty entry (no name, not deleted) is not kept.
         self._items = {key: entry for key, entry in self._items.items() if entry}
         write_json(self._path, self._items)
         self._bus.publish("agents", json.loads(json.dumps(self._items)))
@@ -190,11 +194,11 @@ class AgentSettings:
             return json.loads(json.dumps(self._items))
 
     def rename(self, key, name):
-        """Nom donné à l'agent ; un nom vide lui rend son nom généré."""
+        """Name given to the agent; an empty name gives it back its generated name."""
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         if name is not None and not isinstance(name, str):
-            raise ValueError("nom invalide")
+            raise ValueError(tr("Invalid name"))
         name = " ".join((name or "").split())[:MAX_NAME]
         with self._lock:
             entry = self._items.setdefault(key, {})
@@ -205,9 +209,9 @@ class AgentSettings:
             self._changed()
 
     def set_options(self, key, options):
-        """Réglages de Claude de l'agent (modèle, permissions, Chrome) ; vides = valeurs par défaut."""
+        """Claude settings of the agent (model, permissions, Chrome); empty = default values."""
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         cleaned = clean_options(options, strict=True)
         with self._lock:
             entry = self._items.setdefault(key, {})
@@ -218,11 +222,11 @@ class AgentSettings:
             self._changed()
 
     def set_role(self, key, role):
-        """Rôle de l'agent, donné aux autres agents au démarrage de leur session ; vide = pas de rôle."""
+        """Role of the agent, given to the other agents when their session starts; empty = no role."""
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         if role is not None and not isinstance(role, str):
-            raise ValueError("rôle invalide")
+            raise ValueError(tr("Invalid role"))
         role = clean_role(role)
         with self._lock:
             entry = self._items.setdefault(key, {})
@@ -233,25 +237,25 @@ class AgentSettings:
             self._changed()
 
     def roles(self):
-        """Agents qui ont un rôle et ne sont pas supprimés : [(clé, nom, rôle)]."""
+        """Agents that have a role and are not deleted: [(key, name, role)]."""
         with self._lock:
             return [(key, entry.get("name") or entry.get("generated") or "", entry["role"])
                     for key, entry in self._items.items() if entry.get("role") and "hidden" not in entry]
 
     def set_avatar(self, key, avatar, image=None):
-        """Avatar de l'agent ; `image` (octets PNG, JPEG ou WebP) remplace son image.
+        """Avatar of the agent; `image` (PNG, JPEG or WebP bytes) replaces its image.
 
-        Sans nouvelle image, le type « image » garde celle qu'il a déjà ; un autre type la supprime.
+        Without a new image, the "image" type keeps the one it already has; another type deletes it.
         """
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         cleaned = clean_avatar(avatar, strict=True)
         kind = cleaned.get("kind", "letters")
         if image is not None:
             if kind != "image":
-                raise ValueError("une image va avec le type « image »")
+                raise ValueError(tr('An image goes with the "image" type'))
             if not isinstance(image, bytes) or len(image) > MAX_AVATAR_IMAGE or image_type(image) is None:
-                raise ValueError("image invalide (PNG, JPEG ou WebP, 300 Ko au plus)")
+                raise ValueError(tr("Invalid image (PNG, JPEG or WebP, 300 KB max)"))
         with self._lock:
             entry = self._items.setdefault(key, {})
             old = entry.get("avatar", {}).get("image")
@@ -259,7 +263,7 @@ class AgentSettings:
                 cleaned["image"] = self._save_image(image)
             elif kind == "image":
                 if not old:
-                    raise ValueError("aucune image choisie")
+                    raise ValueError(tr("No image chosen"))
                 cleaned["image"] = old
             if cleaned:
                 entry["avatar"] = cleaned
@@ -270,7 +274,7 @@ class AgentSettings:
             (self._avatars / old).unlink(missing_ok=True)
 
     def _save_image(self, data):
-        # Appelé avec _lock acquis. Nouvel identifiant à chaque image : le navigateur peut la garder en cache.
+        # Called with _lock held. A new id for each image: the browser can keep it in its cache.
         self._avatars.mkdir(parents=True, exist_ok=True, mode=0o700)
         image_id = secrets.token_hex(8)
         fd = os.open(self._avatars / image_id, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -279,7 +283,7 @@ class AgentSettings:
         return image_id
 
     def avatar_image(self, image_id):
-        """(octets, type MIME) de l'image d'avatar, ou None si elle n'existe pas."""
+        """(bytes, MIME type) of the avatar image, or None if it does not exist."""
         if not isinstance(image_id, str) or not AVATAR_IMAGE_RE.match(image_id):
             return None
         try:
@@ -290,7 +294,7 @@ class AgentSettings:
         return (data, AVATAR_IMAGE_TYPES[kind]) if kind else None
 
     def options_for(self, keys):
-        """Réglages de Claude enregistrés sous l'un des identifiants de l'agent ({} s'il n'y en a pas)."""
+        """Claude settings saved under one of the agent's ids ({} if there are none)."""
         with self._lock:
             for key in keys:
                 options = self._items.get(key, {}).get("options") if key else None
@@ -299,16 +303,16 @@ class AgentSettings:
             return {}
 
     def name_for(self, keys):
-        """Nom de l'agent : celui qu'on lui a donné, sinon son nom généré ; None s'il n'en a pas."""
+        """Name of the agent: the one given to it, otherwise its generated name; None if it has none."""
         with self._lock:
             entries = [self._items.get(key, {}) for key in keys if key]
             return next((entry[field] for field in ("name", "generated") for entry in entries if field in entry), None)
 
     def ensure_names(self, groups):
-        """Donne un nom généré, unique, aux agents qui n'ont ni nom ni nom généré.
+        """Gives a unique generated name to the agents that have neither a name nor a generated name.
 
-        `groups` : pour chaque agent, ses identifiants (session, discussion), le premier servant à
-        enregistrer le nom. Une seule écriture pour tous les agents nommés.
+        `groups`: for each agent, its ids (session, conversation), the first one being used to
+        save the name. A single write for all the named agents.
         """
         with self._lock:
             taken = {entry[field] for entry in self._items.values() for field in ("name", "generated") if field in entry}
@@ -326,7 +330,7 @@ class AgentSettings:
 
     def hide(self, key, label="", cwd=""):
         if not is_agent_key(key):
-            raise ValueError("identifiant d'agent invalide")
+            raise ValueError(tr("Invalid agent id"))
         with self._lock:
             self._items.setdefault(key, {})["hidden"] = {
                 "label": _clip(label, MAX_LABEL), "cwd": _clip(cwd, MAX_PATH), "at": time.time(),
@@ -334,7 +338,7 @@ class AgentSettings:
             self._changed()
 
     def restore(self, key):
-        """Retire l'agent des supprimés ; renvoie ce qu'on en avait gardé (nom, dossier), ou None."""
+        """Removes the agent from the deleted ones; returns what was kept of it (name, folder), or None."""
         with self._lock:
             entry = self._items.get(key)
             if entry is None or "hidden" not in entry:
@@ -344,7 +348,7 @@ class AgentSettings:
             return hidden
 
     def replace_key(self, old, new):
-        """Une discussion démarrée a désormais une session : ses réglages la suivent."""
+        """A started conversation now has a session: its settings follow it."""
         if not is_agent_key(new):
             return
         with self._lock:
@@ -353,6 +357,6 @@ class AgentSettings:
                 return
             merged = {**entry, **self._items.get(new, {})}
             if "generated" in entry:
-                merged["generated"] = entry["generated"]  # l'agent garde le nom qu'on voit déjà
+                merged["generated"] = entry["generated"]  # the agent keeps the name already shown
             self._items[new] = merged
             self._changed()

@@ -1,12 +1,12 @@
-"""Liens de tickets lisibles par un agent : /t/<numéro>?k=<clé>.
+"""Ticket links readable by an agent: /t/<number>?k=<key>.
 
-Dans le navigateur (cookie de Ziggy), l'adresse d'un ticket ouvre sa fiche. Sans cookie, un agent (curl,
-WebFetch…) qui présente la clé du ticket reçoit le ticket en texte Markdown : titre, tableau, colonne,
-description, fichiers joints (avec leur lien de téléchargement), tickets cités et historique.
+In the browser (Ziggy cookie), a ticket's address opens its card. Without a cookie, an agent (curl,
+WebFetch…) that presents the ticket's key gets the ticket as Markdown text: title, board, column,
+description, attached files (with their download link), cited tickets and history.
 
-La clé est un HMAC du numéro par le token du serveur : elle ouvre ce ticket-là seulement, en lecture,
-et `--new-token` invalide tous les liens d'un coup. Les liens donnés dans le texte (fichiers, tickets
-cités) portent leur propre clé : l'agent peut les suivre.
+The key is an HMAC of the number with the server token: it opens that ticket only, read-only, and
+`--new-token` invalidates all links at once. The links given in the text (files, cited tickets) carry
+their own key: the agent can follow them.
 """
 
 import hashlib
@@ -15,18 +15,18 @@ import re
 import time
 from urllib.parse import quote
 
-KEY_LENGTH = 20  # caractères hexadécimaux (80 bits)
-REFERENCE_RE = re.compile(r"(^|[^\w&])#([1-9]\d{0,8})(?!\w)")  # même règle que l'interface
+KEY_LENGTH = 20  # hex characters (80 bits)
+REFERENCE_RE = re.compile(r"(^|[^\w&])#([1-9]\d{0,8})(?!\w)")  # same rule as the interface
 
 HISTORY_LABELS = {
-    "created": lambda e: f"Créé dans « {e.get('column', '')} »",
-    "title": lambda e: f"Titre : « {e.get('before', '')} » → « {e.get('after', '')} »",
-    "description": lambda e: "Description modifiée" if e.get("before") else "Description ajoutée",
-    "moved": lambda e: f"Déplacé de « {e.get('fromColumn', '')} » vers « {e.get('toColumn', '')} »"
+    "created": lambda e: f"Created in \"{e.get('column', '')}\"",
+    "title": lambda e: f"Title: \"{e.get('before', '')}\" → \"{e.get('after', '')}\"",
+    "description": lambda e: "Description changed" if e.get("before") else "Description added",
+    "moved": lambda e: f"Moved from \"{e.get('fromColumn', '')}\" to \"{e.get('toColumn', '')}\""
                        + (f" ({e['reason']})" if e.get("reason") else ""),
-    "file_added": lambda e: f"Fichier joint : {e.get('name', '')}",
-    "file_removed": lambda e: f"Fichier retiré : {e.get('name', '')}",
-    "deleted": lambda e: "Supprimé",
+    "file_added": lambda e: f"File attached: {e.get('name', '')}",
+    "file_removed": lambda e: f"File removed: {e.get('name', '')}",
+    "deleted": lambda e: "Deleted",
 }
 
 
@@ -39,7 +39,7 @@ def valid(token, number, given):
 
 
 def ticket_path(token, number):
-    """Chemin à partager : /t/42?k=…"""
+    """Path to share: /t/42?k=…"""
     return f"/t/{number}?k={key(token, number)}"
 
 
@@ -48,32 +48,32 @@ def file_path(token, number, file_id, name):
 
 
 def _when(epoch):
-    return time.strftime("%d/%m/%Y %H:%M", time.localtime(epoch))
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(epoch))
 
 
 def _size(size):
-    return f"{size} o" if size < 1024 else f"{size / 1024:.0f} Ko" if size < 1024 * 1024 else f"{size / 1048576:.1f} Mo"
+    return f"{size} B" if size < 1024 else f"{size / 1024:.0f} KB" if size < 1024 * 1024 else f"{size / 1048576:.1f} MB"
 
 
 def render(export, token, origin):
-    """Le ticket en Markdown, pour un agent. `export` vient de Kanban.export ; `origin` : http://127.0.0.1:6767."""
+    """The ticket as Markdown, for an agent. `export` comes from Kanban.export; `origin`: http://127.0.0.1:6767."""
     ticket = export["ticket"]
     number = ticket["number"]
     lines = [
         f"# #{number} · {ticket['title']}",
         "",
-        f"- Tableau : {export['board']}",
-        f"- Colonne : {export['column']}",
-        f"- Créé le {_when(ticket['createdAt'])} · modifié le {_when(ticket['updatedAt'])}",
-        f"- Lien : {origin}{ticket_path(token, number)}",
+        f"- Board: {export['board']}",
+        f"- Column: {export['column']}",
+        f"- Created {_when(ticket['createdAt'])} · updated {_when(ticket['updatedAt'])}",
+        f"- Link: {origin}{ticket_path(token, number)}",
         "",
         "## Description",
         "",
-        ticket["description"].strip() or "(aucune)",
+        ticket["description"].strip() or "(none)",
     ]
     if ticket["files"]:
-        lines += ["", "## Fichiers joints", ""]
-        lines += [f"- {f['name']} ({_size(f['size'])}) : {origin}{file_path(token, number, f['id'], f['name'])}"
+        lines += ["", "## Attached files", ""]
+        lines += [f"- {f['name']} ({_size(f['size'])}): {origin}{file_path(token, number, f['id'], f['name'])}"
                   for f in ticket["files"]]
     cited = []
     for match in REFERENCE_RE.finditer(ticket["description"]):
@@ -81,13 +81,13 @@ def render(export, token, origin):
         if other != number and other in export["known"] and other not in cited:
             cited.append(other)
     if cited:
-        lines += ["", "## Tickets cités", ""]
+        lines += ["", "## Cited tickets", ""]
         for other in cited:
             title, column = export["known"][other]
             where = f" ({column})" if column else ""
-            lines.append(f"- #{other} · {title}{where} : {origin}{ticket_path(token, other)}")
+            lines.append(f"- #{other} · {title}{where}: {origin}{ticket_path(token, other)}")
     if export["history"]:
-        lines += ["", "## Historique", ""]
+        lines += ["", "## History", ""]
         lines += [f"- {_when(e['at'])} · {HISTORY_LABELS.get(e['kind'], lambda _: e['kind'])(e)}"
-                  + (f" (par {e['by']})" if e.get("by") not in (None, "user") else "") for e in export["history"]]
+                  + (f" (by {e['by']})" if e.get("by") not in (None, "user") else "") for e in export["history"]]
     return "\n".join(lines) + "\n"

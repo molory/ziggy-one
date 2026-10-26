@@ -1,14 +1,16 @@
 // @ts-check
-// Logique pure de l'onglet Fichiers (sans DOM, testée par tests/files-tree.test.mjs) : surlignage
-// des recherches, fil d'Ariane, tailles, indentation dans l'éditeur.
+// Pure logic of the Files tab (no DOM, tested by tests/files-tree.test.mjs): search highlighting,
+// breadcrumbs, sizes, indentation in the editor.
+
+import { locale, t } from "./i18n.js";
 
 /**
- * @typedef {{text: string, match: boolean}} Segment morceau de texte, surligné ou non
+ * @typedef {{text: string, match: boolean}} Segment piece of text, highlighted or not
  */
 
 /**
- * Positions des caractères de la requête retrouvés dans l'ordre dans le chemin (recherche floue), ou
- * null. On cherche d'abord dans le nom du fichier, plus parlant que les dossiers.
+ * Positions of the query characters found in order in the path (fuzzy search), or null.
+ * The file name is searched first, as it says more than the folders.
  *
  * @param {string} query
  * @param {string} path
@@ -33,7 +35,7 @@ export function fuzzyIndices(query, path) {
 }
 
 /**
- * Découpe un texte en morceaux selon les positions à surligner (consécutives regroupées).
+ * Splits a text into pieces by the positions to highlight (consecutive ones grouped).
  *
  * @param {string} text
  * @param {number[] | null} indices
@@ -53,7 +55,7 @@ export function segmentsFromIndices(text, indices) {
 }
 
 /**
- * Surligne toutes les occurrences de la requête dans le texte, sans tenir compte de la casse.
+ * Highlights every occurrence of the query in the text, ignoring case.
  *
  * @param {string} text
  * @param {string} query
@@ -76,7 +78,7 @@ export function highlightOccurrences(text, query) {
 }
 
 /**
- * Fil d'Ariane d'un chemin relatif : chaque élément avec le chemin qui y mène.
+ * Breadcrumbs of a relative path: each part with the path leading to it.
  *
  * @param {string} file
  * @returns {{name: string, path: string}[]}
@@ -87,7 +89,7 @@ export function breadcrumbs(file) {
 }
 
 /**
- * Dossiers parents d'un fichier, du plus haut au plus proche : ceux à déplier pour le montrer.
+ * Parent folders of a file, from the top to the nearest: those to expand to show it.
  *
  * @param {string} file
  */
@@ -96,22 +98,22 @@ export function parentDirs(file) {
 }
 
 /**
- * Taille lisible, à la française : « 512 o », « 1,5 Ko », « 3,2 Mo ».
+ * Readable size, in the interface language: "512 B", "1.5 KB", "3.2 MB".
  *
  * @param {number} bytes
  */
 export function formatSize(bytes) {
-  const number = (/** @type {number} */ n) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${number(bytes / 1024)} Ko`;
-  return `${number(bytes / (1024 * 1024))} Mo`;
+  const number = (/** @type {number} */ n) => n.toLocaleString(locale(), { maximumFractionDigits: 1 });
+  if (bytes < 1024) return t("{size} B", { size: bytes });
+  if (bytes < 1024 * 1024) return t("{size} KB", { size: number(bytes / 1024) });
+  return t("{size} MB", { size: number(bytes / (1024 * 1024)) });
 }
 
 /** @param {string} file */
 export const isMarkdown = (file) => /\.(md|markdown|mdx)$/i.test(file);
 
 /**
- * Regroupe les résultats de recherche dans le contenu par fichier, dans l'ordre d'arrivée.
+ * Groups content search results by file, in order of arrival.
  *
  * @param {{file: string, line: number, text: string}[]} results
  * @returns {{file: string, lines: {line: number, text: string}[]}[]}
@@ -127,7 +129,7 @@ export function groupByFile(results) {
 }
 
 /**
- * Indentation du fichier : tabulation si ses lignes en commencent par une, sinon 2 ou 4 espaces.
+ * Indentation of the file: a tab if its lines start with one, otherwise 2 or 4 spaces.
  *
  * @param {string} text
  */
@@ -148,21 +150,21 @@ export function detectIndent(text) {
 }
 
 /**
- * Touche Tab dans l'éditeur : insère une indentation au curseur, ou indente (désindente avec Maj)
- * toutes les lignes de la sélection. Renvoie le nouveau texte et la nouvelle sélection.
+ * Tab key in the editor: inserts an indentation at the cursor, or indents (outdents with Shift)
+ * every line of the selection. Returns the new text and the new selection.
  *
  * @param {string} value
  * @param {number} start
  * @param {number} end
  * @param {boolean} outdent
- * @param {string} [unit] indentation (voir detectIndent)
+ * @param {string} [unit] indentation (see detectIndent)
  */
 export function indentSelection(value, start, end, outdent, unit = "\t") {
   if (start === end && !outdent) {
     return { value: value.slice(0, start) + unit + value.slice(end), start: start + unit.length, end: start + unit.length };
   }
   const first = value.lastIndexOf("\n", start - 1) + 1;
-  // Une sélection qui s'arrête en début de ligne n'inclut pas cette ligne.
+  // A selection that stops at the start of a line does not include that line.
   const stop = end > start && value[end - 1] === "\n" ? end - 1 : end;
   const lineEnd = value.indexOf("\n", stop);
   const last = lineEnd < 0 ? value.length : lineEnd;
@@ -184,7 +186,7 @@ export function indentSelection(value, start, end, outdent, unit = "\t") {
     total += delta;
     return next;
   });
-  // Le début de sélection suit le texte, sauf s'il est en début de ligne (la ligne reste entière).
+  // The selection start follows the text, unless it is at the start of a line (the line stays whole).
   const newStart = start === first && start !== end ? first : Math.max(first, start + startShift);
   return {
     value: value.slice(0, first) + changed.join("\n") + value.slice(last),

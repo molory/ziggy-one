@@ -1,15 +1,17 @@
-"""Opérations git de l'écran Git (façon Sourcetree) : état, historique, diffs, et quelques actions
-(indexer, annuler, commiter, changer ou créer de branche, fetch, pull, push).
+"""Git operations of the Git screen (Sourcetree style): status, history, diffs, and a few actions
+(stage, discard, commit, switch or create a branch, fetch, pull, push).
 
-Git est lancé sans shell, avec des arguments contrôlés : les noms de branche sont validés par git,
-les chemins de fichiers sont passés après « -- » et doivent rester dans le dépôt. Git ne peut jamais
-attendre un mot de passe (GIT_TERMINAL_PROMPT=0, ssh en mode batch) et chaque commande a un délai.
-Aucune opération qui réécrit l'historique (reset --hard, push --force…) n'est proposée.
+Git runs without a shell, with controlled arguments: branch names are validated by git, file paths
+are passed after "--" and must stay inside the repository. Git can never wait for a password
+(GIT_TERMINAL_PROMPT=0, ssh in batch mode) and every command has a timeout.
+No operation that rewrites history (reset --hard, push --force…) is offered.
 """
 
 import os
 import re
 import subprocess
+
+from i18n import tr
 
 LOCAL_TIMEOUT = 20
 NETWORK_TIMEOUT = 90
@@ -21,64 +23,65 @@ FIELD, RECORD = "\x1f", "\x1e"
 
 
 class GitError(Exception):
-    """Erreur à montrer telle quelle dans l'interface."""
+    """Error to show as is in the interface."""
 
 
-NOTHING_STAGED = "Aucun fichier indexé : indexe des fichiers (bouton + ou « Tout indexer ») avant de commiter."
+# English source, translated (tr) when raised.
+NOTHING_STAGED = "No staged files: stage files (+ button or \"Stage all\") before committing."
 
-# Erreurs git courantes → explication en français et marche à suivre. Le premier motif trouvé dans
-# la sortie de git l'emporte ; le détail technique de git est ajouté dessous.
+# Common git errors → plain explanation and what to do (English sources, translated when shown). The
+# first pattern found in git's output wins; git's technical details are added below.
 FRIENDLY_ERRORS = [
     (("Author identity unknown", "Please tell me who you are", "empty ident name"),
-     "Identité git non configurée : indique ton nom et ton e-mail avec "
-     "`git config --global user.name \"…\"` et `git config --global user.email …`."),
+     "Git identity not configured: set your name and email with "
+     "`git config --global user.name \"…\"` and `git config --global user.email …`."),
     (("nothing to commit", "no changes added to commit", "nothing added to commit"), NOTHING_STAGED),
     (("pre-receive hook declined", "protected branch", "remote rejected"),
-     "Le dépôt distant a refusé le push (branche protégée ou règle du serveur)."),
+     "The remote repository rejected the push (protected branch or server rule)."),
     (("[rejected]", "non-fast-forward", "fetch first", "Updates were rejected"),
-     "Push refusé : le dépôt distant contient des commits que tu n'as pas. Fais d'abord un Pull."),
+     "Push rejected: the remote repository has commits you do not have. Pull first."),
     (("Not possible to fast-forward", "Diverging branches", "have diverged"),
-     "Pull impossible en avance rapide : ta branche et la branche distante ont divergé. "
-     "Fusionne ou rebase dans un terminal (ziggy-one ne le fait pas à ta place)."),
+     "Cannot pull with a fast-forward: your branch and the remote branch have diverged. "
+     "Merge or rebase in a terminal (ziggy-one does not do it for you)."),
     (("There is no tracking information", "no upstream branch"),
-     "Cette branche ne suit aucune branche distante : fais d'abord un Push pour la créer."),
+     "This branch does not track any remote branch: push first to create it."),
     (("couldn't find remote ref",),
-     "La branche distante n'existe plus (supprimée sur le serveur). Fais un Fetch pour mettre à jour la liste."),
+     "The remote branch no longer exists (deleted on the server). Fetch to update the list."),
     (("does not appear to be a git repository", "repository not found", "Repository not found"),
-     "Dépôt distant introuvable : vérifie son adresse (`git remote -v`) et que tu y as accès."),
+     "Remote repository not found: check its address (`git remote -v`) and that you have access to it."),
     (("Permission denied", "Authentication failed", "returned error: 401", "returned error: 403", "could not read Username", "could not read Password",
       "terminal prompts disabled", "Host key verification failed", "Could not read from remote repository"),
-     "Accès au dépôt distant refusé. ziggy-one ne peut pas demander de mot de passe : vérifie ta clé SSH "
-     "(ssh-agent) ou ton gestionnaire d'identifiants git, puis réessaie."),
+     "Access to the remote repository denied. ziggy-one cannot ask for a password: check your SSH key "
+     "(ssh-agent) or your git credential manager, then try again."),
     (("Could not resolve host", "Connection timed out", "Connection refused", "Network is unreachable",
       "unable to access"),
-     "Dépôt distant injoignable : vérifie ta connexion réseau et l'adresse du dépôt (`git remote -v`)."),
+     "Remote repository unreachable: check your network connection and the repository address (`git remote -v`)."),
     (("would be overwritten by checkout", "would be overwritten by merge", "Please commit your changes or stash them"),
-     "Des modifications locales seraient écrasées : commite-les ou annule-les avant de continuer."),
+     "Local changes would be overwritten: commit or discard them before continuing."),
     (("is already used by worktree", "is already checked out at"),
-     "Cette branche est ouverte dans un autre worktree : git ne permet pas de l'ouvrir ici aussi. "
-     "Clique dessus dans la liste des branches pour afficher ce worktree."),
+     "This branch is checked out in another worktree: git does not allow checking it out here too. "
+     "Click it in the branch list to show that worktree."),
     (("already exists",),
-     "Une branche de ce nom existe déjà."),
+     "A branch with this name already exists."),
     (("index.lock",),
-     "Une autre opération git est en cours (ou s'est interrompue). Réessaie dans un instant ; si le problème "
-     "persiste, supprime le fichier .git/index.lock."),
+     "Another git operation is in progress (or was interrupted). Try again in a moment; if the problem "
+     "persists, delete the .git/index.lock file."),
     (("unmerged", "Unmerged paths", "fix conflicts", "CONFLICT"),
-     "Conflits non résolus : résous-les dans ton éditeur ou un terminal avant de continuer."),
+     "Unresolved conflicts: resolve them in your editor or a terminal before continuing."),
     (("did not match any file",),
-     "Fichier introuvable dans le dépôt : la liste a peut-être changé, actualise."),
+     "File not found in the repository: the list may have changed, refresh."),
     (("hook",),
-     "Un hook git a refusé l'opération : voir sa sortie ci-dessous."),
+     "A git hook rejected the operation: see its output below."),
 ]
 
 
 def friendly_error(raw, command):
-    """Message d'erreur lisible : explication en français, puis le détail de git."""
+    """Readable error message: a plain explanation, then git's details."""
     raw = raw.strip()
     for patterns, explanation in FRIENDLY_ERRORS:
         if any(pattern in raw for pattern in patterns):
-            return f"{explanation}\n\nDétail git : {raw[-800:]}"
-    return raw[-2000:] or f"git {command} a échoué"
+            return f"{tr(explanation)}\n\n{tr('Git details: {details}', details=raw[-800:])}"
+    return raw[-2000:] or tr("git {command} failed", command=command)
 
 
 def _env():
@@ -94,51 +97,51 @@ def run(root, *args, timeout=LOCAL_TIMEOUT, check=True):
             timeout=timeout, stdin=subprocess.DEVNULL, env=_env(),
         )
     except subprocess.TimeoutExpired:
-        raise GitError(f"git {args[0]} : délai dépassé") from None
+        raise GitError(tr("git {command}: timed out", command=args[0])) from None
     except OSError as exc:
-        raise GitError(f"impossible de lancer git : {exc}") from None
+        raise GitError(tr("Could not run git: {error}", error=exc)) from None
     if check and result.returncode != 0:
         raise GitError(friendly_error(f"{result.stderr}\n{result.stdout}", args[0]))
     return result
 
 
 def repo_root(path):
-    """Racine du dépôt qui contient ce dossier ; GitError s'il n'y en a pas."""
+    """Root of the repository that contains this folder; GitError if there is none."""
     if not isinstance(path, str) or not os.path.isdir(path):
-        raise GitError("dossier introuvable")
+        raise GitError(tr("Folder not found"))
     result = run(path, "rev-parse", "--show-toplevel", check=False)
     if result.returncode != 0:
-        raise GitError("ce dossier n'est pas dans un dépôt git")
+        raise GitError(tr("This folder is not in a git repository"))
     return result.stdout.strip()
 
 
 def _safe_files(root, files):
-    """Chemins relatifs au dépôt, refusés s'ils en sortent."""
+    """Paths relative to the repository, refused if they go outside it."""
     if not isinstance(files, list) or not files or len(files) > MAX_FILES:
-        raise GitError("liste de fichiers invalide")
+        raise GitError(tr("Invalid file list"))
     safe = []
     for name in files:
         if not isinstance(name, str) or not name or "\0" in name or os.path.isabs(name):
-            raise GitError("chemin de fichier invalide")
+            raise GitError(tr("Invalid file path"))
         full = os.path.normpath(os.path.join(root, name))
         if os.path.commonpath([root, full]) != root:
-            raise GitError("ce fichier est hors du dépôt")
+            raise GitError(tr("This file is outside the repository"))
         safe.append(os.path.relpath(full, root))
     return safe
 
 
 def _check_branch_name(root, name):
     if not isinstance(name, str) or not name or name.startswith("-"):
-        raise GitError("nom de branche invalide")
+        raise GitError(tr("Invalid branch name"))
     if run(root, "check-ref-format", "--branch", name, check=False).returncode != 0:
-        raise GitError(f"nom de branche invalide : {name}")
+        raise GitError(tr("Invalid branch name: {name}", name=name))
     return name
 
 
-# --- lecture --------------------------------------------------------------------------
+# --- reading --------------------------------------------------------------------------
 
 def state(path):
-    """Branche courante, avance/retard, fichiers modifiés (indexés ou non) et branches."""
+    """Current branch, ahead/behind, changed files (staged or not) and branches."""
     root = repo_root(path)
     porcelain = run(root, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all").stdout
     info = {"head": None, "upstream": None, "ahead": 0, "behind": 0}
@@ -161,7 +164,7 @@ def state(path):
             parts = token.split(" ", 8 if token[0] == "1" else 9)
             xy, file_path = parts[1], parts[-1]
             original = None
-            if token[0] == "2":  # renommage : le chemin d'origine suit
+            if token[0] == "2":  # rename: the original path follows
                 original = tokens[index]
                 index += 1
             if xy[0] != ".":
@@ -183,7 +186,7 @@ def state(path):
     for line in refs.splitlines():
         full, short, upstream, track, worktree = (line.split(FIELD) + ["", "", "", ""])[:5]
         if full.startswith("refs/heads/"):
-            # Branche ouverte dans un autre worktree : on ne peut pas y passer ici, mais on peut afficher ce worktree.
+            # Branch checked out in another worktree: cannot switch to it here, but that worktree can be shown.
             elsewhere = worktree and os.path.realpath(worktree) != os.path.realpath(root)
             local.append({
                 "name": short, "current": short == info["head"], "upstream": upstream or None, "track": track or "",
@@ -221,7 +224,7 @@ def _parse_refs(decoration):
 
 
 def log(path, limit=200):
-    """Historique de toutes les branches, du plus récent au plus ancien (pour le graphe)."""
+    """History of all branches, newest first (for the graph)."""
     root = repo_root(path)
     limit = max(1, min(int(limit), MAX_LOG))
     fmt = FIELD.join(["%H", "%P", "%an", "%at", "%s", "%D"]) + RECORD
@@ -229,7 +232,7 @@ def log(path, limit=200):
                  f"--max-count={limit}", f"--format={fmt}", check=False)
     if result.returncode != 0:
         if "does not have any commits" in result.stderr or "unknown revision" in result.stderr:
-            return []  # dépôt sans aucun commit
+            return []  # repository without any commit
         raise GitError(result.stderr.strip()[-2000:])
     commits = []
     for record in filter(None, (r.strip("\n") for r in result.stdout.split(RECORD))):
@@ -249,7 +252,7 @@ def log(path, limit=200):
 def commit_details(path, commit_hash):
     root = repo_root(path)
     if not isinstance(commit_hash, str) or not HASH_RE.match(commit_hash):
-        raise GitError("identifiant de commit invalide")
+        raise GitError(tr("Invalid commit id"))
     header = run(root, "show", "-s", f"--format=%H{FIELD}%an{FIELD}%ae{FIELD}%at{FIELD}%B", commit_hash).stdout
     full, author, email, timestamp, body = (header.split(FIELD, 4) + [""] * 5)[:5]
     names = run(root, "show", "--format=", "--name-status", "-z", "-M", "--diff-merges=first-parent", commit_hash).stdout
@@ -257,7 +260,7 @@ def commit_details(path, commit_hash):
     files, index = [], 0
     while index < len(tokens):
         code = tokens[index]
-        if code[0] in "RC":  # renommé ou copié : ancien chemin, puis nouveau
+        if code[0] in "RC":  # renamed or copied: old path, then new one
             files.append({"code": code[0], "from": tokens[index + 1], "path": tokens[index + 2]})
             index += 3
         else:
@@ -268,7 +271,7 @@ def commit_details(path, commit_hash):
 
 
 def diff(path, file_name, mode, commit_hash=None):
-    """Diff d'un fichier : non indexé, indexé, non suivi, ou dans un commit."""
+    """Diff of a file: unstaged, staged, untracked, or in a commit."""
     root = repo_root(path)
     (file_name,) = _safe_files(root, [file_name])
     if mode == "unstaged":
@@ -276,14 +279,14 @@ def diff(path, file_name, mode, commit_hash=None):
     elif mode == "staged":
         result = run(root, "diff", "--cached", "-M", "--", file_name)
     elif mode == "untracked":
-        # Fichier nouveau : comparé à « rien » (git renvoie 1 quand il y a une différence).
+        # New file: compared to "nothing" (git returns 1 when there is a difference).
         result = run(root, "diff", "--no-index", "--", os.devnull, file_name, check=False)
     elif mode == "commit":
         if not isinstance(commit_hash, str) or not HASH_RE.match(commit_hash):
-            raise GitError("identifiant de commit invalide")
+            raise GitError(tr("Invalid commit id"))
         result = run(root, "show", "--format=", "-M", "--diff-merges=first-parent", commit_hash, "--", file_name)
     else:
-        raise GitError("type de diff inconnu")
+        raise GitError(tr("Unknown diff type"))
     text = result.stdout
     return {"diff": text[:MAX_DIFF], "truncated": len(text) > MAX_DIFF}
 
@@ -305,13 +308,13 @@ def unstage(path, files=None):
     root = repo_root(path)
     targets = _safe_files(root, files) if files is not None else ["."]
     if run(root, "rev-parse", "--verify", "-q", "HEAD", check=False).returncode != 0:
-        # Pas encore de commit : on retire simplement les fichiers de l'index.
+        # No commit yet: simply remove the files from the index.
         return _output(run(root, "rm", "--cached", "-r", "-q", "--", *targets))
     return _output(run(root, "restore", "--staged", "--", *targets))
 
 
 def discard(path, files):
-    """Annule les modifications non indexées ; supprime les fichiers non suivis demandés."""
+    """Discards unstaged changes; deletes the requested untracked files."""
     root = repo_root(path)
     targets = _safe_files(root, files)
     untracked = {f["path"] for f in state(root)["files"]["untracked"]}
@@ -326,23 +329,23 @@ def discard(path, files):
 
 
 def has_staged_changes(root):
-    # Code 1 : l'index diffère du dernier commit (ou de l'arbre vide dans un dépôt sans commit).
+    # Exit code 1: the index differs from the last commit (or from the empty tree in a repository without commits).
     return run(root, "diff", "--cached", "--quiet", check=False).returncode == 1
 
 
 def commit(path, message):
     root = repo_root(path)
     if not has_staged_changes(root):
-        raise GitError(NOTHING_STAGED)
+        raise GitError(tr(NOTHING_STAGED))
     if not isinstance(message, str) or not message.strip():
-        raise GitError("le message de commit est vide")
+        raise GitError(tr("The commit message is empty"))
     if len(message) > 10_000:
-        raise GitError("message de commit trop long")
+        raise GitError(tr("Commit message too long"))
     return _output(run(root, "commit", "-m", message.strip()))
 
 
 def checkout(path, name):
-    """Passe sur une branche locale, ou crée la branche locale qui suit une branche distante."""
+    """Switches to a local branch, or creates the local branch that tracks a remote branch."""
     root = repo_root(path)
     current = state(root)
     local = {b["name"] for b in current["branches"]["local"]}
@@ -353,7 +356,7 @@ def checkout(path, name):
         if local_name in local:
             return _output(run(root, "switch", local_name))
         return _output(run(root, "switch", "-c", local_name, "--track", name))
-    raise GitError(f"branche inconnue : {name}")
+    raise GitError(tr("Unknown branch: {name}", name=name))
 
 
 def create_branch(path, name):
@@ -363,7 +366,7 @@ def create_branch(path, name):
 
 def fetch(path):
     root = repo_root(path)
-    return _output(run(root, "fetch", "--all", "--prune", timeout=NETWORK_TIMEOUT)) or "À jour."
+    return _output(run(root, "fetch", "--all", "--prune", timeout=NETWORK_TIMEOUT)) or tr("Up to date.")
 
 
 def pull(path):
@@ -372,15 +375,15 @@ def pull(path):
 
 
 def push(path):
-    """Pousse la branche courante ; sans branche distante associée, la crée sur le dépôt distant."""
+    """Pushes the current branch; without an associated remote branch, creates it on the remote."""
     root = repo_root(path)
     current = state(root)
     if current["detached"] or not current["branch"]:
-        raise GitError("aucune branche courante à pousser")
+        raise GitError(tr("No current branch to push"))
     if current["upstream"]:
         return _output(run(root, "push", timeout=NETWORK_TIMEOUT))
     remotes = current["remotes"]
     if not remotes:
-        raise GitError("aucun dépôt distant configuré")
+        raise GitError(tr("No remote repository configured"))
     remote = "origin" if "origin" in remotes else remotes[0]
     return _output(run(root, "push", "-u", remote, "HEAD", timeout=NETWORK_TIMEOUT))

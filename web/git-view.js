@@ -1,22 +1,26 @@
 // @ts-check
-// Écran Git de la carte de discussion, façon Sourcetree : barre d'outils (fetch, pull, push,
-// nouvelle branche), colonne de gauche (copie de travail, historique, branches), copie de travail
-// (indexer, désindexer, annuler, commiter) et historique (graphe, détail d'un commit, diffs).
+// Git screen of the chat card, Sourcetree style: toolbar (fetch, pull, push, new branch), left column
+// (working copy, history, branches), working copy (stage, unstage, discard, commit) and history (graph,
+// commit details, diffs).
 
 import { computeGraph } from "./git-graph.js";
+import { locale, t } from "./i18n.js";
 
-const ROW_HEIGHT = 28; // px, doit suivre .commit-row dans style.css
+const ROW_HEIGHT = 28; // px, must match .commit-row in style.css
 const LANE_WIDTH = 14;
 const MAX_DIFF_LINES = 4000;
 /**
- * Avance/retard d'une branche sur sa branche distante, tel que git le donne (« ahead 2, behind 1 », « gone »).
+ * How far a branch is ahead of / behind its remote branch, as git gives it ("ahead 2, behind 1", "gone").
  *
  * @param {string} track
  */
 const formatTrack = (track) =>
-  track.replace(/ahead (\d+)/, "↑$1").replace(/behind (\d+)/, "↓$1").replace(", ", " ").replace("gone", "distante supprimée");
+  track.replace(/ahead (\d+)/, "↑$1").replace(/behind (\d+)/, "↓$1").replace(", ", " ").replace("gone", t("remote deleted"));
 
-const STATUS_LABELS = { M: "modifié", A: "ajouté", D: "supprimé", R: "renommé", C: "copié", U: "en conflit", T: "type changé", "?": "nouveau" };
+const STATUS_LABELS = {
+  M: t("modified"), A: t("added"), D: t("deleted"), R: t("renamed"), C: t("copied"), U: t("conflicted"), T: t("type changed"),
+  "?": t("new"),
+};
 
 /**
  * @typedef {object} GitViewDeps
@@ -25,33 +29,33 @@ const STATUS_LABELS = { M: "modifié", A: "ajouté", D: "supprimé", R: "renomm�
  * @property {(d: string) => SVGElement} icon
  * @property {(options: {title: string, message: string, confirmLabel?: string, danger?: boolean}) => Promise<boolean>} confirmDialog
  * @property {(epochSeconds: number) => string} shortDate
- * @property {Record<string, string>} icons tracés d'icônes : refresh, fetch, pull, push, branch, plus, minus, undo
+ * @property {Record<string, string>} icons icon paths: refresh, fetch, pull, push, branch, plus, minus, undo
  */
 
 /**
- * Texte d'une erreur pour la ligne de statut : le serveur explique les erreurs git ; une requête
- * qui n'aboutit pas du tout signifie que le serveur ziggy-one ne répond plus.
+ * Text of an error for the status line: the server explains git errors; a request that does not get
+ * through at all means the ziggy-one server no longer answers.
  *
  * @param {unknown} err
  */
 function errorText(err) {
-  if (err instanceof TypeError) return "Le serveur ziggy-one ne répond pas : vérifie qu'il tourne, puis recharge la page.";
+  if (err instanceof TypeError) return t("The ziggy-one server is not responding: check that it is running, then reload the page.");
   return err instanceof Error ? err.message : String(err);
 }
 
 /**
- * @param {HTMLElement} root conteneur de l'écran
+ * @param {HTMLElement} root container of the screen
  * @param {GitViewDeps} deps
  */
 export function mountGitView(root, deps) {
   const { api, el, icon, confirmDialog, shortDate, icons } = deps;
-  /** @type {string | null} dossier de l'agent (dans le dépôt) */
+  /** @type {string | null} folder of the agent (inside the repository) */
   let home = null;
-  /** @type {string | null} dossier affiché : celui de l'agent, ou un autre worktree du dépôt */
+  /** @type {string | null} folder shown: the agent's, or another worktree of the repository */
   let path = null;
   /** @type {any} */
   let state = null;
-  let view = "working"; // « working » (copie de travail) ou « history »
+  let view = "working"; // "working" (working copy) or "history"
   /** @type {{mode: string, file: string, hash?: string} | null} */
   let selectedFile = null;
   /** @type {string | null} */
@@ -62,43 +66,43 @@ export function mountGitView(root, deps) {
   const toolbar = el("div", "git-toolbar");
   const repoInfo = el("div", "git-repo");
   const actions = el("div", "git-actions");
-  const fetchButton = toolButton(icons.fetch, "Fetch", "Récupérer les nouveautés du dépôt distant", () => runAction("fetch", {}, "Fetch terminé."));
-  const pullButton = toolButton(icons.pull, "Pull", "Intégrer les commits distants (avance rapide seulement)", () => runAction("pull", {}, "Pull terminé."));
-  const pushButton = toolButton(icons.push, "Push", "Envoyer les commits de la branche courante", () => runAction("push", {}, "Push terminé."));
-  const branchButton = toolButton(icons.branch, "Branche", "Créer une branche depuis la position actuelle", () => toggleBranchForm(true));
-  const refreshButton = toolButton(icons.refresh, "", "Actualiser", () => refresh());
+  const fetchButton = toolButton(icons.fetch, t("Fetch"), t("Get the latest changes from the remote repository"), () => runAction("fetch", {}, t("Fetch done.")));
+  const pullButton = toolButton(icons.pull, t("Pull"), t("Bring in the remote commits (fast-forward only)"), () => runAction("pull", {}, t("Pull done.")));
+  const pushButton = toolButton(icons.push, t("Push"), t("Send the commits of the current branch"), () => runAction("push", {}, t("Push done.")));
+  const branchButton = toolButton(icons.branch, t("Branch"), t("Create a branch from the current position"), () => toggleBranchForm(true));
+  const refreshButton = toolButton(icons.refresh, "", t("Refresh"), () => refresh());
   actions.append(fetchButton, pullButton, pushButton, branchButton, refreshButton);
   toolbar.append(repoInfo, actions);
 
   const sidebar = el("nav", "git-sidebar");
-  sidebar.setAttribute("aria-label", "Dépôt");
+  sidebar.setAttribute("aria-label", t("Repository"));
   const main = el("div", "git-main");
   const body = el("div", "git-body");
   body.append(sidebar, main);
   const statusLine = el("p", "git-status-line");
   statusLine.setAttribute("aria-live", "polite");
-  // Bandeau quand on regarde un autre worktree que celui de l'agent, avec de quoi y revenir.
+  // Banner when looking at a worktree other than the agent's, with a way back.
   const elsewhereBar = el("div", "git-elsewhere");
   elsewhereBar.hidden = true;
   const elsewhereText = el("span", "git-elsewhere-text");
-  const backHome = el("button", "", "Revenir au dossier de l'agent");
+  const backHome = el("button", "", t("Back to the agent's folder"));
   /** @type {HTMLButtonElement} */ (backHome).type = "button";
   backHome.addEventListener("click", () => home && show(home));
   elsewhereBar.append(elsewhereText, backHome);
   root.replaceChildren(toolbar, elsewhereBar, body, statusLine);
 
-  // Formulaire « nouvelle branche », affiché dans la colonne de gauche.
+  // "New branch" form, shown in the left column.
   const branchForm = el("form", "git-branch-form");
   const branchInput = /** @type {HTMLInputElement} */ (el("input", "text-input"));
-  Object.assign(branchInput, { placeholder: "nom-de-branche", autocomplete: "off", spellcheck: false });
-  branchInput.setAttribute("aria-label", "Nom de la nouvelle branche");
-  const branchCreate = el("button", "primary", "Créer");
+  Object.assign(branchInput, { placeholder: t("branch-name"), autocomplete: "off", spellcheck: false });
+  branchInput.setAttribute("aria-label", t("Name of the new branch"));
+  const branchCreate = el("button", "primary", t("Create"));
   /** @type {HTMLButtonElement} */ (branchCreate).type = "submit";
   branchForm.append(branchInput, branchCreate);
   branchForm.hidden = true;
   branchForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    runAction("branch", { name: branchInput.value.trim() }, `Branche « ${branchInput.value.trim()} » créée.`)
+    runAction("branch", { name: branchInput.value.trim() }, t("Branch \"{name}\" created.", { name: branchInput.value.trim() }))
       .then((ok) => ok && toggleBranchForm(false));
   });
   branchInput.addEventListener("keydown", (event) => {
@@ -143,7 +147,7 @@ export function mountGitView(root, deps) {
     statusLine.className = `git-status-line ${kind}`;
   }
 
-  // --- données -----------------------------------------------------------------------
+  // --- data --------------------------------------------------------------------------
 
   /** @param {string} route */
   const read = (route) => api(`/api/git/${route}${route.includes("?") ? "&" : "?"}path=${encodeURIComponent(path ?? "")}`);
@@ -161,7 +165,7 @@ export function mountGitView(root, deps) {
   }
 
   /**
-   * Lance une action git ; l'interface est bloquée pendant ce temps. Renvoie true si elle a réussi.
+   * Runs a git action; the interface is locked meanwhile. Returns true if it succeeded.
    *
    * @param {string} action
    * @param {object} params
@@ -171,7 +175,7 @@ export function mountGitView(root, deps) {
     if (busy || !path) return false;
     busy = true;
     root.classList.add("busy");
-    setStatus("Git travaille…");
+    setStatus(t("Git is working…"));
     try {
       const result = await api(`/api/git/${action}`, { path, ...params });
       state = result.state;
@@ -189,10 +193,10 @@ export function mountGitView(root, deps) {
     }
   }
 
-  // --- barre d'outils et colonne de gauche ------------------------------------------------
+  // --- toolbar and left column ----------------------------------------------------------
 
   function renderToolbar() {
-    const branch = state.detached ? "HEAD détachée" : state.branch;
+    const branch = state.detached ? t("detached HEAD") : state.branch;
     const sync = [];
     if (state.ahead) sync.push(`↑${state.ahead}`);
     if (state.behind) sync.push(`↓${state.behind}`);
@@ -201,7 +205,7 @@ export function mountGitView(root, deps) {
       el("span", "git-branch-chip", branch || "—"),
       ...(sync.length ? [el("span", "git-sync", sync.join(" "))] : []),
     );
-    repoInfo.title = `${state.root}${state.upstream ? ` · suit ${state.upstream}` : " · pas de branche distante associée"}`;
+    repoInfo.title = `${state.root} · ${state.upstream ? t("tracks {upstream}", { upstream: state.upstream }) : t("no associated remote branch")}`;
     elsewhereBar.hidden = path === home;
     elsewhereText.textContent = `Worktree ${state.root}`;
     elsewhereText.title = state.root;
@@ -222,32 +226,32 @@ export function mountGitView(root, deps) {
       return button;
     };
     const local = state.branches.local.map((/** @type {any} */ branch) => {
-      // Une branche ouverte dans un autre worktree ne peut pas l'être ici : un clic affiche ce worktree.
+      // A branch open in another worktree cannot be opened here: a click shows that worktree.
       const onClick = branch.worktree ? () => show(branch.worktree) : () => switchBranch(branch.name);
       const button = entry(branch.name, branch.current, onClick, formatTrack(branch.track));
       button.classList.add("git-branch");
       if (branch.worktree) {
         button.append(el("span", "git-worktree-badge", "worktree"));
-        button.title = `Ouverte dans le worktree ${branch.worktree} : clic pour l'afficher`;
+        button.title = t("Open in the worktree {worktree}: click to show it", { worktree: branch.worktree });
       } else {
-        button.title = branch.current ? "Branche courante" : `Passer sur ${branch.name}`;
+        button.title = branch.current ? t("Current branch") : t("Switch to {branch}", { branch: branch.name });
       }
       return button;
     });
     const remote = state.branches.remote.map((/** @type {string} */ name) => {
       const button = entry(name, false, () => switchBranch(name));
       button.classList.add("git-branch", "remote");
-      button.title = `Créer une branche locale qui suit ${name}`;
+      button.title = t("Create a local branch tracking {branch}", { branch: name });
       return button;
     });
     sidebar.replaceChildren(
-      section("Espace de travail"),
-      entry("Copie de travail", view === "working", () => showView("working"), changes ? String(changes) : ""),
-      entry("Historique", view === "history", () => showView("history")),
-      section("Branches"),
+      section(t("Workspace")),
+      entry(t("Working copy"), view === "working", () => showView("working"), changes ? String(changes) : ""),
+      entry(t("History"), view === "history", () => showView("history")),
+      section(t("Branches")),
       branchForm,
       ...local,
-      ...(remote.length ? [section("Distantes"), ...remote] : []),
+      ...(remote.length ? [section(t("Remote")), ...remote] : []),
     );
   }
 
@@ -255,7 +259,7 @@ export function mountGitView(root, deps) {
   async function switchBranch(name) {
     const local = state.branches.local.find((/** @type {any} */ b) => b.name === name);
     if (local?.current) return;
-    await runAction("checkout", { branch: name }, `Passé sur ${name.includes("/") && !local ? name.split("/").slice(1).join("/") : name}.`);
+    await runAction("checkout", { branch: name }, t("Switched to {branch}.", { branch: name.includes("/") && !local ? name.split("/").slice(1).join("/") : name }));
   }
 
   /** @param {string} next */
@@ -266,7 +270,7 @@ export function mountGitView(root, deps) {
     renderMain();
   }
 
-  // --- zone principale -----------------------------------------------------------------
+  // --- main area -----------------------------------------------------------------------
 
   async function renderMain() {
     if (view === "working") renderWorkingCopy();
@@ -282,24 +286,24 @@ export function mountGitView(root, deps) {
 
     const lists = el("div", "git-file-lists");
     lists.append(
-      fileGroup("Indexés", staged.map((/** @type {any} */ f) => ({ ...f, mode: "staged" })), {
-        allLabel: "Tout désindexer",
-        all: () => runAction("unstage", {}, "Fichiers désindexés."),
-        rowActions: (file) => [rowButton(icons.minus, "Désindexer", () => runAction("unstage", { files: [file.path] }, `${file.path} désindexé.`))],
+      fileGroup(t("Staged"), staged.map((/** @type {any} */ f) => ({ ...f, mode: "staged" })), {
+        allLabel: t("Unstage all"),
+        all: () => runAction("unstage", {}, t("Files unstaged.")),
+        rowActions: (file) => [rowButton(icons.minus, t("Unstage"), () => runAction("unstage", { files: [file.path] }, t("{file} unstaged.", { file: file.path })))],
       }),
-      fileGroup("Non indexés", all, {
-        allLabel: "Tout indexer",
-        all: () => runAction("stage", {}, "Fichiers indexés."),
+      fileGroup(t("Unstaged"), all, {
+        allLabel: t("Stage all"),
+        all: () => runAction("stage", {}, t("Files staged.")),
         rowActions: (file) => [
-          rowButton(icons.undo, "Annuler les modifications", () => discard(file)),
-          rowButton(icons.plus, "Indexer", () => runAction("stage", { files: [file.path] }, `${file.path} indexé.`)),
+          rowButton(icons.undo, t("Discard changes"), () => discard(file)),
+          rowButton(icons.plus, t("Stage"), () => runAction("stage", { files: [file.path] }, t("{file} staged.", { file: file.path }))),
         ],
       }),
     );
 
     const diffPane = el("div", "git-diff-pane");
     if (selectedFile) loadDiff(diffPane, selectedFile);
-    else diffPane.append(el("p", "muted small git-placeholder", staged.length + all.length ? "Sélectionne un fichier pour voir ses modifications." : "Aucune modification : la copie de travail est propre."));
+    else diffPane.append(el("p", "muted small git-placeholder", staged.length + all.length ? t("Select a file to see its changes.") : t("No changes: the working copy is clean.")));
 
     // Commit.
     const commitBox = el("form", "git-commit-box");
@@ -307,40 +311,40 @@ export function mountGitView(root, deps) {
     Object.assign(message, {
       rows: 2,
       placeholder: staged.length
-        ? "Message du commit… (laisse vide pour le générer et commiter) · Ctrl+Entrée pour commiter"
-        : "Indexe des fichiers pour pouvoir commiter.",
+        ? t("Commit message… (leave empty to generate it and commit) · Ctrl+Enter to commit")
+        : t("Stage files to be able to commit."),
     });
-    message.setAttribute("aria-label", "Message du commit");
-    const commitButton = /** @type {HTMLButtonElement} */ (el("button", "primary", `Commiter${staged.length ? ` (${staged.length})` : ""}`));
+    message.setAttribute("aria-label", t("Commit message"));
+    const commitButton = /** @type {HTMLButtonElement} */ (el("button", "primary", staged.length ? t("Commit ({count})", { count: staged.length }) : t("Commit")));
     commitButton.type = "submit";
     commitButton.disabled = staged.length === 0;
     commitBox.append(message, commitButton);
     commitBox.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (staged.length === 0) {
-        // Ctrl+Entrée passe outre le bouton désactivé : on explique plutôt que de tenter le commit.
-        setStatus("Aucun fichier indexé : indexe des fichiers (bouton + ou « Tout indexer ») avant de commiter.", "error");
+        // Ctrl+Enter bypasses the disabled button: explain instead of trying the commit.
+        setStatus(t("No staged files: stage files (+ button or \"Stage all\") before committing."), "error");
         return;
       }
       if (!message.value.trim()) {
-        // Champ vide : Claude écrit le message, puis le commit se fait aussitôt avec ce message.
+        // Empty field: Claude writes the message, then the commit is made right away with it.
         commitButton.disabled = true;
-        commitButton.textContent = "Génération…";
-        setStatus("Claude écrit le message de commit…");
+        commitButton.textContent = t("Generating…");
+        setStatus(t("Claude is writing the commit message…"));
         let generated;
         try {
           generated = (await api("/api/git/message", { path })).message;
         } catch (err) {
           setStatus(errorText(err), "error");
           commitButton.disabled = false;
-          commitButton.textContent = `Commiter (${staged.length})`;
+          commitButton.textContent = t("Commit ({count})", { count: staged.length });
           return;
         }
-        message.value = generated; // visible pendant le commit (et conservé s'il échoue)
-        runAction("commit", { message: generated }, `Commit créé avec le message généré :\n${generated}`);
+        message.value = generated; // visible during the commit (and kept if it fails)
+        runAction("commit", { message: generated }, t("Commit created with the generated message:\n{message}", { message: generated }));
         return;
       }
-      runAction("commit", { message: message.value }, "Commit créé.");
+      runAction("commit", { message: message.value }, t("Commit created."));
     });
     message.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commitBox.requestSubmit();
@@ -371,7 +375,7 @@ export function mountGitView(root, deps) {
       const item = el("li", `git-file${selectedFile?.file === file.path && selectedFile?.mode === file.mode ? " selected" : ""}`);
       const open = el("button", "git-file-open");
       /** @type {HTMLButtonElement} */ (open).type = "button";
-      open.title = `${STATUS_LABELS[file.code] || file.code} : ${file.from ? `${file.from} → ` : ""}${file.path}`;
+      open.title = t("{status}: {path}", { status: STATUS_LABELS[file.code] || file.code, path: `${file.from ? `${file.from} → ` : ""}${file.path}` });
       open.append(el("span", `git-code code-${file.code === "?" ? "N" : file.code}`, file.code === "?" ? "N" : file.code), el("span", "git-file-name", file.path));
       open.addEventListener("click", () => {
         selectedFile = { mode: file.mode, file: file.path };
@@ -382,7 +386,7 @@ export function mountGitView(root, deps) {
       item.append(open, rowActions);
       list.append(item);
     }
-    if (!files.length) list.append(el("li", "muted small git-empty", "Aucun fichier."));
+    if (!files.length) list.append(el("li", "muted small git-empty", t("No files.")));
     group.append(head, list);
     return group;
   }
@@ -406,14 +410,14 @@ export function mountGitView(root, deps) {
   async function discard(file) {
     const untracked = file.mode === "untracked";
     const confirmed = await confirmDialog({
-      title: untracked ? `Supprimer « ${file.path} » ?` : `Annuler les modifications de « ${file.path} » ?`,
+      title: untracked ? t("Delete \"{file}\"?", { file: file.path }) : t("Discard the changes to \"{file}\"?", { file: file.path }),
       message: untracked
-        ? "Ce fichier n'est pas suivi par git : il sera supprimé du disque. C'est irréversible."
-        : "Les modifications non indexées de ce fichier seront perdues. C'est irréversible.",
-      confirmLabel: untracked ? "Supprimer" : "Annuler les modifications",
+        ? t("This file is not tracked by git: it will be deleted from the disk. This cannot be undone.")
+        : t("The unstaged changes to this file will be lost. This cannot be undone."),
+      confirmLabel: untracked ? t("Delete") : t("Discard changes"),
       danger: true,
     });
-    if (confirmed) runAction("discard", { files: [file.path] }, `${file.path} : modifications annulées.`);
+    if (confirmed) runAction("discard", { files: [file.path] }, t("{file}: changes discarded.", { file: file.path }));
   }
 
   /**
@@ -421,7 +425,7 @@ export function mountGitView(root, deps) {
    * @param {{mode: string, file: string, hash?: string}} target
    */
   async function loadDiff(pane, target) {
-    pane.replaceChildren(el("p", "muted small git-placeholder", "Chargement du diff…"));
+    pane.replaceChildren(el("p", "muted small git-placeholder", t("Loading the diff…")));
     try {
       const hash = target.hash ? `&hash=${target.hash}` : "";
       const result = await read(`diff?mode=${target.mode}&file=${encodeURIComponent(target.file)}${hash}`);
@@ -438,7 +442,7 @@ export function mountGitView(root, deps) {
   function renderDiff(text, truncated) {
     const pre = el("pre", "git-diff");
     if (!text.trim()) {
-      pre.append(el("span", "diff-meta", "Aucune différence textuelle (fichier binaire ou changement de droits)."));
+      pre.append(el("span", "diff-meta", t("No text difference (binary file or permission change).")));
       return pre;
     }
     const lines = text.split("\n");
@@ -448,13 +452,13 @@ export function mountGitView(root, deps) {
       else if (line.startsWith("@@")) kind = "diff-hunk";
       else if (line.startsWith("+")) kind = "diff-add";
       else if (line.startsWith("-")) kind = "diff-del";
-      pre.append(el("span", kind, line)); // une ligne = un bloc (voir .git-diff > span)
+      pre.append(el("span", kind, line)); // one line = one block (see .git-diff > span)
     }
-    if (truncated || lines.length > MAX_DIFF_LINES) pre.append(el("span", "diff-meta", "… diff tronqué."));
+    if (truncated || lines.length > MAX_DIFF_LINES) pre.append(el("span", "diff-meta", t("… diff truncated.")));
     return pre;
   }
 
-  // --- historique ----------------------------------------------------------------------
+  // --- history -------------------------------------------------------------------------
 
   async function renderHistory() {
     const historyPane = el("div", "git-history");
@@ -468,7 +472,7 @@ export function mountGitView(root, deps) {
       return;
     }
     if (!commits.length) {
-      historyPane.append(el("p", "muted small git-placeholder", "Aucun commit pour l'instant."));
+      historyPane.append(el("p", "muted small git-placeholder", t("No commits yet.")));
       return;
     }
     const graph = computeGraph(commits);
@@ -492,7 +496,7 @@ export function mountGitView(root, deps) {
     });
     historyPane.append(list);
     if (selectedCommit && commits.some((/** @type {any} */ c) => c.hash === selectedCommit)) showCommit(details, selectedCommit);
-    else details.append(el("p", "muted small git-placeholder", "Sélectionne un commit pour voir son détail."));
+    else details.append(el("p", "muted small git-placeholder", t("Select a commit to see its details.")));
   }
 
   /** @param {import("./git-graph.js").GraphRow} row */
@@ -509,7 +513,7 @@ export function mountGitView(root, deps) {
     for (const segment of row.segments) {
       const path = document.createElementNS(ns, "path");
       const [x1, y1, x2, y2] = [x(segment.x1), y(segment.y1), x(segment.x2), y(segment.y2)];
-      // Ligne droite si même couloir, sinon courbe douce entre deux couloirs.
+      // Straight line within a lane, otherwise a smooth curve between two lanes.
       const midY = (y1 + y2) / 2;
       path.setAttribute("d", x1 === x2 ? `M${x1} ${y1}L${x2} ${y2}` : `M${x1} ${y1}C${x1} ${midY} ${x2} ${midY} ${x2} ${y2}`);
       path.setAttribute("class", `lane-${segment.lane % 8}`);
@@ -529,7 +533,7 @@ export function mountGitView(root, deps) {
    * @param {string} hash
    */
   async function showCommit(details, hash) {
-    details.replaceChildren(el("p", "muted small git-placeholder", "Chargement…"));
+    details.replaceChildren(el("p", "muted small git-placeholder", t("Loading…")));
     let commit;
     try {
       commit = await read(`commit?hash=${hash}`);
@@ -539,17 +543,17 @@ export function mountGitView(root, deps) {
     }
     const header = el("div", "git-commit-header");
     header.append(
-      el("strong", "git-commit-message", commit.message || "(sans message)"),
-      el("span", "muted small", `${commit.author} · ${new Date(commit.date * 1000).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })} · ${commit.hash.slice(0, 10)}`),
+      el("strong", "git-commit-message", commit.message || t("(no message)")),
+      el("span", "muted small", `${commit.author} · ${new Date(commit.date * 1000).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" })} · ${commit.hash.slice(0, 10)}`),
     );
     const files = el("ul", "git-files");
     const diffPane = el("div", "git-diff-pane");
-    diffPane.append(el("p", "muted small git-placeholder", commit.files.length ? "Sélectionne un fichier." : "Aucun fichier modifié."));
+    diffPane.append(el("p", "muted small git-placeholder", commit.files.length ? t("Select a file.") : t("No files changed.")));
     for (const file of commit.files) {
       const item = el("li", "git-file");
       const open = el("button", "git-file-open");
       /** @type {HTMLButtonElement} */ (open).type = "button";
-      open.title = `${STATUS_LABELS[file.code] || file.code} : ${file.from ? `${file.from} → ` : ""}${file.path}`;
+      open.title = t("{status}: {path}", { status: STATUS_LABELS[file.code] || file.code, path: `${file.from ? `${file.from} → ` : ""}${file.path}` });
       open.append(el("span", `git-code code-${file.code}`, file.code), el("span", "git-file-name", file.path));
       open.addEventListener("click", () => {
         for (const other of files.children) other.classList.toggle("selected", other === item);
@@ -564,7 +568,7 @@ export function mountGitView(root, deps) {
   }
 
   /**
-   * Affiche le dépôt de ce dossier (celui de l'agent, ou un autre worktree), depuis la copie de travail.
+   * Shows the repository of this folder (the agent's, or another worktree), starting from the working copy.
    *
    * @param {string} folder
    */
@@ -581,12 +585,12 @@ export function mountGitView(root, deps) {
 
   return {
     /**
-     * Affiche le dépôt qui contient ce dossier.
+     * Shows the repository that contains this folder.
      *
      * @param {string} folder
      */
     open(folder) {
-      // Même agent : on reste sur le worktree affiché ; autre agent : on repart de son dossier.
+      // Same agent: stay on the worktree shown; another agent: start again from its folder.
       if (folder !== home) {
         home = folder;
         return show(folder);

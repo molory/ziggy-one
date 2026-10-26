@@ -1,4 +1,4 @@
-"""Tests de l'onglet Terminal (faux claude dans un vrai pseudo-terminal) : python3 -m unittest discover -s tests"""
+"""Tests of the Terminal tab (fake claude in a real pseudo-terminal): python3 -m unittest discover -s tests"""
 
 import base64
 import json
@@ -36,7 +36,7 @@ class TerminalsTest(unittest.TestCase):
         self.addCleanup(self.terminals.stop_all)
 
     def screen(self):
-        """Tout ce que le terminal a affiché jusqu'ici (événements « terminal » reçus)."""
+        """Everything the terminal has shown so far ("terminal" events received)."""
         while not self.events.empty():
             self.seen.append(self.events.get_nowait())
         return b"".join(base64.b64decode(d["data"]) for kind, d in self.seen if kind == "terminal").decode()
@@ -47,14 +47,14 @@ class TerminalsTest(unittest.TestCase):
         screen = self.screen()
         self.assertIn("TTY True CTTY True", screen)
         self.assertIn('ARGS ["--resume", "abc"]', screen)
-        self.assertIn("ENV None xterm-256color", screen, "la session Claude Code parente n'est pas héritée")
-        self.terminals.write("c1", "bonjour\r")
-        self.assertTrue(wait_for(lambda: "GOT bonjour" in self.screen()))
+        self.assertIn("ENV None xterm-256color", screen, "the parent Claude Code session is not inherited")
+        self.terminals.write("c1", "hello\r")
+        self.assertTrue(wait_for(lambda: "GOT hello" in self.screen()))
         self.terminals.resize("c1", 120, 40)
         self.assertTrue(wait_for(lambda: "SIZE 120x40" in self.screen()))
         snapshot = self.terminals.snapshot("c1")
         self.assertTrue(snapshot["running"])
-        self.assertIn("GOT bonjour", base64.b64decode(snapshot["data"]).decode())
+        self.assertIn("GOT hello", base64.b64decode(snapshot["data"]).decode())
         self.assertGreater(snapshot["seq"], 0)
 
     def test_stop_closes_claude_and_reports_it(self):
@@ -94,9 +94,9 @@ class TerminalHttpTest(unittest.TestCase):
         nonce = first_headers["Content-Security-Policy"].split("'nonce-")[1].split("'")[0]
         self.assertIn(f'content="{nonce}"'.encode(), first)
         self.assertNotIn(b"__CSP_NONCE__", first)
-        self.assertNotEqual(first, second, "un nonce par chargement")
-        self.assertIn("script-src 'self';", first_headers["Content-Security-Policy"], "les scripts restent stricts")
-        self.assertIn("style-src-attr 'unsafe-inline'", first_headers["Content-Security-Policy"], "couleurs 24 bits de xterm.js")
+        self.assertNotEqual(first, second, "one nonce per load")
+        self.assertIn("script-src 'self';", first_headers["Content-Security-Policy"], "scripts stay strict")
+        self.assertIn("style-src-attr 'unsafe-inline'", first_headers["Content-Security-Policy"], "xterm.js 24-bit colours")
 
     def test_xterm_source_map_is_served(self):
         tmp = tempfile.TemporaryDirectory()
@@ -110,7 +110,7 @@ class TerminalHttpTest(unittest.TestCase):
         handler._static("/vendor/xterm/xterm.js.map")
         status, content_type, body = sent[0]
         self.assertEqual((status, content_type), (200, "application/json; charset=utf-8"))
-        self.assertEqual(len(json.loads(body)["sourcesContent"]), 87, "le code TypeScript d'origine")
+        self.assertEqual(len(json.loads(body)["sourcesContent"]), 87, "the original TypeScript code")
 
 
 if __name__ == "__main__":

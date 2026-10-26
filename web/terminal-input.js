@@ -1,11 +1,11 @@
 // @ts-check
-// Un message écrit hors du terminal (onglet Discussion), tel qu'on le taperait dans Claude Code.
+// A message written outside the terminal (Discussion tab), as one would type it in Claude Code.
 
 /**
- * Touches à envoyer pour taper `text` (sans l'Entrée finale) : chaque saut de ligne devient Échap+Entrée,
- * le retour à la ligne de Claude Code (Maj+Entrée du terminal). Les caractères de contrôle sont retirés : un
- * message ne peut pas glisser de séquence au terminal. Une tabulation devient des espaces (Tab complète, dans
- * Claude Code). Espaces et lignes vides en bout de message : retirés.
+ * Keys to send to type `text` (without the final Enter): each line break becomes Esc+Enter,
+ * Claude Code's line break (Shift+Enter in the terminal). Control characters are removed: a
+ * message cannot slip a sequence into the terminal. A tab becomes spaces (Tab completes, in
+ * Claude Code). Spaces and empty lines at the ends of the message: removed.
  *
  * @param {string} text
  */

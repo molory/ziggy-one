@@ -1,14 +1,15 @@
 // @ts-check
-// Mode Tâches : la fiche d'un ticket, dans une fenêtre (<dialog>). Titre, colonne, description en
-// Markdown (onglets Écrire / Aperçu), fichiers joints (bouton, glisser-déposer ou coller), suppression.
-// Les modifications s'enregistrent avec « Enregistrer » (ou Ctrl+Entrée) ; fermer avec des modifications
-// non enregistrées demande confirmation. Les fichiers et la colonne s'enregistrent tout de suite.
-// En bas, l'historique du ticket (tous ses changements, gardés par le serveur), du plus récent au plus ancien.
+// Tasks mode: a ticket's card, in a window (<dialog>). Title, column, Markdown description
+// (Write / Preview tabs), attached files (button, drag and drop or paste), deletion.
+// Changes are saved with "Save" (or Ctrl+Enter); closing with unsaved changes asks for confirmation.
+// Files and column are saved right away.
+// At the bottom, the ticket history (all its changes, kept by the server), newest first.
 
 import { formatSize } from "./files-tree.js";
+import { locale, t } from "./i18n.js";
 import { splitReferences, ticketUrl } from "./kanban-logic.js";
 
-const MAX_FILE = 25 * 1024 * 1024; // comme kanban.py
+const MAX_FILE = 25 * 1024 * 1024; // as in kanban.py
 
 /**
  * @typedef {import("./kanban-logic.js").Board} Board
@@ -21,14 +22,14 @@ const MAX_FILE = 25 * 1024 * 1024; // comme kanban.py
  * @property {{close: string, file: string}} icons
  * @property {(options: {title: string, message: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean}) => Promise<boolean>} confirmDialog
  * @property {(text: string, target: HTMLElement) => void} renderMarkdown
- * @property {(number: number) => {title: string, boardName: string} | undefined} lookup ticket d'après son numéro
- * @property {(number: number) => void} onOpen fiche ouverte (l'adresse devient /t/<numéro>)
- * @property {() => void} onClose fiche fermée
+ * @property {(number: number) => {title: string, boardName: string} | undefined} lookup ticket by its number
+ * @property {(number: number) => void} onOpen card opened (the address becomes /t/<number>)
+ * @property {() => void} onClose card closed
  */
 
 /**
- * Remplace, dans un texte déjà mis en forme, les « #42 » de tickets connus par des liens vers /t/42
- * (hors code et hors liens). Les nœuds sont créés un à un : aucun innerHTML.
+ * Replaces, in already formatted text, the "#42" of known tickets with links to /t/42
+ * (outside code and links). Nodes are created one by one: no innerHTML.
  *
  * @param {HTMLElement} root
  * @param {TicketDeps["lookup"]} lookup
@@ -61,7 +62,7 @@ const readBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.addEventListener("load", () => resolve(String(reader.result).split(",", 2)[1] ?? ""));
-    reader.addEventListener("error", () => reject(new Error(`lecture impossible : ${file.name}`)));
+    reader.addEventListener("error", () => reject(new Error(t("Cannot read {name}", { name: file.name }))));
     reader.readAsDataURL(file);
   });
 
@@ -81,22 +82,22 @@ export function mountTicketDialog(deps) {
 
   const title = /** @type {HTMLInputElement} */ (el("input", "ticket-title"));
   Object.assign(title, { maxLength: 200, autocomplete: "off", required: true });
-  title.setAttribute("aria-label", "Titre du ticket");
+  title.setAttribute("aria-label", t("Ticket title"));
   const close = el("button", "icon-button");
   close.type = "button";
-  close.title = "Fermer (Échap)";
-  close.setAttribute("aria-label", "Fermer");
+  close.title = t("Close (Esc)");
+  close.setAttribute("aria-label", t("Close"));
   close.append(icon(deps.icons.close));
-  // Numéro du ticket et bouton « Copier le lien » (adresse /t/<numéro>, à coller dans un ticket ou un agent).
-  // Le numéro copie aussi le lien (comme sur les cartes du tableau).
+  // Ticket number and "Copy link" button (address /t/<number>, to paste into a ticket or an agent).
+  // The number copies the link too (as on the board's cards).
   const number = el("button", "ticket-number");
   /** @type {HTMLButtonElement} */ (number).type = "button";
-  number.title = "Copier le lien du ticket";
-  const copy = el("button", "ticket-copy", "Copier le lien");
+  number.title = t("Copy the ticket link");
+  const copy = el("button", "ticket-copy", t("Copy link"));
   copy.type = "button";
   /** @type {number | undefined} */
   let copiedTimer;
-  // Lien à partager : avec sa clé de lecture, un agent peut lire le ticket (texte) en suivant ce lien.
+  // Link to share: with its read key, an agent can read the ticket (text) by following this link.
   /** @type {string | null} */
   let shareUrl = null;
   copy.addEventListener("click", async () => {
@@ -104,16 +105,16 @@ export function mountTicketDialog(deps) {
     const url = shareUrl ?? ticketUrl(location.origin, ticket.number);
     try {
       await navigator.clipboard.writeText(url);
-      copy.textContent = "Lien copié";
+      copy.textContent = t("Link copied");
       number.classList.add("copied");
     } catch {
-      // Presse-papiers refusé par le navigateur : on montre le lien à copier à la main.
+      // Clipboard blocked by the browser: show the link to copy by hand.
       copy.textContent = url;
     }
     copy.title = url;
     clearTimeout(copiedTimer);
     copiedTimer = window.setTimeout(() => {
-      copy.textContent = "Copier le lien";
+      copy.textContent = t("Copy link");
       number.classList.remove("copied");
     }, 2000);
   });
@@ -122,23 +123,23 @@ export function mountTicketDialog(deps) {
   head.append(number, title, copy, close);
 
   const columnSelect = /** @type {HTMLSelectElement} */ (el("select", "text-input ticket-column"));
-  columnSelect.setAttribute("aria-label", "Colonne");
+  columnSelect.setAttribute("aria-label", t("Column"));
   const dates = el("span", "muted small");
   const meta = el("div", "ticket-meta");
-  meta.append(el("span", "muted small", "Colonne"), columnSelect, dates);
+  meta.append(el("span", "muted small", t("Column")), columnSelect, dates);
 
-  // Description : Écrire / Aperçu.
+  // Description: Write / Preview.
   const tabs = el("div", "ticket-tabs");
   tabs.setAttribute("role", "tablist");
-  const writeTab = el("button", "", "Écrire");
-  const previewTab = el("button", "", "Aperçu");
+  const writeTab = el("button", "", t("Write"));
+  const previewTab = el("button", "", t("Preview"));
   for (const tab of [writeTab, previewTab]) {
     /** @type {HTMLButtonElement} */ (tab).type = "button";
     tab.setAttribute("role", "tab");
   }
   tabs.append(writeTab, previewTab);
   const description = /** @type {HTMLTextAreaElement} */ (el("textarea", "text-input ticket-description"));
-  description.placeholder = "Description (Markdown : titres, listes, `code`, liens…)";
+  description.placeholder = t("Description (Markdown: headings, lists, `code`, links…)");
   description.maxLength = 20000;
   description.setAttribute("aria-label", "Description");
   const preview = el("div", "ticket-preview markdown");
@@ -152,21 +153,21 @@ export function mountTicketDialog(deps) {
       preview.replaceChildren();
       if (description.value.trim()) {
         deps.renderMarkdown(description.value, preview);
-        linkReferences(preview, deps.lookup); // « #42 » : lien vers le ticket 42
+        linkReferences(preview, deps.lookup); // "#42": link to ticket 42
       }
-      else preview.append(el("p", "muted", "Pas de description."));
+      else preview.append(el("p", "muted", t("No description.")));
     }
   };
   writeTab.addEventListener("click", () => showTab(false));
   previewTab.addEventListener("click", () => showTab(true));
 
-  // Fichiers joints.
+  // Attached files.
   const files = el("ul", "ticket-files");
   const picker = /** @type {HTMLInputElement} */ (el("input"));
   picker.type = "file";
   picker.multiple = true;
   picker.hidden = true;
-  const attach = el("button", "", "Joindre des fichiers");
+  const attach = el("button", "", t("Attach files"));
   attach.type = "button";
   attach.addEventListener("click", () => picker.click());
   picker.addEventListener("change", () => {
@@ -174,56 +175,58 @@ export function mountTicketDialog(deps) {
     picker.value = "";
   });
   const filesSection = el("div", "ticket-files-section");
-  filesSection.append(el("h3", "settings-title", "Fichiers"), files, attach, picker,
-    el("p", "muted small", "Glisse ou colle des fichiers dans cette fenêtre. 25 Mo au maximum par fichier."));
+  filesSection.append(el("h3", "settings-title", t("Files")), files, attach, picker,
+    el("p", "muted small", t("Drag or paste files into this window. 25 MB max per file.")));
 
-  // Historique : relu à l'ouverture et à chaque changement du tableau.
+  // History: reloaded on opening and on every change of the board.
   const history = /** @type {HTMLDetailsElement} */ (el("details", "ticket-history"));
-  const historySummary = el("summary", "settings-title", "Historique");
+  const historySummary = el("summary", "settings-title", t("History"));
   const historyList = el("ol", "ticket-history-list");
   history.append(historySummary, historyList);
   let historyRequest = 0;
 
   /**
-   * Phrase d'un changement, avec les noms tels qu'ils étaient à ce moment-là.
+   * Sentence for a change, with the names as they were at that time.
    *
    * @param {any} entry
    */
   function describe(entry) {
-    const quote = (/** @type {string} */ text) => `« ${text} »`;
     switch (entry.kind) {
-      case "created": return `Créé dans ${quote(entry.column)}`;
-      case "title": return `Titre : ${quote(entry.before)} → ${quote(entry.after)}`;
-      case "description": return entry.before ? "Description modifiée" : "Description ajoutée";
-      case "moved": return `Déplacé de ${quote(entry.fromColumn)} vers ${quote(entry.toColumn)}${entry.reason ? ` (${entry.reason})` : ""}`;
-      case "file_added": return `Fichier joint : ${entry.name} (${formatSize(entry.size ?? 0)})`;
-      case "file_removed": return `Fichier retiré : ${entry.name}`;
+      case "created": return t("Created in \"{column}\"", { column: entry.column });
+      case "title": return t("Title: \"{before}\" → \"{after}\"", { before: entry.before, after: entry.after });
+      case "description": return entry.before ? t("Description changed") : t("Description added");
+      case "moved": {
+        const params = { from: entry.fromColumn, to: entry.toColumn, reason: t(entry.reason) };
+        return entry.reason ? t("Moved from \"{from}\" to \"{to}\" ({reason})", params) : t("Moved from \"{from}\" to \"{to}\"", params);
+      }
+      case "file_added": return t("File attached: {name} ({size})", { name: entry.name, size: formatSize(entry.size ?? 0) });
+      case "file_removed": return t("File removed: {name}", { name: entry.name });
       default: return entry.kind;
     }
   }
 
-  /** @param {any[]} entries du plus ancien au plus récent */
+  /** @param {any[]} entries oldest first */
   function renderHistory(entries) {
-    historySummary.textContent = `Historique (${entries.length})`;
+    historySummary.textContent = t("History ({count})", { count: entries.length });
     historyList.replaceChildren(...[...entries].reverse().map((entry) => {
       const item = el("li", `ticket-history-item kind-${entry.kind}`);
-      const when = el("time", "muted small", new Date(entry.at * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }));
+      const when = el("time", "muted small", new Date(entry.at * 1000).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" }));
       when.setAttribute("datetime", new Date(entry.at * 1000).toISOString());
       item.append(when, el("span", "", describe(entry)));
-      // Changement fait par un agent (outils MCP) : son nom.
-      if (entry.by && entry.by !== "user") item.append(el("span", "ticket-history-by muted small", `par ${entry.by}`));
-      // Description : avant / après, repliés.
+      // Change made by an agent (MCP tools): its name.
+      if (entry.by && entry.by !== "user") item.append(el("span", "ticket-history-by muted small", t("by {name}", { name: entry.by })));
+      // Description: before / after, collapsed.
       if (entry.kind === "description") {
         const diff = el("details", "ticket-history-diff");
-        diff.append(el("summary", "link-button", "Voir avant / après"));
-        for (const [label, text] of [["Avant", entry.before], ["Après", entry.after]]) {
-          diff.append(el("span", "muted small", label), el("pre", "ticket-history-text", text || "(vide)"));
+        diff.append(el("summary", "link-button", t("Show before / after")));
+        for (const [label, text] of [[t("Before"), entry.before], [t("After"), entry.after]]) {
+          diff.append(el("span", "muted small", label), el("pre", "ticket-history-text", text || t("(empty)")));
         }
         item.append(diff);
       }
       return item;
     }));
-    if (!entries.length) historyList.append(el("li", "muted small", "Aucun changement enregistré."));
+    if (!entries.length) historyList.append(el("li", "muted small", t("No recorded changes.")));
   }
 
   async function loadHistory() {
@@ -233,17 +236,17 @@ export function mountTicketDialog(deps) {
       const data = await api(`/api/kanbans/tickets/${ticket.id}/history`);
       if (request === historyRequest) renderHistory(data.history);
     } catch {
-      // Ticket supprimé entre-temps : la fiche se ferme d'elle-même.
+      // Ticket deleted in the meantime: the card closes by itself.
     }
   }
 
   const error = el("p", "form-error");
   error.hidden = true;
-  const remove = el("button", "danger", "Supprimer le ticket");
+  const remove = el("button", "danger", t("Delete ticket"));
   remove.type = "button";
-  const save = /** @type {HTMLButtonElement} */ (el("button", "primary", "Enregistrer"));
+  const save = /** @type {HTMLButtonElement} */ (el("button", "primary", t("Save")));
   save.type = "button";
-  save.title = "Enregistrer (Ctrl+Entrée)";
+  save.title = t("Save (Ctrl+Enter)");
   const footer = el("div", "ticket-footer");
   footer.append(remove, el("span", "spacer"), save);
 
@@ -263,7 +266,7 @@ export function mountTicketDialog(deps) {
   title.addEventListener("input", refreshSave);
   description.addEventListener("input", refreshSave);
 
-  /** Fichiers et colonne du ticket, d'après les dernières données reçues. */
+  /** The ticket's files and column, from the latest data received. */
   function renderLive() {
     if (!ticket || !board) return;
     columnSelect.replaceChildren(...board.columns.map((column) => {
@@ -272,8 +275,8 @@ export function mountTicketDialog(deps) {
       option.selected = column.id === ticket?.column;
       return option;
     }));
-    const when = (/** @type {number} */ t) => new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-    dates.textContent = `Créé le ${when(ticket.createdAt)} · modifié le ${when(ticket.updatedAt)}`;
+    const when = (/** @type {number} */ time) => new Date(time * 1000).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
+    dates.textContent = t("Created {created} · modified {updated}", { created: when(ticket.createdAt), updated: when(ticket.updatedAt) });
     files.replaceChildren(...ticket.files.map((file) => {
       const item = el("li", "ticket-file");
       const link = /** @type {HTMLAnchorElement} */ (el("a", "ticket-file-link"));
@@ -281,9 +284,9 @@ export function mountTicketDialog(deps) {
       link.target = "_blank";
       link.rel = "noopener";
       link.append(icon(deps.icons.file), el("span", "", file.name));
-      const drop = el("button", "link-button", "Retirer");
+      const drop = el("button", "link-button", t("Remove"));
       drop.type = "button";
-      drop.setAttribute("aria-label", `Retirer « ${file.name} »`);
+      drop.setAttribute("aria-label", t("Remove \"{name}\"", { name: file.name }));
       drop.addEventListener("click", async () => {
         try {
           await api(`/api/kanbans/tickets/${ticket?.id}/files/${file.id}/delete`, {});
@@ -294,7 +297,7 @@ export function mountTicketDialog(deps) {
       item.append(link, el("span", "muted small", formatSize(file.size)), drop);
       return item;
     }));
-    if (!ticket.files.length) files.append(el("li", "muted small", "Aucun fichier."));
+    if (!ticket.files.length) files.append(el("li", "muted small", t("No files.")));
   }
 
   /** @param {File[]} list */
@@ -304,7 +307,7 @@ export function mountTicketDialog(deps) {
     error.hidden = true;
     for (const file of list) {
       if (file.size > MAX_FILE) {
-        showError(`« ${file.name} » est trop gros (25 Mo au maximum).`);
+        showError(t("\"{name}\" is too large (25 MB max).", { name: file.name }));
         continue;
       }
       try {
@@ -350,9 +353,9 @@ export function mountTicketDialog(deps) {
   remove.addEventListener("click", async () => {
     if (!ticket) return;
     const confirmed = await deps.confirmDialog({
-      title: `Supprimer « ${ticket.title.slice(0, 60)} » ?`,
-      message: ticket.files.length ? "Le ticket et ses fichiers joints seront supprimés." : "Le ticket sera supprimé.",
-      confirmLabel: "Supprimer",
+      title: t("Delete \"{name}\"?", { name: ticket.title.slice(0, 60) }),
+      message: ticket.files.length ? t("The ticket and its attached files will be deleted.") : t("The ticket will be deleted."),
+      confirmLabel: t("Delete"),
       danger: true,
     });
     if (!confirmed || !ticket) return;
@@ -368,10 +371,10 @@ export function mountTicketDialog(deps) {
   async function requestClose() {
     if (dirty()) {
       const discard = await deps.confirmDialog({
-        title: "Fermer sans enregistrer ?",
-        message: "Tes modifications du titre ou de la description seront perdues.",
-        confirmLabel: "Fermer sans enregistrer",
-        cancelLabel: "Continuer",
+        title: t("Close without saving?"),
+        message: t("Your changes to the title or description will be lost."),
+        confirmLabel: t("Close without saving"),
+        cancelLabel: t("Keep editing"),
         danger: true,
       });
       if (!discard) return;
@@ -381,14 +384,14 @@ export function mountTicketDialog(deps) {
   }
   close.addEventListener("click", requestClose);
   dialog.addEventListener("cancel", (event) => {
-    event.preventDefault(); // Échap : même chemin que le bouton, pour ne rien perdre sans le dire
+    event.preventDefault(); // Esc: same path as the button, so nothing is lost silently
     requestClose();
   });
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) requestClose(); // clic sur le fond
+    if (event.target === dialog) requestClose(); // click on the backdrop
   });
 
-  // Fichiers glissés ou collés dans la fenêtre.
+  // Files dragged or pasted into the window.
   dialog.addEventListener("dragover", (event) => {
     if (!event.dataTransfer?.types.includes("Files")) return;
     event.preventDefault();
@@ -419,14 +422,14 @@ export function mountTicketDialog(deps) {
       ticket = next;
       number.textContent = `#${next.number}`;
       clearTimeout(copiedTimer);
-      copy.textContent = "Copier le lien";
+      copy.textContent = t("Copy link");
       copy.title = ticketUrl(location.origin, next.number);
       shareUrl = null;
       api(`/api/kanbans/tickets/${next.id}/link`)
         .then((link) => {
           if (ticket?.id === next.id) {
             shareUrl = `${location.origin}${link.path}`;
-            copy.title = `${shareUrl}\nAvec ce lien, un agent peut lire le ticket.`;
+            copy.title = `${shareUrl}\n${t("With this link, an agent can read the ticket.")}`;
           }
         })
         .catch(() => {});
@@ -440,14 +443,14 @@ export function mountTicketDialog(deps) {
       renderLive();
       refreshSave();
       historyList.replaceChildren();
-      historySummary.textContent = "Historique";
+      historySummary.textContent = t("History");
       loadHistory();
       if (!dialog.open) dialog.showModal();
       if (!next.description) description.focus();
       else title.focus();
     },
     /**
-     * Nouvelles données du tableau : la fiche suit (fichiers, colonne), ou se ferme si le ticket a disparu.
+     * New board data: the card follows (files, column), or closes if the ticket is gone.
      *
      * @param {{board: Board | null, tickets: Ticket[]}} data
      */
@@ -462,7 +465,7 @@ export function mountTicketDialog(deps) {
       }
       ticket = next;
       board = data.board;
-      // La saisie en cours est gardée ; si rien n'était modifié, on suit le serveur (autre onglet).
+      // The current input is kept; if nothing was changed, follow the server (another tab).
       if (title.value.trim() === saved.title && description.value === saved.description) {
         title.value = next.title;
         description.value = next.description;
@@ -472,7 +475,7 @@ export function mountTicketDialog(deps) {
       refreshSave();
       loadHistory();
     },
-    /** @param {string} boardId le tableau a été supprimé */
+    /** @param {string} boardId the board was deleted */
     boardDeleted(boardId) {
       if (ticket?.board === boardId && dialog.open) {
         ticket = null;

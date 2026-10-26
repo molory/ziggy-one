@@ -1,12 +1,12 @@
 // @ts-check
-// Répartition des agents entre workspaces. Sans DOM : testable avec Node.
+// Distribution of the agents among workspaces. Without DOM: testable with Node.
 
 import { pinIndex, rowKeys } from "./pins.js";
 
 /** @typedef {{id: string, name: string, hue?: number | null, agents: string[], shareActivity?: boolean}} Workspace */
 
 /**
- * Identifiant sous lequel l'agent figure dans le workspace, ou undefined s'il n'en fait pas partie.
+ * Id under which the agent appears in the workspace, or undefined if it is not part of it.
  *
  * @param {Workspace} workspace
  * @param {import("./pins.js").AgentRow} row
@@ -16,8 +16,8 @@ export function memberKey(workspace, row) {
 }
 
 /**
- * Agents de chaque workspace (dans l'ordre où ils ont été ajoutés), et agents hors workspace.
- * Une copie et sa session d'origine mènent à la même discussion : un seul des deux est gardé.
+ * Agents of each workspace (in the order they were added), and agents outside any workspace.
+ * A copy and its original session lead to the same discussion: only one of the two is kept.
  *
  * @template {import("./pins.js").AgentRow} T
  * @param {T[]} rows
@@ -49,31 +49,31 @@ export function splitByWorkspace(rows, workspaces) {
 }
 
 /**
- * État résumé d'un workspace : il réfléchit si l'un de ses agents réfléchit, il est ouvert si
- * l'un d'eux l'est.
+ * Summary state of a workspace: it is thinking if one of its agents is thinking, it is open if
+ * one of them is.
  *
- * @param {string[]} states états de ses agents (« busy », « active », « inactive »)
+ * @param {string[]} states states of its agents ("busy", "active", "inactive")
  */
 export function workspaceState(states) {
-  if (states.includes("waiting")) return "waiting"; // un agent du workspace attend ta réponse
+  if (states.includes("waiting")) return "waiting"; // an agent of the workspace is waiting for your answer
   if (states.includes("busy")) return "busy";
   if (states.includes("active")) return "active";
   return "inactive";
 }
 
 /**
- * Épingle d'un workspace, rangée avec celles des agents (aucun identifiant d'agent ne commence ainsi).
+ * Pin of a workspace, stored with the agents' pins (no agent id starts like this).
  *
  * @param {string} id
  */
 export const workspacePinKey = (id) => `workspace:${id}`;
 
 /**
- * Tête de liste : agents et workspaces épinglés, mêlés dans l'ordre des épingles ;
- * puis les workspaces non épinglés, dans leur ordre de création.
+ * Head of the list: pinned agents and workspaces, mixed in pin order;
+ * then the unpinned workspaces, in their creation order.
  *
  * @template {import("./pins.js").AgentRow} T
- * @param {T[]} pinnedRows agents épinglés (hors workspace)
+ * @param {T[]} pinnedRows pinned agents (outside any workspace)
  * @param {Workspace[]} workspaces
  * @param {string[]} pins
  */

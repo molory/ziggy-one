@@ -1,12 +1,12 @@
-"""Redémarrage propre du serveur, demandé depuis l'écran Configuration.
+"""Clean restart of the server, requested from the Configuration screen.
 
-1. Les agents au travail reçoivent dans leur terminal une demande de pause ; on attend qu'ils soient tous au
-   repos (20 minutes au plus). On peut forcer le redémarrage, ou l'annuler (les agents mis en pause reprennent).
-2. Le serveur note ce qu'il faudra rouvrir (restart.json), ferme ses terminaux et se relance (même commande).
-3. Au démarrage suivant, il rouvre les terminaux, dit aux agents mis en pause de reprendre, et garde le compte
-   rendu (last-restart.json) que l'interface affiche.
+1. Working agents get a pause request in their terminal; we wait until they are all idle (20 minutes at
+   most). The restart can be forced, or cancelled (paused agents resume).
+2. The server records what to reopen (restart.json), closes its terminals and relaunches itself (same command).
+3. On the next start, it reopens the terminals, tells the paused agents to resume, and keeps the report
+   (last-restart.json) that the interface shows.
 
-Chaque étape est publiée sur le flux temps réel (événement « server_restart »).
+Each step is published on the live stream ("server_restart" event).
 """
 
 import json
@@ -14,25 +14,27 @@ import threading
 import time
 from pathlib import Path
 
+from i18n import tr
 from storage import read_json, write_json
 
-WAIT_IDLE = 20 * 60  # secondes au plus pour que les agents se mettent au repos
+WAIT_IDLE = 20 * 60  # at most this many seconds for the agents to go idle
 POLL = 2
-REOPEN_DELAY = 12  # secondes : le temps que Claude Code se rouvre avant le message de reprise
-PAUSE = ("⏸ Le serveur ziggy-one va redémarrer. Termine proprement l'étape en cours (ne laisse rien à moitié), "
-         "écris en une phrase où tu en es, puis arrête-toi et attends. Tu reprendras au redémarrage.")
-RESUME = "▶ Le serveur ziggy-one a redémarré. Reprends là où tu t'étais arrêté."
+REOPEN_DELAY = 12  # seconds: time for Claude Code to reopen before the resume message
+PAUSE = ("⏸ The ziggy-one server is about to restart. Finish the current step cleanly (leave nothing half done), "
+         "write one sentence on where you are, then stop and wait. You will resume after the restart.")
+RESUME = "▶ The ziggy-one server has restarted. Pick up where you left off."
+CANCELLED = "▶ The ziggy-one server will not restart after all. Pick up where you left off."
 
 
 def type_message(terminals, conversation_id, text):
-    """Comme au clavier : le texte, puis Entrée à part (sinon Claude Code y voit un collage)."""
+    """Like typing: the text, then Enter separately (otherwise Claude Code sees a paste)."""
     try:
         terminals.write(conversation_id, text)
         time.sleep(0.3)
         terminals.write(conversation_id, "\r")
         return True
     except (RuntimeError, ValueError, OSError):
-        return False  # terminal fermé entre-temps
+        return False  # terminal closed in the meantime
 
 
 class Restart:
@@ -44,12 +46,12 @@ class Restart:
         self._poll = poll
         self._reopen_delay = reopen_delay
         self._lock = threading.Lock()
-        self._state = None  # demande en cours : {phase, requestedAt, deadline, paused, waiting}
+        self._state = None  # pending request: {phase, requestedAt, deadline, paused, waiting}
         self._force = threading.Event()
         self._cancel = threading.Event()
         last = read_json(self._last_path, None)
         self.last = last if isinstance(last, dict) else None
-        self.requested = False  # lu par main() : relancer le processus après l'arrêt
+        self.requested = False  # read by main(): relaunch the process after shutdown
 
     def snapshot(self):
         with self._lock:
@@ -61,12 +63,12 @@ class Restart:
     def _busy(self):
         return [c["id"] for c in self._server.conversations.list() if c.get("busy")]
 
-    # --- demande, forçage, annulation ---------------------------------------------------------------
+    # --- request, force, cancel --------------------------------------------------------------------
 
     def request(self):
         with self._lock:
             if self._state:
-                raise RuntimeError("un redémarrage est déjà demandé")
+                raise RuntimeError(tr("A restart is already requested"))
             now = time.time()
             self._state = {"phase": "waiting", "requestedAt": now, "deadline": now + self._wait_idle,
                            "paused": [], "waiting": []}
@@ -77,13 +79,13 @@ class Restart:
 
     def force(self):
         if not self.snapshot():
-            raise RuntimeError("aucun redémarrage en cours")
+            raise RuntimeError(tr("No restart in progress"))
         self._force.set()
 
     def cancel(self):
         state = self.snapshot()
         if not state or state["phase"] != "waiting":
-            raise RuntimeError("aucun redémarrage en attente")
+            raise RuntimeError(tr("No pending restart"))
         self._cancel.set()
 
     def _run(self):
@@ -95,7 +97,7 @@ class Restart:
         while time.time() < deadline and not self._force.is_set():
             if self._cancel.is_set():
                 for cid in paused:
-                    type_message(terminals, cid, RESUME.replace("a redémarré", "ne redémarre finalement pas"))
+                    type_message(terminals, cid, CANCELLED)
                 with self._lock:
                     self._state = None
                 self._publish()
@@ -109,21 +111,21 @@ class Restart:
             if not busy:
                 break
             self._force.wait(self._poll)
-        # Relance : ce qu'il faudra rouvrir, puis arrêt du serveur (main() relance le processus).
+        # Relaunch: what to reopen, then server shutdown (main() relaunches the process).
         with self._lock:
             self._state["phase"] = "restarting"
             requested_at = self._state["requestedAt"]
         write_json(self._handoff, {"requestedAt": requested_at, "terminals": terminals.list(), "paused": paused,
                                    "forced": self._force.is_set()})
         self._publish()
-        time.sleep(0.5)  # le temps que l'événement parte vers les onglets
+        time.sleep(0.5)  # time for the event to reach the tabs
         self.requested = True
         threading.Thread(target=self._server.shutdown, daemon=True).start()
 
-    # --- au démarrage suivant -------------------------------------------------------------------------
+    # --- on the next start ---------------------------------------------------------------------------
 
     def resume_after_restart(self):
-        """À lancer une fois le serveur prêt : rouvre les terminaux d'avant le redémarrage, puis la reprise."""
+        """Run once the server is ready: reopens the terminals from before the restart, then the resume."""
         handoff = read_json(self._handoff, None)
         if not isinstance(handoff, dict):
             return

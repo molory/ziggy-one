@@ -1,9 +1,9 @@
-"""Liens de connexion à usage unique : /?login=<expiration>.<aléa>.<signature>.
+"""Single-use sign-in links: /?login=<expiry>.<nonce>.<signature>.
 
-`ziggy` ouvre le navigateur sur un tel lien plutôt que sur /?token=… : l'adresse, qui passe par la ligne de
-commande du navigateur, son historique ou un journal, ne vaut plus rien une fois utilisée, ni après LIFETIME.
-La signature est un HMAC par le token du serveur : un autre processus qui lit le fichier du token (0600) peut
-en fabriquer un, par exemple `ziggy` lancé alors que le serveur tourne déjà.
+`ziggy` opens the browser on such a link rather than on /?token=…: the address, which goes through the
+browser's command line, its history or a log, is worthless once used, and after LIFETIME.
+The signature is an HMAC with the server token: another process that reads the token file (0600) can
+make one, for example `ziggy` started while the server is already running.
 """
 
 import hashlib
@@ -12,7 +12,7 @@ import secrets
 import threading
 import time
 
-LIFETIME = 300  # secondes
+LIFETIME = 300  # seconds
 
 
 def _signature(token, expires, nonce):
@@ -26,11 +26,11 @@ def make(token, now=None):
 
 
 class LoginLinks:
-    """Côté serveur : un lien valide n'ouvre qu'une session, les liens utilisés sont oubliés à leur expiration."""
+    """Server side: a valid link opens only one session, used links are forgotten when they expire."""
 
     def __init__(self, token):
         self.token = token
-        self._used = {}  # aléa → expiration
+        self._used = {}  # nonce → expiry
         self._lock = threading.Lock()
 
     def make(self):

@@ -1,9 +1,10 @@
 // @ts-check
-// Onglet Raccourcis : les prompts tout prêts d'un agent (à lui seul), et ceux de son workspace, communs à
-// tous ses agents (gérés dans la vue du workspace). L'éditeur sert aux deux : ajouter, modifier, ordonner,
-// supprimer. L'ordre compte : dans le Terminal, les dix premiers ont un chiffre (Ctrl+Maj+1…9, 0).
-// Aucun contenu ne passe par innerHTML.
+// Shortcuts tab: an agent's ready-made prompts (its own), and those of its workspace, shared by
+// all its agents (managed in the workspace view). The editor serves both: add, edit, reorder,
+// delete. The order matters: in the Terminal, the first ten have a digit (Ctrl+Shift+1…9, 0).
+// No content goes through innerHTML.
 
+import { t } from "./i18n.js";
 import { MAX_ITEMS, moveItem, panelItems, shortcutLabel } from "./shortcuts-logic.js";
 
 /**
@@ -26,7 +27,7 @@ export const SHORTCUT_ICONS = {
 };
 
 /**
- * Titre et prompt d'un raccourci ; sans titre, le prompt d'une ligne n'est pas répété dessous.
+ * Title and prompt of a shortcut; without a title, a one-line prompt is not repeated below it.
  *
  * @param {EditorDeps["el"]} el
  * @param {Shortcut} shortcut
@@ -40,10 +41,10 @@ function shortcutText(el, shortcut) {
 }
 
 /**
- * Éditeur d'une liste de raccourcis. `save` reçoit la liste complète, dans l'ordre ; il rejette en cas d'erreur.
+ * Editor of a list of shortcuts. `save` receives the full list, in order; it rejects on error.
  *
  * @param {EditorDeps} deps
- * @param {{emptyText: string, digits: boolean}} options digits : afficher le chiffre du Terminal
+ * @param {{emptyText: string, digits: boolean}} options digits: show the Terminal digit
  */
 export function createShortcutsEditor(deps, options) {
   const { el, icon, confirmDialog } = deps;
@@ -53,14 +54,14 @@ export function createShortcutsEditor(deps, options) {
   error.hidden = true;
   const add = /** @type {HTMLButtonElement} */ (el("button", "shortcut-add"));
   add.type = "button";
-  add.append(icon(SHORTCUT_ICONS.plus), el("span", "", "Nouveau raccourci"));
+  add.append(icon(SHORTCUT_ICONS.plus), el("span", "", t("New shortcut")));
   node.append(list, error, add);
 
   /** @type {Shortcut[]} */
   let items = [];
   /** @type {(items: Shortcut[]) => Promise<void>} */
   let save = async () => {};
-  /** @type {number | "new" | null} raccourci en cours d'édition */
+  /** @type {number | "new" | null} shortcut being edited */
   let editing = null;
 
   /** @param {Shortcut[]} next */
@@ -77,7 +78,7 @@ export function createShortcutsEditor(deps, options) {
   }
 
   /**
-   * Petit bouton icône.
+   * Small icon button.
    *
    * @param {string} d
    * @param {string} label
@@ -96,7 +97,7 @@ export function createShortcutsEditor(deps, options) {
   }
 
   /**
-   * Formulaire d'un raccourci (nouveau ou existant).
+   * Form of a shortcut (new or existing).
    *
    * @param {Shortcut | null} shortcut
    * @param {number | "new"} index
@@ -104,18 +105,18 @@ export function createShortcutsEditor(deps, options) {
   function form(shortcut, index) {
     const formEl = /** @type {HTMLFormElement} */ (el("form", "shortcut-form"));
     const title = /** @type {HTMLInputElement} */ (el("input", "text-input"));
-    Object.assign(title, { maxLength: 80, placeholder: "Titre (facultatif)", value: shortcut?.title ?? "", autocomplete: "off" });
-    title.setAttribute("aria-label", "Titre du raccourci");
+    Object.assign(title, { maxLength: 80, placeholder: t("Title (optional)"), value: shortcut?.title ?? "", autocomplete: "off" });
+    title.setAttribute("aria-label", t("Shortcut title"));
     const prompt = /** @type {HTMLTextAreaElement} */ (el("textarea", "text-input"));
-    Object.assign(prompt, { rows: 4, maxLength: 20000, required: true, placeholder: "Le prompt envoyé à l'agent…", value: shortcut?.prompt ?? "" });
+    Object.assign(prompt, { rows: 4, maxLength: 20000, required: true, placeholder: t("The prompt sent to the agent…"), value: shortcut?.prompt ?? "" });
     prompt.setAttribute("aria-label", "Prompt");
-    const cancel = el("button", "", "Annuler");
+    const cancel = el("button", "", t("Cancel"));
     /** @type {HTMLButtonElement} */ (cancel).type = "button";
     cancel.addEventListener("click", () => {
       editing = null;
       render();
     });
-    const submit = el("button", "primary", shortcut ? "Enregistrer" : "Ajouter");
+    const submit = el("button", "primary", shortcut ? t("Save") : t("Add"));
     /** @type {HTMLButtonElement} */ (submit).type = "submit";
     const buttons = el("div", "shortcut-form-actions");
     buttons.append(cancel, submit);
@@ -130,7 +131,7 @@ export function createShortcutsEditor(deps, options) {
         render();
       }
     });
-    // Ctrl+Entrée enregistre ; Échap annule.
+    // Ctrl+Enter saves; Esc cancels.
     formEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
@@ -158,17 +159,17 @@ export function createShortcutsEditor(deps, options) {
     const digit = index < 10 ? (index === 9 ? "0" : String(index + 1)) : "";
     const actions = el("div", "shortcut-actions");
     actions.append(
-      action(SHORTCUT_ICONS.up, "Monter", () => commit(moveItem(items, index, -1)), index === 0),
-      action(SHORTCUT_ICONS.down, "Descendre", () => commit(moveItem(items, index, 1)), index === items.length - 1),
-      action(SHORTCUT_ICONS.edit, "Modifier", () => {
+      action(SHORTCUT_ICONS.up, t("Move up"), () => commit(moveItem(items, index, -1)), index === 0),
+      action(SHORTCUT_ICONS.down, t("Move down"), () => commit(moveItem(items, index, 1)), index === items.length - 1),
+      action(SHORTCUT_ICONS.edit, t("Edit"), () => {
         editing = index;
         render();
       }),
-      action(SHORTCUT_ICONS.trash, "Supprimer", async () => {
+      action(SHORTCUT_ICONS.trash, t("Delete"), async () => {
         const confirmed = await confirmDialog({
-          title: "Supprimer ce raccourci ?",
-          message: `« ${shortcutLabel(shortcut)} » ne sera plus proposé.`,
-          confirmLabel: "Supprimer",
+          title: t("Delete this shortcut?"),
+          message: t("\"{name}\" will no longer be offered.", { name: shortcutLabel(shortcut) }),
+          confirmLabel: t("Delete"),
           danger: true,
         });
         if (confirmed) commit(items.filter((_, i) => i !== index));
@@ -199,7 +200,7 @@ export function createShortcutsEditor(deps, options) {
   return {
     node,
     /**
-     * Nouvelle liste (données reçues) ; un formulaire ouvert reste ouvert.
+     * New list (data received); an open form stays open.
      *
      * @param {Shortcut[]} next
      * @param {(items: Shortcut[]) => Promise<void>} onSave
@@ -209,10 +210,10 @@ export function createShortcutsEditor(deps, options) {
       items = next;
       save = onSave;
       if (typeof editing === "number" && (changedLength || editing >= items.length)) editing = null;
-      // Formulaire ouvert : on ne le redessine pas (la saisie en cours serait perdue).
+      // Open form: not redrawn (the input in progress would be lost).
       if (editing === null) render();
     },
-    /** Change d'agent ou de workspace : formulaire fermé. */
+    /** Change of agent or workspace: form closed. */
     reset() {
       editing = null;
       error.hidden = true;
@@ -228,11 +229,11 @@ export function createShortcutsEditor(deps, options) {
  * @property {() => ShortcutData} data
  * @property {(conversation: any, items: Shortcut[]) => Promise<void>} saveAgent
  * @property {(conversation: any) => {id: string, name: string} | null} workspaceOf
- * @property {(workspaceId: string) => void} openWorkspace ouvre les raccourcis du workspace
+ * @property {(workspaceId: string) => void} openWorkspace opens the workspace's shortcuts
  */
 
 /**
- * Onglet Raccourcis d'un agent.
+ * Shortcuts tab of an agent.
  *
  * @param {HTMLElement} root
  * @param {ShortcutsViewDeps} deps
@@ -243,17 +244,16 @@ export function mountShortcutsView(root, deps) {
   let shown = null;
 
   const intro = el("p", "shortcut-intro muted small");
-  intro.append(
-    "Dans le Terminal, maintiens ",
-    el("kbd", "", "Ctrl"), " + ", el("kbd", "", "Maj"),
-    " pour voir les raccourcis, puis appuie sur un chiffre pour envoyer le prompt (ou clique dessus).",
-  );
-  const ownTitle = el("h3", "settings-title", "Raccourcis de cet agent");
-  const editor = createShortcutsEditor(deps, { emptyText: "Aucun raccourci pour cet agent.", digits: true });
+  // One sentence with the keys in it: {ctrl} and {shift} become <kbd> elements.
+  const keys = { ctrl: el("kbd", "", "Ctrl"), shift: el("kbd", "", t("Shift")) };
+  const sentence = t("In the Terminal, hold {ctrl} + {shift} to see the shortcuts, then press a digit to send the prompt (or click it).");
+  intro.append(...sentence.split(/(\{ctrl\}|\{shift\})/).map((part) => (part === "{ctrl}" ? keys.ctrl : part === "{shift}" ? keys.shift : part)));
+  const ownTitle = el("h3", "settings-title", t("This agent's shortcuts"));
+  const editor = createShortcutsEditor(deps, { emptyText: t("No shortcuts for this agent."), digits: true });
   const sharedSection = el("section", "shortcut-shared");
   const sharedTitle = el("h3", "settings-title");
   const sharedList = el("ol", "shortcut-list readonly");
-  const manage = el("button", "", "Gérer les raccourcis du workspace");
+  const manage = el("button", "", t("Manage the workspace's shortcuts"));
   /** @type {HTMLButtonElement} */ (manage).type = "button";
   manage.addEventListener("click", () => {
     const workspace = shown && deps.workspaceOf(shown);
@@ -274,13 +274,13 @@ export function mountShortcutsView(root, deps) {
     editor.set(own, (next) => deps.saveAgent(conversation, next));
     sharedSection.hidden = !workspace;
     if (!workspace) return;
-    sharedTitle.textContent = `Raccourcis du workspace « ${workspace.name} »`;
+    sharedTitle.textContent = t("Shortcuts of the \"{name}\" workspace", { name: workspace.name });
     const shared = items.filter((item) => item.source === "workspace");
     sharedList.replaceChildren(...(shared.length ? shared.map((item) => {
       const li = el("li", "shortcut-item");
       li.append(el("kbd", `shortcut-digit${item.digit ? "" : " none"}`, item.digit ?? ""), shortcutText(el, item.shortcut));
       return li;
-    }) : [el("li", "shortcut-empty muted small", "Aucun raccourci commun pour l'instant.")]));
+    }) : [el("li", "shortcut-empty muted small", t("No shared shortcuts yet."))]));
   }
 
   return {
@@ -293,7 +293,7 @@ export function mountShortcutsView(root, deps) {
     hide() {
       shown = null;
     },
-    /** Données changées (ici ou ailleurs). */
+    /** Data changed (here or elsewhere). */
     refresh() {
       render();
     },

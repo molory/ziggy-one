@@ -1,4 +1,4 @@
-"""Tests du choix de dossier d'un nouvel agent : python3 -m unittest discover -s tests"""
+"""Tests of choosing the folder of a new agent: python3 -m unittest discover -s tests"""
 
 import os
 import sys
@@ -18,29 +18,29 @@ class FoldersTest(unittest.TestCase):
         self.root = Path(tmp.name)
         for name in ("beta", "Alpha", ".cache", "gamma"):
             (self.root / name).mkdir()
-        (self.root / "fichier.txt").write_text("contenu")
-        os.symlink(self.root / "gamma", self.root / "lien-gamma")
+        (self.root / "file.txt").write_text("content")
+        os.symlink(self.root / "gamma", self.root / "link-gamma")
 
     def test_resolve_dir_validates(self):
         self.assertEqual(resolve_dir(f"  {self.root}/beta/../gamma  "), (self.root / "gamma").resolve())
-        for bad in ("", "   ", None, 12, "relatif/chemin", str(self.root / "absent"), str(self.root / "fichier.txt")):
+        for bad in ("", "   ", None, 12, "relative/path", str(self.root / "absent"), str(self.root / "file.txt")):
             with self.assertRaises(ValueError):
                 resolve_dir(bad)
 
     def test_lists_visible_subfolders_sorted(self):
         listing = list_subfolders(str(self.root))
-        self.assertEqual(listing["dirs"], ["Alpha", "beta", "gamma", "lien-gamma"])  # ni caché, ni fichier
+        self.assertEqual(listing["dirs"], ["Alpha", "beta", "gamma", "link-gamma"])  # neither hidden nor file
         self.assertEqual(listing["path"], str(self.root.resolve()))
         self.assertEqual(listing["parent"], str(self.root.resolve().parent))
         self.assertFalse(listing["truncated"])
         self.assertIsNone(list_subfolders("/")["parent"])
 
     def test_unreadable_folder(self):
-        locked = self.root / "verrouille"
+        locked = self.root / "locked"
         locked.mkdir(mode=0o000)
         self.addCleanup(locked.chmod, 0o700)
-        if os.access(locked, os.R_OK):  # exécuté en root : le test n'a pas de sens
-            self.skipTest("droits ignorés pour cet utilisateur")
+        if os.access(locked, os.R_OK):  # run as root: the test makes no sense
+            self.skipTest("permissions ignored for this user")
         with self.assertRaises(ValueError):
             list_subfolders(str(locked))
 
@@ -49,7 +49,7 @@ class FoldersTest(unittest.TestCase):
         self.assertEqual(created, self.root.resolve() / "delta")
         self.assertTrue(created.is_dir())
         self.assertIn("delta", list_subfolders(str(self.root))["dirs"])
-        for bad in ("", "  ", None, "a/b", "..", ".cache-bis", "x" * 256, "delta", "fichier.txt"):
+        for bad in ("", "  ", None, "a/b", "..", ".cache-bis", "x" * 256, "delta", "file.txt"):
             with self.assertRaises(ValueError):
                 create_subfolder(str(self.root), bad)
         with self.assertRaises(ValueError):
@@ -60,9 +60,9 @@ class FoldersTest(unittest.TestCase):
         (repo / ".git").mkdir()
         (repo / "src" / "module").mkdir(parents=True)
         worktree = self.root / "beta"
-        (worktree / ".git").write_text("gitdir: /ailleurs")  # worktree : .git est un fichier
+        (worktree / ".git").write_text("gitdir: /elsewhere")  # worktree: .git is a file
         self.assertTrue(in_git_repo(str(repo)))
-        self.assertTrue(in_git_repo(str(repo / "src" / "module")))  # sous-dossier d'un dépôt
+        self.assertTrue(in_git_repo(str(repo / "src" / "module")))  # subfolder of a repository
         self.assertTrue(in_git_repo(str(worktree)))
         self.assertFalse(in_git_repo(str(self.root / "gamma")))
         for bad in (None, "", 12):
@@ -74,7 +74,7 @@ class FoldersTest(unittest.TestCase):
             {"cwd": alpha, "updatedAt": 10},
             {"cwd": beta, "updatedAt": 30},
             {"cwd": alpha, "updatedAt": 50},
-            {"cwd": str(self.root / "disparu"), "updatedAt": 99},  # n'existe plus
+            {"cwd": str(self.root / "gone"), "updatedAt": 99},  # no longer exists
             {"cwd": gamma, "updatedAt": 20},
             {"cwd": None},
         ]

@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Hook Claude Code des terminaux de ziggy-one (SessionStart, UserPromptSubmit, Stop, Notification, PostToolUse).
+"""Claude Code hook of the ziggy-one terminals (SessionStart, UserPromptSubmit, Stop, Notification, PostToolUse).
 
-Ziggy lance Claude Code avec `--settings` : ce script reçoit l'événement sur son entrée (JSON), le
-transmet au serveur local, et affiche sa réponse. Pour UserPromptSubmit, ce qui est affiché est ajouté
-au contexte du message : ce qu'ont fait les autres agents du workspace (activité partagée). Pour
-SessionStart, il est ajouté au contexte de la session : l'annuaire des agents (qui fait quoi, comment les joindre).
+Ziggy starts Claude Code with `--settings`: this script reads the event on its input (JSON), forwards
+it to the local server, and prints its answer. For UserPromptSubmit, what is printed is added to the
+message context: what the other agents of the workspace did (shared activity). For
+SessionStart, it is added to the session context: the agent directory (who does what, how to reach them).
 
-Usage : ziggy_hook.py <session|prompt|stop|notify|tool> <port> <discussion> <fichier du token>
+Usage: ziggy_hook.py <session|prompt|stop|notify|tool> <port> <conversation> <token file>
 
-Il ne doit jamais gêner Claude Code : serveur arrêté, délai dépassé ou erreur, il se tait et sort en 0.
+It must never get in Claude Code's way: server stopped, timeout or error, it stays silent and exits with 0.
 """
 
 import sys
 import urllib.request
 from pathlib import Path
 
-TIMEOUT = 8  # secondes ; le hook est lui-même limité par Claude Code
+TIMEOUT = 8  # seconds; the hook itself is limited by Claude Code
 
 
 def main(argv):
@@ -31,7 +31,7 @@ def main(argv):
         )
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             text = response.read().decode("utf-8", "replace")
-    except Exception:  # noqa: BLE001 — rien ne doit remonter jusqu'à Claude Code
+    except Exception:  # noqa: BLE001 — nothing must reach Claude Code
         return 0
     if text.strip():
         sys.stdout.write(text)

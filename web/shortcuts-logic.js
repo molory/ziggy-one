@@ -1,7 +1,7 @@
 // @ts-check
-// Raccourcis de prompts : logique sans DOM (testée avec node --test).
-// Un agent a ses raccourcis ; ceux de son workspace s'y ajoutent, après. Les dix premiers ont un chiffre :
-// 1…9 puis 0, comme sur le clavier.
+// Prompt shortcuts: logic without DOM (tested with node --test).
+// An agent has its shortcuts; those of its workspace are added after them. The first ten have a digit:
+// 1…9 then 0, as on the keyboard.
 
 /**
  * @typedef {{id?: string, title: string, prompt: string}} Shortcut
@@ -15,7 +15,7 @@ export const MAX_ITEMS = 50;
 export const emptyShortcuts = () => ({ agents: {}, workspaces: {} });
 
 /**
- * Identifiants possibles d'un agent (sa session, sa copie, sa discussion), du plus durable au plus récent.
+ * Possible ids of an agent (its session, its copy, its discussion), from the most durable to the most recent.
  *
  * @param {any} conversation
  * @returns {string[]}
@@ -25,8 +25,8 @@ export function agentKeys(conversation) {
 }
 
 /**
- * Clé sous laquelle les raccourcis de l'agent sont rangés : celle qui en a déjà, sinon la plus durable
- * (le serveur les fait suivre de la discussion vers sa session).
+ * Key under which the agent's shortcuts are stored: the one that already has some, otherwise the most durable
+ * (the server carries them over from the discussion to its session).
  *
  * @param {ShortcutData} data
  * @param {any} conversation
@@ -46,13 +46,13 @@ export function agentShortcuts(data, conversation) {
   return (key && data.agents[key]) || [];
 }
 
-/** Chiffre du raccourci à la position `index` (0 → « 1 », 9 → « 0 »), ou null après le dixième. */
+/** Digit of the shortcut at position `index` (0 → "1", 9 → "0"), or null after the tenth. */
 export function digitFor(index) {
   return index < 9 ? String(index + 1) : index === 9 ? "0" : null;
 }
 
 /**
- * Position du raccourci d'une touche chiffre (event.code « Digit1 »… « Digit0 », pavé numérique compris), ou -1.
+ * Position of the shortcut of a digit key (event.code "Digit1"… "Digit0", numeric keypad included), or -1.
  *
  * @param {string} code
  */
@@ -63,7 +63,7 @@ export function indexForCode(code) {
 }
 
 /**
- * Raccourcis du panneau du Terminal : ceux de l'agent, puis ceux de son workspace.
+ * Shortcuts of the Terminal panel: the agent's, then its workspace's.
  *
  * @param {ShortcutData} data
  * @param {any} conversation
@@ -78,7 +78,7 @@ export function panelItems(data, conversation, workspaceId) {
 }
 
 /**
- * Titre affiché : le titre donné, sinon le début du prompt.
+ * Displayed title: the given title, otherwise the start of the prompt.
  *
  * @param {Shortcut} shortcut
  */
@@ -89,7 +89,7 @@ export function shortcutLabel(shortcut) {
 }
 
 /**
- * Copie de la liste avec l'élément `index` déplacé de `delta` places (bornée aux extrémités).
+ * Copy of the list with item `index` moved by `delta` places (clamped at the ends).
  *
  * @template T
  * @param {T[]} items

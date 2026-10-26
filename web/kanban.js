@@ -1,9 +1,10 @@
 // @ts-check
-// Mode Tâches : les tableaux Kanban. Barre latérale (tableaux, workspaces repliables, épingles), et au
-// centre le tableau choisi, ou la création, ou des réglages (tableau : nom, couleur, colonnes ; workspace).
-// La liste reprend les classes CSS et les fonctions d'épingles et de workspaces des agents : elle
-// s'affiche et se comporte de la même façon.
+// Tasks mode: the Kanban boards. Sidebar (boards, collapsible workspaces, pins), and in the center
+// the chosen board, or creation, or settings (board: name, color, columns; workspace).
+// The list reuses the agents' CSS classes and pin and workspace functions: it looks and behaves
+// the same way.
 
+import { t, tn } from "./i18n.js";
 import { mountBoardView } from "./kanban-board.js";
 import { boardRow } from "./kanban-logic.js";
 import { mountTicketDialog } from "./kanban-ticket.js";
@@ -25,8 +26,8 @@ const COLLAPSED_KEY = "zo-collapsed-board-workspaces";
  * @property {Record<string, string>} icons pin, gear, close, file, plus, workspace, board
  * @property {(options: any) => Promise<boolean>} confirmDialog
  * @property {(text: string, target: HTMLElement) => void} renderMarkdown
- * @property {(key: string) => number} autoHue teinte automatique (même attribution que les agents)
- * @property {number[]} hues teintes proposées
+ * @property {(key: string) => number} autoHue automatic hue (same assignment as the agents)
+ * @property {number[]} hues offered hues
  * @property {(text: string) => string} initialOf
  * @property {(epochSeconds: number) => string} shortDate
  *
@@ -48,7 +49,7 @@ function save(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Stockage indisponible : le choix vaut pour cet onglet seulement.
+    // Storage unavailable: the choice holds for this tab only.
   }
 }
 
@@ -68,11 +69,11 @@ export function mountKanban(dom, deps) {
   let selected = loadSaved(SELECTED_KEY, null);
   /** @type {{kind: "board"} | {kind: "create"} | {kind: "settings", id: string} | {kind: "workspace", id: string}} */
   let view = { kind: "board" };
-  /** @type {null | (() => void)} redessine la vue de réglages ouverte quand les données changent */
+  /** @type {null | (() => void)} redraws the open settings view when the data changes */
   let viewRefresh = null;
   const collapsed = new Set(/** @type {string[]} */ (loadSaved(COLLAPSED_KEY, [])));
   let loaded = false;
-  /** @type {Map<number, {id: string, board: string, boardName: string, title: string}>} tous les tickets, par numéro */
+  /** @type {Map<number, {id: string, board: string, boardName: string, title: string}>} all tickets, by number */
   let index = new Map();
   /** @type {number | undefined} */
   let indexTimer;
@@ -82,17 +83,17 @@ export function mountKanban(dom, deps) {
       const data = await api("/api/kanbans/index");
       index = new Map(data.tickets.map((/** @type {any} */ t) => [t.number, t]));
     } catch {
-      // Index indisponible : les « #42 » restent du texte.
+      // Index unavailable: "#42" references stay plain text.
     }
   }
-  /** Relit l'index peu après une série de changements (un seul appel pour plusieurs événements). */
+  /** Reloads the index shortly after a series of changes (a single call for several events). */
   const refreshIndex = () => {
     clearTimeout(indexTimer);
     indexTimer = window.setTimeout(loadIndex, 300);
   };
 
   /**
-   * Adresse affichée : /t/<numéro> quand une fiche est ouverte, sinon /#taches.
+   * Displayed address: /t/<number> when a ticket card is open, otherwise /#tasks.
    *
    * @param {string} url
    */
@@ -123,14 +124,14 @@ export function mountKanban(dom, deps) {
     lookup: (number) => index.get(number),
     onOpen: (number) => setAddress(`/t/${number}`),
     onClose: () => {
-      if (location.pathname.startsWith("/t/")) setAddress("/#taches");
+      if (location.pathname.startsWith("/t/")) setAddress("/#tasks");
     },
   });
 
   /** @param {{id: string, hue?: number | null}} item @param {string} prefix */
   const hueOf = (item, prefix) => (Number.isInteger(item.hue) ? /** @type {number} */ (item.hue) : deps.autoHue(`${prefix}:${item.id}`));
 
-  // --- barre latérale ---------------------------------------------------------------------
+  // --- sidebar -------------------------------------------------------------------------------
 
   /** @param {string[]} next */
   function savePins(next) {
@@ -140,7 +141,7 @@ export function mountKanban(dom, deps) {
   }
 
   /**
-   * Bouton épingle ou engrenage d'une ligne.
+   * Pin or gear button of a row.
    *
    * @param {string} className
    * @param {string} path
@@ -177,8 +178,8 @@ export function mountKanban(dom, deps) {
     const meta = el("span", "muted small agent-meta");
     meta.append(el("span", "", deps.shortDate(board.updatedAt)));
     const count = board.ticketCount ?? 0;
-    meta.append(el("span", "", count ? `${count} ticket${count > 1 ? "s" : ""}` : "vide"));
-    // Répartition par colonne : une pastille de la couleur de chaque colonne non vide.
+    meta.append(el("span", "", count ? tn(count, "{n} ticket", "{n} tickets") : t("empty")));
+    // Spread by column: a chip in the color of each non-empty column.
     const spread = el("span", "board-spread");
     for (const column of board.columns) {
       const n = board.counts?.[column.id] ?? 0;
@@ -186,20 +187,20 @@ export function mountKanban(dom, deps) {
       const chip = el("span", "board-spread-chip", String(n));
       if (Number.isInteger(column.hue)) chip.style.setProperty("--col-hue", String(column.hue));
       else chip.classList.add("neutral");
-      chip.title = `${column.name} : ${n}`;
+      chip.title = t("{name}: {n}", { name: column.name, n });
       spread.append(chip);
     }
     if (spread.childElementCount) meta.append(spread);
     text.append(el("span", "session-name", board.name), meta);
     open.append(avatar, text);
     open.addEventListener("click", () => selectBoard(board.id));
-    const pin = rowButton("pin-button", icons.pin, pinned ? "Désépingler" : "Épingler en haut",
-      `${pinned ? "Désépingler" : "Épingler"} « ${board.name} »`, () => {
+    const pin = rowButton("pin-button", icons.pin, pinned ? t("Unpin") : t("Pin to top"),
+      pinned ? t("Unpin \"{name}\"", { name: board.name }) : t("Pin \"{name}\"", { name: board.name }), () => {
         savePins(pinned ? pins.filter((p) => p !== board.id) : [...pins, board.id]);
         drawList();
       });
     pin.setAttribute("aria-pressed", String(pinned));
-    const gear = rowButton("pin-button more-button", icons.gear, "Configurer le tableau", `Configurer « ${board.name} »`,
+    const gear = rowButton("pin-button more-button", icons.gear, t("Configure board"), t("Configure \"{name}\"", { name: board.name }),
       () => openSettings(board.id));
     const actions = el("div", "row-actions");
     actions.append(pin, gear);
@@ -227,7 +228,7 @@ export function mountKanban(dom, deps) {
     const badge = el("span", "workspace-icon", deps.initialOf(workspace.name));
     badge.setAttribute("aria-hidden", "true");
     const text = el("span", "agent-text");
-    const count = rows.length === 0 ? "Aucun tableau" : `${rows.length} tableau${rows.length > 1 ? "x" : ""}`;
+    const count = rows.length === 0 ? t("No boards") : tn(rows.length, "{n} board", "{n} boards");
     text.append(el("span", "session-name", workspace.name), el("span", "muted small", count));
     const chevron = el("span", "workspace-chevron");
     chevron.setAttribute("aria-hidden", "true");
@@ -238,14 +239,14 @@ export function mountKanban(dom, deps) {
       save(COLLAPSED_KEY, [...collapsed]);
       drawList();
     });
-    const pin = rowButton("pin-button", icons.pin, pinned ? "Désépingler" : "Épingler en haut",
-      `${pinned ? "Désépingler" : "Épingler"} le workspace « ${workspace.name} »`, () => {
+    const pin = rowButton("pin-button", icons.pin, pinned ? t("Unpin") : t("Pin to top"),
+      pinned ? t("Unpin workspace \"{name}\"", { name: workspace.name }) : t("Pin workspace \"{name}\"", { name: workspace.name }), () => {
         savePins(pinned ? pins.filter((key) => key !== pinKey) : [...pins, pinKey]);
         drawList();
       });
     pin.setAttribute("aria-pressed", String(pinned));
-    const gear = rowButton("pin-button more-button", icons.gear, "Configurer le workspace",
-      `Configurer le workspace « ${workspace.name} »`, () => openWorkspaceSettings(workspace.id));
+    const gear = rowButton("pin-button more-button", icons.gear, t("Configure workspace"),
+      t("Configure workspace \"{name}\"", { name: workspace.name }), () => openWorkspaceSettings(workspace.id));
     const actions = el("div", "row-actions");
     actions.append(pin, gear);
     head.append(toggle, actions);
@@ -259,7 +260,7 @@ export function mountKanban(dom, deps) {
         body.append(...pinnedItems, ...others.map(boardItem));
       } else {
         const empty = el("li", "workspace-empty");
-        const add = el("button", "link-button", "Ajouter des tableaux");
+        const add = el("button", "link-button", t("Add boards"));
         add.type = "button";
         add.addEventListener("click", () => openWorkspaceSettings(workspace.id));
         empty.append(add);
@@ -271,14 +272,14 @@ export function mountKanban(dom, deps) {
   }
 
   function drawList() {
-    // Les plus récemment modifiés d'abord, comme les agents.
+    // Most recently changed first, like the agents.
     const rows = [...boards].sort((a, b) => b.updatedAt - a.updatedAt).map(boardRow);
     const { members, rest } = splitByWorkspace(rows, workspaces);
     const { pinned, others } = orderRows(rest, pins, () => true);
     const { head, unpinned } = pinnedHead(pinned, workspaces, pins);
     const block = (/** @type {Workspace} */ workspace) => workspaceItem(workspace, members.get(workspace.id) || []);
     if (!head.length && !unpinned.length && !others.length) {
-      dom.list.replaceChildren(el("li", "muted", "Aucun tableau. Crée-en un avec « + »."));
+      dom.list.replaceChildren(el("li", "muted", t("No boards. Create one with \"+\".")));
       return;
     }
     const headItems = head.map((entry) => (entry.kind === "agent" ? boardItem(entry.row) : block(entry.workspace)));
@@ -286,11 +287,11 @@ export function mountKanban(dom, deps) {
     dom.list.replaceChildren(...headItems, ...unpinned.map(block), ...others.map(boardItem));
   }
 
-  // --- carte centrale ---------------------------------------------------------------------
+  // --- center card -------------------------------------------------------------------------
 
   /**
    * @param {string} title
-   * @param {boolean} onBoard le tableau est affiché (engrenage visible)
+   * @param {boolean} onBoard the board is shown (gear visible)
    * @param {Node[]} children
    */
   function showCard(title, onBoard, ...children) {
@@ -308,7 +309,7 @@ export function mountKanban(dom, deps) {
     view = { kind: "board" };
     viewRefresh = null;
     const board = boards.find((b) => b.id === id);
-    showCard(board?.name ?? "Tableau", true, boardHost);
+    showCard(board?.name ?? t("Board"), true, boardHost);
     drawList();
     try {
       const data = await api(`/api/kanbans/${id}`);
@@ -318,7 +319,7 @@ export function mountKanban(dom, deps) {
     }
   }
 
-  /** Vue par défaut : le tableau choisi, sinon le premier, sinon la création. */
+  /** Default view: the chosen board, otherwise the first one, otherwise creation. */
   function showDefault() {
     const board = boards.find((b) => b.id === selected) ?? boards[0];
     if (board) selectBoard(board.id);
@@ -348,11 +349,11 @@ export function mountKanban(dom, deps) {
     viewRefresh = null;
     const choices = el("div", "create-choices");
     choices.append(
-      choiceTile(icons.board, "Tableau", "Un Kanban : des colonnes (À faire, En cours, Fait…) et des tickets à déplacer.", () => nameForm("board")),
-      choiceTile(icons.workspace, "Workspace", "Un groupe pour ranger plusieurs tableaux ensemble. Il se replie dans la liste.", () => nameForm("workspace")),
+      choiceTile(icons.board, t("Board"), t("A Kanban: columns (To do, In progress, Done…) and tickets to move."), () => nameForm("board")),
+      choiceTile(icons.workspace, t("Workspace"), t("A group to keep several boards together. It collapses in the list."), () => nameForm("workspace")),
     );
-    const intro = boards.length ? "Que veux-tu créer ?" : "Aucun tableau pour l'instant : crée le premier.";
-    showCard("Créer", false, el("p", "muted", intro), choices);
+    const intro = boards.length ? t("What do you want to create?") : t("No boards yet: create the first one.");
+    showCard(t("Create"), false, el("p", "muted", intro), choices);
     drawList();
     /** @type {HTMLElement | null} */ (choices.querySelector("button"))?.focus();
   }
@@ -360,15 +361,15 @@ export function mountKanban(dom, deps) {
   /** @param {"board" | "workspace"} kind */
   function nameForm(kind) {
     const form = el("form", "workspace-form");
-    const label = el("label", "field-label", kind === "board" ? "Nom du tableau" : "Nom du workspace");
+    const label = el("label", "field-label", kind === "board" ? t("Board name") : t("Workspace name"));
     label.setAttribute("for", "kanban-name");
     const input = /** @type {HTMLInputElement} */ (el("input", "text-input"));
     Object.assign(input, { id: "kanban-name", maxLength: 80, required: true, autocomplete: "off",
-      placeholder: kind === "board" ? "Ex. Ziggy One" : "Ex. Projets perso" });
-    const back = el("button", "", "Retour");
+      placeholder: kind === "board" ? t("E.g. Ziggy One") : t("E.g. Personal projects") });
+    const back = el("button", "", t("Back"));
     back.type = "button";
     back.addEventListener("click", openCreate);
-    const submit = /** @type {HTMLButtonElement} */ (el("button", "primary", kind === "board" ? "Créer le tableau" : "Créer le workspace"));
+    const submit = /** @type {HTMLButtonElement} */ (el("button", "primary", kind === "board" ? t("Create board") : t("Create workspace")));
     submit.type = "submit";
     const actions = el("div", "panel-actions");
     actions.append(back, submit);
@@ -391,19 +392,19 @@ export function mountKanban(dom, deps) {
         submit.disabled = false;
       }
     });
-    showCard(kind === "board" ? "Nouveau tableau" : "Nouveau workspace", false, form);
+    showCard(kind === "board" ? t("New board") : t("New workspace"), false, form);
     input.focus();
   }
 
   /**
-   * Nuancier : « Auto » (ou « Neutre ») puis les teintes proposées.
+   * Swatches: "Auto" (or "Neutral") then the offered hues.
    *
    * @param {string} label
    * @param {number | null} current
    * @param {(hue: number | null) => void} onPick
    * @param {string} [noneLabel]
    */
-  function swatches(label, current, onPick, noneLabel = "Auto") {
+  function swatches(label, current, onPick, noneLabel = t("Auto")) {
     const group = el("div", "swatches");
     group.setAttribute("role", "radiogroup");
     group.setAttribute("aria-label", label);
@@ -412,7 +413,7 @@ export function mountKanban(dom, deps) {
       swatch.type = "button";
       swatch.setAttribute("role", "radio");
       swatch.setAttribute("aria-checked", String(hue === current));
-      swatch.title = hue === null ? noneLabel : `Teinte ${hue}°`;
+      swatch.title = hue === null ? noneLabel : t("Hue {hue}°", { hue });
       if (hue !== null) swatch.style.setProperty("--agent-hue", String(hue));
       swatch.addEventListener("click", () => onPick(hue));
       group.append(swatch);
@@ -421,7 +422,7 @@ export function mountKanban(dom, deps) {
   }
 
   /**
-   * Réglages d'un tableau : nom, couleur, colonnes (nom, couleur, ordre, suppression), suppression du tableau.
+   * Board settings: name, color, columns (name, color, order, deletion), deletion of the board.
    *
    * @param {string} id
    */
@@ -434,16 +435,16 @@ export function mountKanban(dom, deps) {
         showDefault();
         return;
       }
-      // La saisie en cours (nom de colonne…) survit au redessin.
+      // The current input (column name…) survives the redraw.
       const focused = /** @type {HTMLInputElement | null} */ (document.activeElement);
       const focusKey = focused?.dataset.focusKey;
       const typing = focusKey && focused?.tagName === "INPUT" ? focused.value : null;
       const nameForm = el("form", "settings-section");
-      const nameLabel = el("label", "settings-title", "Nom");
+      const nameLabel = el("label", "settings-title", t("Name"));
       nameLabel.setAttribute("for", "board-rename");
       const nameInput = /** @type {HTMLInputElement} */ (el("input", "text-input"));
       Object.assign(nameInput, { id: "board-rename", value: board.name, maxLength: 80, required: true, autocomplete: "off" });
-      const rename = el("button", "primary", "Renommer");
+      const rename = el("button", "primary", t("Rename"));
       rename.type = "submit";
       const nameRow = el("div", "inline-field");
       nameRow.append(nameInput, rename);
@@ -454,8 +455,8 @@ export function mountKanban(dom, deps) {
       });
 
       const colorSection = el("div", "settings-section");
-      colorSection.append(el("h3", "settings-title", "Couleur"),
-        swatches("Couleur du tableau", board.hue, (hue) => call(`/api/kanbans/${id}/update`, { hue })));
+      colorSection.append(el("h3", "settings-title", t("Color")),
+        swatches(t("Board color"), board.hue, (hue) => call(`/api/kanbans/${id}/update`, { hue })));
 
       const columnsSection = el("div", "settings-section");
       const list = el("ol", "column-editor");
@@ -465,14 +466,14 @@ export function mountKanban(dom, deps) {
         else item.classList.add("neutral");
         const colorPicker = el("details", "column-color");
         const dot = el("summary", "kanban-dot");
-        dot.title = "Couleur de la colonne";
-        dot.setAttribute("aria-label", `Couleur de « ${column.name} »`);
-        colorPicker.append(dot, swatches(`Couleur de « ${column.name} »`, column.hue,
-          (hue) => call(`/api/kanbans/${id}/columns/${column.id}/update`, { hue }), "Neutre"));
+        dot.title = t("Column color");
+        dot.setAttribute("aria-label", t("Color of \"{name}\"", { name: column.name }));
+        colorPicker.append(dot, swatches(t("Color of \"{name}\"", { name: column.name }), column.hue,
+          (hue) => call(`/api/kanbans/${id}/columns/${column.id}/update`, { hue }), t("Neutral")));
         const input = /** @type {HTMLInputElement} */ (el("input", "text-input"));
         Object.assign(input, { value: column.name, maxLength: 60, required: true, autocomplete: "off" });
         input.dataset.focusKey = `column-${column.id}`;
-        input.setAttribute("aria-label", "Nom de la colonne");
+        input.setAttribute("aria-label", t("Column name"));
         const commit = () => {
           if (input.value.trim() && input.value.trim() !== column.name) {
             call(`/api/kanbans/${id}/columns/${column.id}/update`, { name: input.value });
@@ -487,18 +488,20 @@ export function mountKanban(dom, deps) {
         });
         const up = el("button", "icon-button", "↑");
         const down = el("button", "icon-button", "↓");
-        for (const [button, step, label] of /** @type {[HTMLElement, number, string][]} */ ([[up, -1, "Monter"], [down, 1, "Descendre"]])) {
+        const moves = [[up, -1, "up", t("Move up"), t("Move up \"{name}\"", { name: column.name })],
+          [down, 1, "down", t("Move down"), t("Move down \"{name}\"", { name: column.name })]];
+        for (const [button, step, key, label, aria] of /** @type {[HTMLElement, number, string, string, string][]} */ (moves)) {
           /** @type {HTMLButtonElement} */ (button).type = "button";
           button.title = label;
-          button.setAttribute("aria-label", `${label} « ${column.name} »`);
+          button.setAttribute("aria-label", aria);
           /** @type {HTMLButtonElement} */ (button).disabled = index + step < 0 || index + step >= board.columns.length;
-          button.dataset.focusKey = `${label}-${column.id}`;
+          button.dataset.focusKey = `${key}-${column.id}`;
           button.addEventListener("click", () => call(`/api/kanbans/${id}/columns/${column.id}/move`, { index: index + step }));
         }
         const remove = el("button", "icon-button danger-icon");
         remove.type = "button";
-        remove.title = "Supprimer la colonne";
-        remove.setAttribute("aria-label", `Supprimer « ${column.name} »`);
+        remove.title = t("Delete column");
+        remove.setAttribute("aria-label", t("Delete \"{name}\"", { name: column.name }));
         remove.append(icon(icons.close));
         /** @type {HTMLButtonElement} */ (remove).disabled = board.columns.length === 1;
         remove.addEventListener("click", () => deleteColumn(board, column));
@@ -508,10 +511,10 @@ export function mountKanban(dom, deps) {
       });
       const addForm = el("form", "inline-field");
       const addInput = /** @type {HTMLInputElement} */ (el("input", "text-input"));
-      Object.assign(addInput, { placeholder: "Nouvelle colonne", maxLength: 60, autocomplete: "off" });
+      Object.assign(addInput, { placeholder: t("New column"), maxLength: 60, autocomplete: "off" });
       addInput.dataset.focusKey = "new-column";
-      addInput.setAttribute("aria-label", "Nom de la nouvelle colonne");
-      const add = el("button", "", "Ajouter");
+      addInput.setAttribute("aria-label", t("Name of the new column"));
+      const add = el("button", "", t("Add"));
       add.type = "submit";
       addForm.append(addInput, add);
       addForm.addEventListener("submit", (event) => {
@@ -520,29 +523,31 @@ export function mountKanban(dom, deps) {
         addInput.value = "";
         if (name) call(`/api/kanbans/${id}/columns`, { name });
       });
-      columnsSection.append(el("h3", "settings-title", "Colonnes"), list, addForm);
+      columnsSection.append(el("h3", "settings-title", t("Columns")), list, addForm);
 
       const danger = el("div", "settings-section danger-zone");
-      const remove = el("button", "danger", "Supprimer le tableau");
+      const remove = el("button", "danger", t("Delete board"));
       remove.type = "button";
       remove.addEventListener("click", async () => {
         const count = board.ticketCount ?? 0;
         const confirmed = await deps.confirmDialog({
-          title: `Supprimer « ${board.name.slice(0, 60)} » ?`,
-          message: count ? `Ses ${count} ticket${count > 1 ? "s" : ""} et leurs fichiers joints seront supprimés.` : "Le tableau est vide.",
-          confirmLabel: "Supprimer",
+          title: t("Delete \"{name}\"?", { name: board.name.slice(0, 60) }),
+          message: count
+            ? tn(count, "Its ticket and its attached files will be deleted.", "Its {n} tickets and their attached files will be deleted.")
+            : t("The board is empty."),
+          confirmLabel: t("Delete"),
           danger: true,
         });
         if (confirmed) call(`/api/kanbans/${id}/delete`, {});
       });
-      danger.append(el("h3", "settings-title", "Supprimer"), el("p", "muted small", "Supprime le tableau, ses tickets et leurs fichiers joints."), remove);
+      danger.append(el("h3", "settings-title", t("Delete")), el("p", "muted small", t("Deletes the board, its tickets and their attached files.")), remove);
 
-      const done = el("button", "primary", "Terminé");
+      const done = el("button", "primary", t("Done"));
       done.type = "button";
       done.addEventListener("click", () => selectBoard(id));
       const footer = el("div", "panel-actions");
       footer.append(done);
-      showCard("Configurer le tableau", false, nameForm, colorSection, columnsSection, danger, footer);
+      showCard(t("Configure board"), false, nameForm, colorSection, columnsSection, danger, footer);
       dom.close.hidden = false;
       const again = /** @type {HTMLInputElement | null} */ (focusKey ? dom.body.querySelector(`[data-focus-key="${focusKey}"]`) : null);
       if (again) {
@@ -555,7 +560,7 @@ export function mountKanban(dom, deps) {
   }
 
   /**
-   * Supprime une colonne ; si elle a des tickets, demande où les envoyer.
+   * Deletes a column; if it has tickets, asks where to send them.
    *
    * @param {Board} board
    * @param {import("./kanban-logic.js").Column} column
@@ -564,19 +569,19 @@ export function mountKanban(dom, deps) {
     const count = board.counts?.[column.id] ?? 0;
     const others = board.columns.filter((c) => c.id !== column.id);
     const select = /** @type {HTMLSelectElement} */ (el("select", "text-input"));
-    select.setAttribute("aria-label", "Colonne qui reçoit les tickets");
+    select.setAttribute("aria-label", t("Column receiving the tickets"));
     for (const other of others) {
       const option = /** @type {HTMLOptionElement} */ (el("option", "", other.name));
       option.value = other.id;
       select.append(option);
     }
     const content = el("label", "field-label");
-    content.append(el("span", "", "Déplacer ses tickets vers "), select);
+    content.append(el("span", "", `${t("Move its tickets to")} `), select);
     const confirmed = await deps.confirmDialog({
-      title: `Supprimer la colonne « ${column.name.slice(0, 60)} » ?`,
-      message: count ? `Elle contient ${count} ticket${count > 1 ? "s" : ""}.` : "Elle est vide.",
+      title: t("Delete column \"{name}\"?", { name: column.name.slice(0, 60) }),
+      message: count ? tn(count, "It contains {n} ticket.", "It contains {n} tickets.") : t("It is empty."),
       content: count ? content : undefined,
-      confirmLabel: "Supprimer",
+      confirmLabel: t("Delete"),
       danger: true,
     });
     if (!confirmed) return;
@@ -584,7 +589,7 @@ export function mountKanban(dom, deps) {
   }
 
   /**
-   * Réglages d'un workspace de tableaux : nom, couleur, tableaux (à cocher), suppression.
+   * Settings of a board workspace: name, color, boards (checkboxes), deletion.
    *
    * @param {string} id
    */
@@ -598,11 +603,11 @@ export function mountKanban(dom, deps) {
         return;
       }
       const nameForm = el("form", "settings-section");
-      const nameLabel = el("label", "settings-title", "Nom");
+      const nameLabel = el("label", "settings-title", t("Name"));
       nameLabel.setAttribute("for", "board-workspace-rename");
       const nameInput = /** @type {HTMLInputElement} */ (el("input", "text-input"));
       Object.assign(nameInput, { id: "board-workspace-rename", value: workspace.name, maxLength: 80, required: true, autocomplete: "off" });
-      const rename = el("button", "primary", "Renommer");
+      const rename = el("button", "primary", t("Rename"));
       rename.type = "submit";
       const nameRow = el("div", "inline-field");
       nameRow.append(nameInput, rename);
@@ -612,8 +617,8 @@ export function mountKanban(dom, deps) {
         call(`/api/kanbans/workspaces/${id}/update`, { name: nameInput.value });
       });
       const colorSection = el("div", "settings-section");
-      colorSection.append(el("h3", "settings-title", "Couleur"),
-        swatches("Couleur du workspace", Number.isInteger(workspace.hue) ? /** @type {number} */ (workspace.hue) : null,
+      colorSection.append(el("h3", "settings-title", t("Color")),
+        swatches(t("Workspace color"), Number.isInteger(workspace.hue) ? /** @type {number} */ (workspace.hue) : null,
           (hue) => call(`/api/kanbans/workspaces/${id}/update`, { hue })));
       const boardsSection = el("div", "settings-section");
       const list = el("ul", "picker-list");
@@ -633,33 +638,33 @@ export function mountKanban(dom, deps) {
         avatar.setAttribute("aria-hidden", "true");
         const text = el("span", "agent-text");
         text.append(el("span", "session-name", board.name),
-          el("span", "muted small", elsewhere ? `dans « ${elsewhere.name} »` : `${board.ticketCount ?? 0} ticket(s)`));
+          el("span", "muted small", elsewhere ? t("in \"{name}\"", { name: elsewhere.name }) : tn(board.ticketCount ?? 0, "{n} ticket", "{n} tickets")));
         label.append(box, avatar, text);
         item.append(label);
         list.append(item);
       }
-      if (!boards.length) list.append(el("li", "muted small", "Aucun tableau."));
-      boardsSection.append(el("h3", "settings-title", "Tableaux"),
-        el("p", "muted small", "Coche les tableaux à ranger dans ce workspace. Un tableau n'est que dans un workspace à la fois."), list);
+      if (!boards.length) list.append(el("li", "muted small", t("No boards.")));
+      boardsSection.append(el("h3", "settings-title", t("Boards")),
+        el("p", "muted small", t("Check the boards to keep in this workspace. A board is in only one workspace at a time.")), list);
       const danger = el("div", "settings-section danger-zone");
-      const remove = el("button", "danger", "Supprimer le workspace");
+      const remove = el("button", "danger", t("Delete workspace"));
       remove.type = "button";
       remove.addEventListener("click", async () => {
         const confirmed = await deps.confirmDialog({
-          title: `Supprimer « ${workspace.name.slice(0, 60)} » ?`,
-          message: "Ses tableaux reviennent dans la liste générale. Aucun tableau n'est supprimé.",
-          confirmLabel: "Supprimer",
+          title: t("Delete \"{name}\"?", { name: workspace.name.slice(0, 60) }),
+          message: t("Its boards go back to the main list. No board is deleted."),
+          confirmLabel: t("Delete"),
           danger: true,
         });
         if (confirmed) call(`/api/kanbans/workspaces/${id}/delete`, {});
       });
-      danger.append(el("h3", "settings-title", "Supprimer"), el("p", "muted small", "Ses tableaux reviennent dans la liste générale."), remove);
-      const done = el("button", "primary", "Terminé");
+      danger.append(el("h3", "settings-title", t("Delete")), el("p", "muted small", t("Its boards go back to the main list.")), remove);
+      const done = el("button", "primary", t("Done"));
       done.type = "button";
       done.addEventListener("click", showDefault);
       const footer = el("div", "panel-actions");
       footer.append(done);
-      showCard("Configurer le workspace", false, nameForm, colorSection, boardsSection, danger, footer);
+      showCard(t("Configure workspace"), false, nameForm, colorSection, boardsSection, danger, footer);
       dom.close.hidden = false;
       drawList();
     };
@@ -672,7 +677,7 @@ export function mountKanban(dom, deps) {
 
   return {
     /**
-     * Ouvre la fiche d'un ticket d'après son numéro (adresse /t/42, lien « #42 »), sur son tableau.
+     * Opens a ticket card by its number (address /t/42, "#42" link), on its board.
      *
      * @param {number} number
      */
@@ -685,10 +690,10 @@ export function mountKanban(dom, deps) {
         if (data && ticket) ticketDialog.open(ticket, data.board);
       } catch (err) {
         showError(err);
-        setAddress("/#taches");
+        setAddress("/#tasks");
       }
     },
-    /** Charge tableaux, workspaces et épingles (au démarrage, et après une reconnexion). */
+    /** Loads boards, workspaces and pins (at startup, and after a reconnection). */
     async load() {
       await loadIndex();
       try {
@@ -716,7 +721,7 @@ export function mountKanban(dom, deps) {
     },
     /** @param {{board: Board | null, deleted?: string, tickets: Ticket[]}} data */
     onBoard(data) {
-      refreshIndex(); // titres et numéros à jour pour les liens « #42 »
+      refreshIndex(); // up-to-date titles and numbers for "#42" links
       ticketDialog.update(data);
       if (data.deleted) {
         ticketDialog.boardDeleted(data.deleted);

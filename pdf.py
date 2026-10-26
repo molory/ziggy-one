@@ -1,9 +1,9 @@
-"""Export PDF d'un échange de la discussion, avec Chrome ou Chromium en mode invisible.
+"""PDF export of an exchange of the conversation, with headless Chrome or Chromium.
 
-L'interface envoie le contenu déjà mis en forme (HTML du Markdown rendu). Le serveur l'entoure d'une
-page complète, avec sa feuille de style et une règle de sécurité (CSP) qui interdit tout script et tout
-chargement extérieur ; Chrome l'imprime sans accès au réseau. Sans Chrome sur le poste, l'interface
-passe par la fenêtre d'impression du navigateur.
+The interface sends the already formatted content (HTML of the rendered Markdown). The server wraps it in a
+full page, with its stylesheet and a security rule (CSP) that forbids any script and any external
+loading; Chrome prints it without network access. Without Chrome on the machine, the interface
+uses the browser's print dialog.
 """
 
 import html as html_lib
@@ -14,13 +14,16 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import i18n
+from i18n import tr
+
 BROWSERS = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge")
 MAX_HTML = 4_000_000
-TIMEOUT = 60  # secondes
+TIMEOUT = 60  # seconds
 
 
 class PdfUnavailable(Exception):
-    """Aucun navigateur pour fabriquer le PDF sur ce poste."""
+    """No browser to make the PDF on this machine."""
 
 
 def find_browser():
@@ -28,9 +31,9 @@ def find_browser():
 
 
 def safe_filename(name):
-    """Nom de fichier sûr pour un téléchargement, terminé par .pdf."""
+    """Safe file name for a download, ending in .pdf."""
     stem = re.sub(r"[^\w.-]+", "-", name if isinstance(name, str) else "", flags=re.UNICODE).strip(".-")[:80]
-    return f"{stem or 'discussion'}.pdf"
+    return f"{stem or 'conversation'}.pdf"
 
 
 STYLE = """
@@ -50,38 +53,38 @@ CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
 
 
 def full_page(title, body):
-    """Page complète autour du contenu reçu : titre, feuille de style, CSP (ni script, ni chargement)."""
+    """Full page around the received content: title, stylesheet, CSP (no script, no loading)."""
     title = html_lib.escape(title if isinstance(title, str) else "", quote=True)[:200]
-    return (f'<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+    return (f'<!doctype html><html lang="{i18n.language()}"><head><meta charset="utf-8">'
             f'<meta http-equiv="Content-Security-Policy" content="{CSP}">'
             f"<title>{title}</title><style>{STYLE}</style></head><body>{body}</body></html>")
 
 
 def html_to_pdf(body, title="", browser=None):
-    """Octets du PDF d'un contenu HTML ; ValueError s'il est invalide, PdfUnavailable sans navigateur."""
+    """PDF bytes of an HTML content; ValueError if it is invalid, PdfUnavailable without a browser."""
     if not isinstance(body, str) or not body.strip():
-        raise ValueError("contenu vide")
+        raise ValueError(tr("Empty content"))
     html = full_page(title, body)
     if len(html.encode()) > MAX_HTML:
-        raise ValueError("contenu trop volumineux pour un PDF")
+        raise ValueError(tr("Content too large for a PDF"))
     browser = browser or find_browser()
     if browser is None:
-        raise PdfUnavailable("Chrome ou Chromium introuvable : impossible de fabriquer le PDF ici")
+        raise PdfUnavailable(tr("Chrome or Chromium not found: cannot make the PDF here"))
     with tempfile.TemporaryDirectory(prefix="zo-pdf-") as tmp:
         page = Path(tmp) / "page.html"
         out = Path(tmp) / "page.pdf"
         page.write_text(html, encoding="utf-8")
         cmd = [
             browser, "--headless=new", "--disable-gpu", "--no-first-run",
-            f"--user-data-dir={tmp}/profil",
-            "--host-resolver-rules=MAP * ~NOTFOUND",  # pas de réseau : rien ne sort du poste
+            f"--user-data-dir={tmp}/profile",
+            "--host-resolver-rules=MAP * ~NOTFOUND",  # no network: nothing leaves the machine
             "--no-pdf-header-footer", f"--print-to-pdf={out}", page.as_uri(),
         ]
         try:
             subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           timeout=TIMEOUT, check=False, env={**os.environ, "LANG": "fr_FR.UTF-8"})
+                           timeout=TIMEOUT, check=False, env={**os.environ, "LANG": "fr_FR.UTF-8" if i18n.language() == "fr" else "en_US.UTF-8"})
         except subprocess.TimeoutExpired:
-            raise ValueError("le PDF a pris trop de temps à se fabriquer") from None
+            raise ValueError(tr("The PDF took too long to make")) from None
         if not out.exists() or out.stat().st_size == 0:
-            raise ValueError("le navigateur n'a pas produit de PDF")
+            raise ValueError(tr("The browser did not produce a PDF"))
         return out.read_bytes()

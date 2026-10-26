@@ -1,4 +1,4 @@
-"""Types de fichiers servis dans un onglet (fichiers joints aux tickets) : image, PDF, texte ou téléchargement."""
+"""Types of files served in a tab (files attached to tickets): image, PDF, text or download."""
 
 from pathlib import Path
 

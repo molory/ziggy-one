@@ -1,28 +1,28 @@
 // @ts-check
-// Graphe des branches de l'historique (façon Sourcetree). Sans DOM : testable avec Node.
+// Branch graph of the history (Sourcetree style). No DOM: testable with Node.
 //
-// Les commits arrivent du plus récent au plus ancien. Chaque « couloir » (colonne) attend un commit :
-// quand il apparaît, on dessine son point dans ce couloir, puis le couloir attend son premier parent ;
-// ses autres parents (fusions) prennent un couloir libre, ou rejoignent celui qui les attend déjà.
+// Commits arrive from newest to oldest. Each "lane" (column) waits for a commit: when it shows up, its dot
+// is drawn in that lane, then the lane waits for its first parent; its other parents (merges) take a free
+// lane, or join the one already waiting for them.
 
 /** @typedef {{hash: string, parents: string[]}} GraphCommit */
 /** @typedef {{x1: number, y1: number, x2: number, y2: number, lane: number}} Segment */
 /** @typedef {{lane: number, width: number, segments: Segment[]}} GraphRow */
 
 /**
- * Une ligne de graphe par commit. Coordonnées en unités de couloir : x = n° de couloir,
- * y de 0 (haut de la ligne) à 1 (bas) ; le point du commit est en (lane, 0.5).
+ * One graph row per commit. Coordinates in lane units: x = lane number,
+ * y from 0 (top of the row) to 1 (bottom); the commit dot is at (lane, 0.5).
  *
  * @param {GraphCommit[]} commits
  * @returns {GraphRow[]}
  */
 export function computeGraph(commits) {
-  /** @type {(string | null)[]} hash attendu par chaque couloir */
+  /** @type {(string | null)[]} hash awaited by each lane */
   let lanes = [];
   return commits.map((commit) => {
     let lane = lanes.indexOf(commit.hash);
     if (lane === -1) {
-      // Tête de branche : premier couloir libre.
+      // Branch head: first free lane.
       lane = lanes.indexOf(null);
       if (lane === -1) lane = lanes.length;
     }
@@ -31,7 +31,7 @@ export function computeGraph(commits) {
     /** @type {Segment[]} */
     const segments = [];
 
-    // Moitié haute : les couloirs qui arrivent sur ce commit le rejoignent, les autres passent.
+    // Top half: lanes arriving at this commit join it, the others pass through.
     before.forEach((expected, j) => {
       if (expected === null) return;
       if (expected === commit.hash) {
@@ -41,7 +41,7 @@ export function computeGraph(commits) {
       }
     });
 
-    // Le commit libère les couloirs qui l'attendaient ; son couloir attend désormais son premier parent.
+    // The commit frees the lanes that awaited it; its own lane now awaits its first parent.
     const after = before.map((expected) => (expected === commit.hash ? null : expected));
     commit.parents.forEach((parent, index) => {
       let target;
@@ -55,7 +55,7 @@ export function computeGraph(commits) {
         }
       }
       after[target] = parent;
-      // Moitié basse : du point du commit vers le couloir de chaque parent.
+      // Bottom half: from the commit dot to the lane of each parent.
       segments.push({ x1: lane, y1: 0.5, x2: target, y2: 1, lane: target });
     });
 

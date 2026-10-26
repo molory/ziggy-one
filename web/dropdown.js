@@ -1,9 +1,9 @@
 // @ts-check
-// Menu déroulant réutilisable, ouvert sous (ou au-dessus d') un bouton : une liste d'actions.
+// Reusable dropdown menu, opened below (or above) a button: a list of actions.
 //
-// Le menu est posé sur la page (position fixe), pas dans le conteneur du bouton : une zone qui se
-// redessine (la discussion relue toutes les 2 s) ne le referme pas, il suffit de lui redonner son bouton
-// avec `reanchor`. Clavier : ↑ / ↓, Début / Fin, Entrée ; Échap ou Tab referme. Un clic à côté referme.
+// The menu is placed on the page (fixed position), not in the button's container: an area that
+// redraws itself (the discussion re-read every 2 s) does not close it, it is enough to give it back its button
+// with `reanchor`. Keyboard: ↑ / ↓, Home / End, Enter; Esc or Tab closes. A click outside closes.
 
 /**
  * @typedef {{label: string, icon?: string, onSelect: () => void, disabled?: boolean}} MenuAction
@@ -11,7 +11,7 @@
  *
  * @typedef {object} DropdownDeps
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
- * @property {(d: string) => SVGElement} [icon] icône d'une action (tracé SVG 24×24)
+ * @property {(d: string) => SVGElement} [icon] icon of an action (24×24 SVG path)
  */
 
 /**
@@ -27,7 +27,7 @@ export function createDropdown({ el, icon }) {
 
   const items = () => /** @type {HTMLButtonElement[]} */ ([...menu.querySelectorAll("[role=menuitem]:not(:disabled)")]);
 
-  /** Sous le bouton, aligné à droite ; au-dessus s'il n'y a pas la place en bas. */
+  /** Below the button, right-aligned; above if there is no room below. */
   function place() {
     if (!anchor) return;
     const box = anchor.getBoundingClientRect();
@@ -37,7 +37,7 @@ export function createDropdown({ el, icon }) {
     menu.style.left = `${Math.max(8, Math.min(box.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
   }
 
-  /** @param {boolean} [refocus] rendre le focus au bouton (fermeture au clavier ou après un choix) */
+  /** @param {boolean} [refocus] give the focus back to the button (closing by keyboard or after a choice) */
   function close(refocus = false) {
     if (menu.hidden) return;
     menu.hidden = true;
@@ -70,7 +70,7 @@ export function createDropdown({ el, icon }) {
       list[(move + list.length) % list.length].focus();
     } else if (event.key === "Escape") {
       event.preventDefault();
-      event.stopPropagation(); // Échap referme le menu, pas la carte qui le contient
+      event.stopPropagation(); // Esc closes the menu, not the card that contains it
       close(true);
     } else if (event.key === "Tab") {
       close();
@@ -79,7 +79,7 @@ export function createDropdown({ el, icon }) {
 
   return {
     /**
-     * Ouvre le menu sous `target` (ou le referme s'il y est déjà ouvert).
+     * Opens the menu below `target` (or closes it if it is already open there).
      *
      * @param {HTMLElement} target
      * @param {MenuItem[]} entries
@@ -118,9 +118,9 @@ export function createDropdown({ el, icon }) {
       items()[0]?.focus();
     },
     /**
-     * Le bouton a été redessiné : le menu ouvert suit le nouveau, sans se refermer.
+     * The button was redrawn: the open menu follows the new one, without closing.
      *
-     * @param {HTMLElement | null} target null : le bouton n'existe plus, le menu se referme
+     * @param {HTMLElement | null} target null: the button no longer exists, the menu closes
      */
     reanchor(target) {
       if (menu.hidden) return;

@@ -1,7 +1,7 @@
-"""Génération d'un message de commit par Claude (Haiku), à partir des modifications indexées.
+"""Generation of a commit message by Claude (Haiku), from the staged changes.
 
-Claude ne reçoit que le diff indexé (tronqué s'il est trop long) et les titres des derniers commits,
-pour reprendre la langue et le style du dépôt. Il n'a aucun outil et ne fait rien d'autre qu'écrire.
+Claude only gets the staged diff (truncated if too long) and the titles of the latest commits, to
+follow the language and style of the repository. It has no tools and does nothing but write.
 """
 
 import json
@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 
 import gitops
+from i18n import tr
 
 MAX_DIFF = 60_000
 TIMEOUT = 120
@@ -18,35 +19,35 @@ CLAUDE_CMD = [
     "--no-session-persistence", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
     "--output-format", "json",
 ]
-PROMPT = """Écris le message de commit git pour les modifications indexées ci-dessous.
+PROMPT = """Write the git commit message for the staged changes below.
 
-- Reprends la langue et le style des commits récents du dépôt.
-- Une première ligne de titre de 72 caractères au plus, à l'impératif, sans point final.
-- Si c'est utile, une ligne vide puis quelques puces courtes qui expliquent le pourquoi.
-- Ta réponse est directement le message : pas de phrase d'introduction, ni guillemets, ni bloc de code.
+- Follow the language and style of the repository's recent commits.
+- A first title line of 72 characters at most, in the imperative mood, with no final period.
+- If useful, a blank line then a few short bullet points that explain the why.
+- Your answer is the message itself: no introductory sentence, no quotes, no code block.
 
-Commits récents :
+Recent commits:
 {recent}
 
-Statistiques :
+Stats:
 {stat}
 
-Diff indexé :
+Staged diff:
 {diff}
 """
 
 
 def clean(text):
-    """Retire ce que le modèle ajoute parfois autour du message (bloc de code, guillemets, préfixe)."""
+    """Removes what the model sometimes adds around the message (code block, quotes, prefix)."""
     text = text.strip()
     fenced = re.search(r"```[\w-]*\n(.*?)(?:\n```|$)", text, flags=re.DOTALL)
     if fenced:
-        # Le message est dans un bloc de code, souvent précédé d'une phrase d'introduction : on garde le bloc.
+        # The message is in a code block, often preceded by an introductory sentence: keep the block.
         text = fenced.group(1).strip()
     else:
         lines = text.splitlines()
         if len(lines) > 1 and lines[0].rstrip().endswith(":"):
-            text = "\n".join(lines[1:]).strip()  # introduction du type « Voici le message : »
+            text = "\n".join(lines[1:]).strip()  # an introduction such as "Here is the message:"
     text = re.sub(r"^(message de commit|commit message)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
     if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'«":
         text = text[1:-1].strip()
@@ -54,28 +55,28 @@ def clean(text):
 
 
 def generate(path):
-    """Message de commit proposé pour ce qui est indexé ; GitError s'il n'y a rien ou en cas d'échec."""
+    """Proposed commit message for what is staged; GitError if there is nothing or on failure."""
     root = gitops.repo_root(path)
     if not gitops.has_staged_changes(root):
-        raise gitops.GitError(gitops.NOTHING_STAGED)
+        raise gitops.GitError(tr(gitops.NOTHING_STAGED))
     diff = gitops.run(root, "diff", "--cached", "-M").stdout
     stat = gitops.run(root, "diff", "--cached", "--stat").stdout
-    recent = gitops.run(root, "log", "-10", "--format=- %s", check=False).stdout or "(aucun)"
+    recent = gitops.run(root, "log", "-10", "--format=- %s", check=False).stdout or "(none)"
     if len(diff) > MAX_DIFF:
-        diff = diff[:MAX_DIFF] + "\n… (diff tronqué)"
+        diff = diff[:MAX_DIFF] + "\n… (diff truncated)"
     prompt = PROMPT.format(recent=recent.strip(), stat=stat.strip(), diff=diff)
     try:
         result = subprocess.run(
             CLAUDE_CMD, input=prompt, capture_output=True, text=True, timeout=TIMEOUT,
-            cwd=tempfile.gettempdir(),  # hors du dépôt : ni CLAUDE.md ni réglages du projet
+            cwd=tempfile.gettempdir(),  # outside the repository: no CLAUDE.md, no project settings
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise gitops.GitError(f"génération du message impossible : {exc}") from None
+        raise gitops.GitError(tr("Could not generate the message: {error}", error=exc)) from None
     try:
         payload = json.loads(result.stdout)
     except ValueError:
-        raise gitops.GitError(result.stderr.strip()[-500:] or "réponse illisible de Claude") from None
+        raise gitops.GitError(result.stderr.strip()[-500:] or tr("Unreadable answer from Claude")) from None
     message = clean(str(payload.get("result") or ""))
     if payload.get("is_error") or not message:
-        raise gitops.GitError("Claude n'a pas pu écrire le message de commit")
+        raise gitops.GitError(tr("Claude could not write the commit message"))
     return message

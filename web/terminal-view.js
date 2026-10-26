@@ -1,15 +1,16 @@
 // @ts-check
-// Onglet Terminal : le vrai Claude Code (interactif) de l'agent, affiché par xterm.js (copie figée dans
-// vendor/xterm, chargée au premier usage). Le serveur lance `claude` dans un pseudo-terminal : l'écran
-// arrive par le flux SSE (événements « terminal », numérotés), les touches repartent par POST.
-// Un terminal xterm par agent, gardé quand on change d'agent ou d'onglet.
+// Terminal tab: the agent's real (interactive) Claude Code, shown by xterm.js (frozen copy in
+// vendor/xterm, loaded on first use). The server runs `claude` in a pseudo-terminal: the screen
+// comes through the SSE stream (numbered "terminal" events), keys go back by POST.
+// One xterm terminal per agent, kept when switching agent or tab.
 
+import { t } from "./i18n.js";
 import { createRecolor } from "./terminal-colors.js";
 import { typedText } from "./terminal-input.js";
 
 const XTERM_SCRIPTS = ["/vendor/xterm/xterm.js", "/vendor/xterm/addon-fit.js"];
 const NONCE = document.querySelector('meta[name="csp-nonce"]')?.getAttribute("content") ?? "";
-// Fond sombre, texte clair : les couleurs d'un terminal.
+// Dark background, light text: the colors of a terminal.
 const THEME = {
   background: "#1d1f23",
   foreground: "#e4e6eb",
@@ -20,11 +21,11 @@ const THEME = {
 /** @type {Promise<void> | undefined} */
 let xtermLoading;
 
-/** Charge xterm.js une seule fois. Ses balises <style> reçoivent le nonce CSP de la page. */
+/** Loads xterm.js only once. Its <style> tags get the page's CSP nonce. */
 function loadXterm() {
   xtermLoading ??= (async () => {
     const create = Document.prototype.createElement;
-    // @ts-ignore -- même signature que l'originale
+    // @ts-ignore -- same signature as the original
     Document.prototype.createElement = function (tag, options) {
       const element = create.call(this, tag, options);
       if (String(tag).toLowerCase() === "style") /** @type {HTMLStyleElement} */ (element).nonce = NONCE;
@@ -35,7 +36,7 @@ function loadXterm() {
         const script = document.createElement("script");
         script.src = src;
         script.addEventListener("load", resolve);
-        script.addEventListener("error", () => reject(new Error(`chargement impossible : ${src}`)));
+        script.addEventListener("error", () => reject(new Error(t("Loading failed: {src}", { src }))));
         document.head.append(script);
       });
     }
@@ -66,28 +67,28 @@ function decode(base64) {
  */
 export function mountTerminalView(root, deps) {
   const { api, el } = deps;
-  /** @type {Set<string>} agents dont Claude Code tourne dans un terminal */
+  /** @type {Set<string>} agents whose Claude Code runs in a terminal */
   const running = new Set();
   /** @type {Map<string, Entry>} */
   const entries = new Map();
-  /** @type {any} agent affiché (null : onglet caché) */
+  /** @type {any} agent shown (null: tab hidden) */
   let shown = null;
 
   const status = el("span", "terminal-status muted small");
-  const stop = /** @type {HTMLButtonElement} */ (el("button", "terminal-stop", "Fermer Claude Code"));
+  const stop = /** @type {HTMLButtonElement} */ (el("button", "terminal-stop", t("Close Claude Code")));
   stop.type = "button";
-  // Rappel des raccourcis de copier-coller (et confirmation d'une copie).
-  const HINT = "Glisser sélectionne · Ctrl+C copie · Ctrl+V colle";
+  // Reminder of the copy-paste shortcuts (and confirmation of a copy).
+  const HINT = t("Drag selects · Ctrl+C copies · Ctrl+V pastes");
   const hint = el("span", "terminal-hint muted small", HINT);
   const bar = el("div", "terminal-bar");
   bar.append(status, hint, stop);
   const intro = el("div", "terminal-intro");
   const introText = el("p", "muted");
-  const start = /** @type {HTMLButtonElement} */ (el("button", "primary", "Ouvrir Claude Code"));
+  const start = /** @type {HTMLButtonElement} */ (el("button", "primary", t("Open Claude Code")));
   start.type = "button";
   const error = el("p", "form-error");
   error.hidden = true;
-  intro.append(el("h3", "", "Claude Code dans un terminal"), introText, start, error);
+  intro.append(el("h3", "", t("Claude Code in a terminal")), introText, start, error);
   const screens = el("div", "terminal-screens");
   root.append(bar, intro, screens);
 
@@ -98,7 +99,7 @@ export function mountTerminalView(root, deps) {
   };
 
   /**
-   * Terminal xterm de l'agent (créé au besoin, à la taille de la zone).
+   * The agent's xterm terminal (created when needed, at the size of the area).
    *
    * @param {string} id
    */
@@ -106,7 +107,7 @@ export function mountTerminalView(root, deps) {
     const existing = entries.get(id);
     if (existing) return existing;
     await loadXterm();
-    // xterm.js copie ses exports sur window (window.Terminal est la classe) ; l'addon s'y range sous FitAddon.
+    // xterm.js copies its exports onto window (window.Terminal is the class); the addon goes there under FitAddon.
     const Terminal = /** @type {any} */ (window).Terminal;
     const fitAddon = /** @type {any} */ (window).FitAddon;
     const host = el("div", "terminal-screen");
@@ -125,11 +126,11 @@ export function mountTerminalView(root, deps) {
     const entry = { term, fit, host, seq: 0, ready: false, early: [], pending: "", sending: false, recolor: createRecolor() };
     entries.set(id, entry);
     term.onData((/** @type {string} */ data) => sendInput(id, entry, data));
-    // Copier-coller, comme dans un terminal. Ctrl+C copie la sélection s'il y en a une (sans sélection, il
-    // interrompt Claude Code) ; Ctrl+Maj+C copie toujours. Ctrl+V et Ctrl+Maj+V laissent le navigateur coller :
-    // xterm.js reçoit l'événement paste et envoie le texte.
-    // Maj+Entrée : nouvelle ligne dans le message. xterm.js enverrait \r comme Entrée (envoi) ; on envoie
-    // Échap+Entrée, que Claude Code lit comme un retour à la ligne.
+    // Copy-paste, as in a terminal. Ctrl+C copies the selection if there is one (without a selection, it
+    // interrupts Claude Code); Ctrl+Shift+C always copies. Ctrl+V and Ctrl+Shift+V let the browser paste:
+    // xterm.js gets the paste event and sends the text.
+    // Shift+Enter: new line in the message. xterm.js would send \r like Enter (send); we send
+    // Esc+Enter, which Claude Code reads as a line break.
     term.attachCustomKeyEventHandler((/** @type {KeyboardEvent} */ event) => {
       if (event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
         if (event.type === "keydown") {
@@ -145,33 +146,33 @@ export function mountTerminalView(root, deps) {
         copySelection(term);
         return false;
       }
-      return key !== "v"; // false : xterm.js n'envoie pas ^V, le navigateur colle
+      return key !== "v"; // false: xterm.js does not send ^V, the browser pastes
     });
-    // Sélection à la souris. Claude Code, en plein écran, capture la souris : un glisser lui serait envoyé.
-    // xterm.js réserve Maj + glisser à la sélection ; on inverse : un glisser simple sélectionne, et
-    // Maj + glisser va à Claude Code. Le double-clic (mot) et le triple-clic (ligne) suivent.
+    // Mouse selection. Claude Code, full screen, captures the mouse: a drag would be sent to it.
+    // xterm.js reserves Shift + drag for selection; we invert it: a plain drag selects, and
+    // Shift + drag goes to Claude Code. Double-click (word) and triple-click (line) follow.
     host.addEventListener("mousedown", (event) => {
       if (!event.isTrusted || event.button !== 0 || event.ctrlKey || event.altKey || event.metaKey) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       term.focus();
-      selecting = !event.shiftKey; // le glisser qui suit (déplacements, relâchement) est retransmis avec Maj
+      selecting = !event.shiftKey; // the drag that follows (moves, release) is forwarded with Shift
       event.target?.dispatchEvent(withShift(event, !event.shiftKey));
     }, true);
-    // Copie demandée par Claude Code lui-même (séquence OSC 52, par exemple /copy) : vers le presse-papiers.
-    // Seule l'écriture est prise en charge, jamais la lecture du presse-papiers par le programme.
+    // Copy requested by Claude Code itself (OSC 52 sequence, e.g. /copy): to the clipboard.
+    // Only writing is supported, never reading the clipboard by the program.
     term.parser.registerOscHandler(52, (/** @type {string} */ data) => {
       const encoded = data.slice(data.indexOf(";") + 1);
       if (!encoded || encoded === "?") return true;
       try {
         const text = new TextDecoder().decode(Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0)));
-        navigator.clipboard.writeText(text).then(() => flash("Copié par Claude Code"), () => flash("Copie refusée par le navigateur"));
+        navigator.clipboard.writeText(text).then(() => flash(t("Copied by Claude Code")), () => flash(t("Copy refused by the browser")));
       } catch {
-        // Contenu illisible : ignoré.
+        // Unreadable content: ignored.
       }
       return true;
     });
-    // Presse-papiers sans texte (une image copiée) : Claude Code la lit lui-même sur ^V, comme dans un terminal.
+    // Clipboard without text (a copied image): Claude Code reads it itself on ^V, as in a terminal.
     host.addEventListener("paste", (event) => {
       if (event.clipboardData?.getData("text/plain")) return;
       if (event.clipboardData?.files.length) {
@@ -196,11 +197,11 @@ export function mountTerminalView(root, deps) {
 
   /** @type {number | undefined} */
   let copiedTimer;
-  /** Glisser de sélection en cours (voir entryFor) : ses déplacements et son relâchement passent avec Maj. */
+  /** Selection drag in progress (see entryFor): its moves and its release go through with Shift. */
   let selecting = false;
 
   /**
-   * Copie d'un événement de souris, avec ou sans Maj (xterm.js sélectionne quand Maj est enfoncée).
+   * Copy of a mouse event, with or without Shift (xterm.js selects when Shift is pressed).
    *
    * @param {MouseEvent} event
    * @param {boolean} shiftKey
@@ -209,8 +210,8 @@ export function mountTerminalView(root, deps) {
     bubbles: true, cancelable: true, view: window, detail: event.detail, button: event.button, buttons: event.buttons,
     clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY, shiftKey,
   });
-  // Pendant un glisser de sélection, xterm.js ne doit voir que des événements « avec Maj » : sinon Claude Code
-  // reçoit le relâchement, ce qui compte comme une saisie et efface la sélection.
+  // During a selection drag, xterm.js must only see "with Shift" events: otherwise Claude Code
+  // receives the release, which counts as input and clears the selection.
   for (const type of ["mousemove", "mouseup"]) {
     document.addEventListener(type, (event) => {
       if (!selecting || !event.isTrusted) return;
@@ -221,7 +222,7 @@ export function mountTerminalView(root, deps) {
   }
 
   /**
-   * Copie la sélection du terminal dans le presse-papiers, et le dit dans la barre du terminal.
+   * Copies the terminal selection to the clipboard, and says so in the terminal bar.
    *
    * @param {any} term
    */
@@ -231,14 +232,14 @@ export function mountTerminalView(root, deps) {
     try {
       await navigator.clipboard.writeText(text);
       term.clearSelection();
-      flash("Sélection copiée");
+      flash(t("Selection copied"));
     } catch {
-      flash("Copie refusée par le navigateur");
+      flash(t("Copy refused by the browser"));
     }
   }
 
   /**
-   * Message passager à la place du rappel des raccourcis.
+   * Passing message in place of the shortcuts reminder.
    *
    * @param {string} message
    */
@@ -253,7 +254,7 @@ export function mountTerminalView(root, deps) {
   }
 
   /**
-   * Touches tapées : envoyées dans l'ordre, regroupées tant qu'un envoi est en cours.
+   * Typed keys: sent in order, grouped while a send is in progress.
    *
    * @param {string} id
    * @param {Entry} entry
@@ -277,7 +278,7 @@ export function mountTerminalView(root, deps) {
   }
 
   /**
-   * Redessine l'écran : sortie récente gardée par le serveur, puis ce qui est arrivé entre-temps.
+   * Redraws the screen: recent output kept by the server, then what arrived in the meantime.
    *
    * @param {string} id
    * @param {Entry} entry
@@ -291,7 +292,7 @@ export function mountTerminalView(root, deps) {
     for (const chunk of entry.early) if (chunk.seq > entry.seq) write(entry, chunk);
     entry.early = [];
     entry.ready = true;
-    // Même taille : le serveur demande quand même à Claude Code de redessiner tout l'écran.
+    // Same size: the server still asks Claude Code to redraw the whole screen.
     api(`/api/conversations/${id}/terminal-resize`, { cols: entry.term.cols, rows: entry.term.rows }).catch(() => {});
   }
 
@@ -304,7 +305,7 @@ export function mountTerminalView(root, deps) {
     entry.term.write(entry.recolor.push(decode(chunk.data)));
   }
 
-  /** @param {boolean} [focus] donner le clavier au terminal (arrivée sur l'onglet ou sur l'agent) */
+  /** @param {boolean} [focus] give the keyboard to the terminal (arriving on the tab or on the agent) */
   function render(focus = false) {
     const c = shown;
     const id = c?.id;
@@ -316,10 +317,11 @@ export function mountTerminalView(root, deps) {
     stop.hidden = !isRunning;
     status.textContent = isRunning
       ? `Claude Code · ${c.cwd}`
-      : entry ? "Claude Code est fermé." : "";
+      : entry ? t("Claude Code is closed.") : "";
     if (!isRunning && c) {
-      introText.textContent = `Ouvre Claude Code dans ${c.cwd}${c.sessionId || c.resumeFrom ? ", sur la session de cet agent" : ""}. `
-        + "Toutes ses commandes y marchent (/model, mode plan…). Fermer cet onglet du navigateur ne l'arrête pas.";
+      introText.textContent = c.sessionId || c.resumeFrom
+        ? t("Opens Claude Code in {folder}, on this agent's session. All its commands work there (/model, plan mode…). Closing this browser tab does not stop it.", { folder: c.cwd })
+        : t("Opens Claude Code in {folder}. All its commands work there (/model, plan mode…). Closing this browser tab does not stop it.", { folder: c.cwd });
     }
     if (isRunning && entry) {
       entry.fit.fit();
@@ -327,7 +329,7 @@ export function mountTerminalView(root, deps) {
     }
   }
 
-  /** Ouvre Claude Code pour l'agent affiché. */
+  /** Opens Claude Code for the agent shown. */
   async function startClaude() {
     const c = shown;
     if (!c || running.has(c.id) || start.disabled) return;
@@ -355,7 +357,7 @@ export function mountTerminalView(root, deps) {
   });
 
   /**
-   * Affiche le terminal d'un agent (onglet visible) ; s'il tourne déjà, son écran est redessiné.
+   * Shows an agent's terminal (visible tab); if it is already running, its screen is redrawn.
    *
    * @param {any} conversation
    */
@@ -378,13 +380,13 @@ export function mountTerminalView(root, deps) {
 
   return {
     open,
-    // Pour les raccourcis : leur bouton dans la barre, leur panneau sur l'écran, et le message bref de la barre.
+    // For the shortcuts: their button in the bar, their panel on the screen, and the bar's short message.
     bar,
     stopButton: stop,
     screens,
     flash,
     /**
-     * Affiche l'agent et ouvre aussitôt son Claude Code (nouvel agent).
+     * Shows the agent and opens its Claude Code right away (new agent).
      *
      * @param {any} conversation
      */
@@ -395,7 +397,7 @@ export function mountTerminalView(root, deps) {
     hide() {
       shown = null;
     },
-    /** @param {string[]} ids terminaux ouverts (état initial du serveur) */
+    /** @param {string[]} ids open terminals (initial state from the server) */
     setRunning(ids) {
       running.clear();
       for (const id of ids) running.add(id);
@@ -403,17 +405,17 @@ export function mountTerminalView(root, deps) {
     /** @param {string} id */
     isRunning: (id) => running.has(id),
     /**
-     * Tape un message dans le Claude Code de l'agent puis l'envoie (Entrée), comme au clavier.
+     * Types a message into the agent's Claude Code then sends it (Enter), as on the keyboard.
      *
      * @param {any} conversation
      * @param {string} text
      */
     async type(conversation, text) {
       const id = conversation.id;
-      if (!running.has(id)) throw new Error("Claude Code n'est pas ouvert dans le Terminal.");
+      if (!running.has(id)) throw new Error(t("Claude Code is not open in the Terminal."));
       const entry = await entryFor(id);
       sendInput(id, entry, typedText(text));
-      // Entrée à part : arrivée avec le texte, Claude Code la prendrait pour un collage (un saut de ligne).
+      // Enter on its own: arriving with the text, Claude Code would take it as a paste (a line break).
       await new Promise((resolve) => setTimeout(resolve, 150));
       sendInput(id, entry, "\r");
       if (shown?.id === id) entry.term.focus();
@@ -421,7 +423,7 @@ export function mountTerminalView(root, deps) {
     /** @param {{conversation: string, seq: number, data: string}} chunk */
     onData(chunk) {
       const entry = entries.get(chunk.conversation);
-      if (!entry) return; // jamais affiché ici : l'écran sera redessiné à l'ouverture
+      if (!entry) return; // never shown here: the screen will be redrawn on opening
       if (!entry.ready) entry.early.push(chunk);
       else if (chunk.seq > entry.seq) write(entry, chunk);
     },
@@ -433,14 +435,15 @@ export function mountTerminalView(root, deps) {
         const entry = entries.get(event.conversation);
         if (entry) {
           entry.ready = false;
-          entry.term.write(`\r\n\x1b[2m[Claude Code fermé${typeof event.code === "number" ? ` · code ${event.code}` : ""}]\x1b[0m\r\n`);
+          const closed = typeof event.code === "number" ? t("Claude Code closed · code {code}", { code: event.code }) : t("Claude Code closed");
+          entry.term.write(`\r\n\x1b[2m[${closed}]\x1b[0m\r\n`);
         }
       }
       if (shown?.id !== event.conversation) return;
-      if (event.running) open(shown); // ouvert depuis un autre onglet du navigateur
+      if (event.running) open(shown); // opened from another browser tab
       else render();
     },
-    /** Rafraîchit l'onglet (état de l'agent changé). */
+    /** Refreshes the tab (agent state changed). */
     refresh() {
       if (shown) render();
     },

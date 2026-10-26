@@ -1,15 +1,15 @@
 // @ts-check
-// Nom par défaut d'un nouvel agent : le nom de son dossier de travail, rendu unique. Sans DOM : testable avec Node.
+// Default name of a new agent: the name of its working folder, made unique. No DOM: testable with Node.
 
 /**
- * `base`, ou « base 2 », « base 3 »… s'il est déjà pris (sans tenir compte de la casse ni des espaces en trop) :
- * les agents se trouvent entre eux par leur nom.
+ * `base`, or "base 2", "base 3"… if it is already taken (ignoring case and extra spaces):
+ * agents find each other by their name.
  *
  * @param {string} base
- * @param {Iterable<string>} taken noms déjà portés par des agents
+ * @param {Iterable<string>} taken names already used by agents
  */
 export function uniqueName(base, taken) {
-  const fold = (/** @type {string} */ text) => text.trim().replace(/\s+/g, " ").toLocaleLowerCase("fr");
+  const fold = (/** @type {string} */ text) => text.trim().replace(/\s+/g, " ").toLowerCase();
   const used = new Set([...taken].filter((name) => typeof name === "string").map(fold));
   const clean = base.trim().replace(/\s+/g, " ").slice(0, 70) || "agent";
   if (!used.has(fold(clean))) return clean;

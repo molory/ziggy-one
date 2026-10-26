@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""`ziggy` : lance Ziggy One pour le dossier courant et ouvre l'interface, déjà connectée.
+"""`ziggy`: starts Ziggy One for the current folder and opens the interface, already signed in.
 
-Le dossier courant devient le dossier par défaut des nouveaux agents ; les options de server.py restent
-valables (`ziggy --permission-mode auto`). Si Ziggy One tourne déjà, `ziggy` ouvre seulement l'interface.
-Le token ne s'affiche jamais : le navigateur reçoit un lien de connexion à usage unique.
+The current folder becomes the default folder of new agents; the options of server.py still apply
+(`ziggy --permission-mode auto`). If Ziggy One is already running, `ziggy` only opens the interface.
+The token is never shown: the browser gets a single-use sign-in link.
 """
 
 import sys
 from pathlib import Path
 
 if not sys.platform.startswith("linux"):
-    sys.exit("ziggy : Ziggy One ne fonctionne que sous Linux pour l'instant (terminaux pty et setsid).")
+    sys.exit("ziggy: Ziggy One only runs on Linux for now (pty terminals and setsid).")
 if sys.version_info < (3, 10):
-    sys.exit("ziggy : Python 3.10 ou plus récent est nécessaire.")
+    sys.exit("ziggy: Python 3.10 or newer is required.")
 
-ROOT = Path(__file__).resolve().parent  # resolve : suit le lien de ~/.local/bin/ziggy
+ROOT = Path(__file__).resolve().parent  # resolve: follows the ~/.local/bin/ziggy link
 sys.path.insert(0, str(ROOT))
 import server  # noqa: E402
 

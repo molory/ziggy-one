@@ -1,4 +1,4 @@
-"""Tests des épingles enregistrées côté serveur : python3 -m unittest discover -s tests"""
+"""Tests of the pins saved on the server: python3 -m unittest discover -s tests"""
 
 import sys
 import tempfile
@@ -30,8 +30,8 @@ class PinsTest(unittest.TestCase):
         self.assertEqual(self.pins.set([B, WORKSPACE, A, B, "../x", "workspace:nope", 12]), [B, WORKSPACE, A])
         self.assertEqual(drain(self.events), [("pins", [B, WORKSPACE, A])])
         self.pins.set([B, WORKSPACE, A])
-        self.assertEqual(drain(self.events), [])  # rien de changé : ni écriture ni événement
-        self.assertEqual(Pins(self.bus, self.path).list(), [B, WORKSPACE, A])  # survit au redémarrage
+        self.assertEqual(drain(self.events), [])  # nothing changed: no write, no event
+        self.assertEqual(Pins(self.bus, self.path).list(), [B, WORKSPACE, A])  # survives a restart
         self.assertEqual(self.pins.agent_keys(), [B, A])
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
@@ -39,13 +39,13 @@ class PinsTest(unittest.TestCase):
         self.pins.set(["abcdef123456", B])
         self.pins.replace_key("abcdef123456", A)
         self.assertEqual(self.pins.list(), [A, B])
-        self.pins.replace_key(A, B)  # déjà épinglé sous l'autre identifiant : une seule épingle
+        self.pins.replace_key(A, B)  # already pinned under the other id: a single pin
         self.assertEqual(self.pins.list(), [B])
 
     def test_invalid_input(self):
         with self.assertRaises(ValueError):
-            self.pins.set("pas une liste")
-        self.path.write_text("{abîmé")
+            self.pins.set("not a list")
+        self.path.write_text("{damaged")
         self.assertEqual(Pins(self.bus, self.path).list(), [])
 
 

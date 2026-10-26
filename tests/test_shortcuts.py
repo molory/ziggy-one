@@ -1,4 +1,4 @@
-"""Tests des raccourcis de prompts : python3 -m unittest discover -s tests"""
+"""Tests of the prompt shortcuts: python3 -m unittest discover -s tests"""
 
 import http.client
 import json
@@ -29,19 +29,19 @@ class ShortcutsTest(unittest.TestCase):
         self.store = Shortcuts(self.bus, self.path)
 
     def test_lists_are_saved_privately_and_published(self):
-        data = self.store.set("agent", AGENT, [{"title": " Tests ", "prompt": "Lance les tests\r\n\x1b[2Jpuis résume"}])
+        data = self.store.set("agent", AGENT, [{"title": " Tests ", "prompt": "Run the tests\r\n\x1b[2Jthen summarize"}])
         item = data["agents"][AGENT][0]
-        self.assertEqual((item["title"], item["prompt"]), ("Tests", "Lance les tests\n[2Jpuis résume"))
+        self.assertEqual((item["title"], item["prompt"]), ("Tests", "Run the tests\n[2Jthen summarize"))
         self.assertRegex(item["id"], r"^[0-9a-f]{12}$")
-        self.store.set("workspace", WORKSPACE, [{"prompt": "Fais une revue"}, dict(item)])
+        self.store.set("workspace", WORKSPACE, [{"prompt": "Do a review"}, dict(item)])
         self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
         reloaded = Shortcuts(self.bus, self.path).snapshot()
         self.assertEqual(reloaded, self.store.snapshot())
-        self.assertEqual([i["id"] for i in reloaded["workspaces"][WORKSPACE]][1], item["id"], "identifiant gardé")
+        self.assertEqual([i["id"] for i in reloaded["workspaces"][WORKSPACE]][1], item["id"], "id kept")
         kinds = [self.events.get_nowait()[0] for _ in range(self.events.qsize())]
         self.assertEqual(kinds, ["shortcuts", "shortcuts"])
         self.store.set("agent", AGENT, [])
-        self.assertNotIn(AGENT, self.store.snapshot()["agents"], "liste vide : retirée")
+        self.assertNotIn(AGENT, self.store.snapshot()["agents"], "empty list: removed")
 
     def test_invalid_input_is_refused(self):
         for scope, owner, items in [
@@ -51,7 +51,7 @@ class ShortcutsTest(unittest.TestCase):
         ]:
             with self.assertRaises(ValueError, msg=(scope, owner, str(items)[:40])):
                 self.store.set(scope, owner, items)
-        self.assertEqual(clean_items([{"prompt": "ok"}, "abîmé", {"prompt": ""}], strict=False)[0]["prompt"], "ok")
+        self.assertEqual(clean_items([{"prompt": "ok"}, "damaged", {"prompt": ""}], strict=False)[0]["prompt"], "ok")
 
     def test_shortcuts_follow_the_agent_to_its_session(self):
         self.store.set("agent", AGENT, [{"prompt": "a"}])

@@ -1,4 +1,4 @@
-"""Tests du redémarrage propre du serveur : python3 -m unittest discover -s tests"""
+"""Tests of the clean server restart: python3 -m unittest discover -s tests"""
 
 import json
 import sys
@@ -29,7 +29,7 @@ class FakeTerminals:
 
     def write(self, cid, data):
         if cid not in self.open:
-            raise RuntimeError("le terminal est fermé")
+            raise RuntimeError("the terminal is closed")
         if data != "\r":
             self.typed.append((cid, data))
 
@@ -74,19 +74,19 @@ class RestartTest(unittest.TestCase):
     def test_pause_wait_restart_then_reopen_and_resume(self):
         fake, restart, events = self.make(busy={"a"}, running={"a", "b"})
         restart.request()
-        self.assertTrue(wait_for(lambda: restart.snapshot()["paused"] == ["a"]))  # b était au repos : pas de message
+        self.assertTrue(wait_for(lambda: restart.snapshot()["paused"] == ["a"]))  # b was idle: no message
         self.assertEqual(fake.terminals.typed, [("a", PAUSE)])
         self.assertEqual(restart.snapshot()["phase"], "waiting")
         with self.assertRaises(RuntimeError):
-            restart.request()  # déjà demandé
-        fake.conversations.busy.clear()  # a s'est arrêté
+            restart.request()  # already requested
+        fake.conversations.busy.clear()  # a has stopped
         self.assertTrue(fake.stopped.wait(3))
         self.assertTrue(restart.requested)
         handoff = json.loads((self.dir / "restart.json").read_text())
         self.assertEqual((handoff["terminals"], handoff["paused"], handoff["forced"]), (["a", "b"], ["a"], False))
         self.assertIn("restarting", [e[1]["state"]["phase"] for e in drain(events) if e[1]["state"]])
 
-        # Le serveur suivant rouvre les terminaux et fait reprendre l'agent mis en pause.
+        # The next server reopens the terminals and makes the paused agent resume.
         after = FakeServer(busy=set(), running=set())
         restarted = Restart(after, self.dir, reopen_delay=0)
         restarted.resume_after_restart()
@@ -94,8 +94,8 @@ class RestartTest(unittest.TestCase):
         self.assertEqual(after.terminals.typed, [("a", RESUME)])
         self.assertEqual((restarted.last["reopened"], restarted.last["resumed"]), (2, 1))
         self.assertFalse((self.dir / "restart.json").exists())
-        self.assertEqual(Restart(after, self.dir).last["reopened"], 2)  # compte rendu gardé
-        restarted.resume_after_restart()  # rien à refaire
+        self.assertEqual(Restart(after, self.dir).last["reopened"], 2)  # report kept
+        restarted.resume_after_restart()  # nothing left to do
         self.assertEqual(after.terminals.started, ["a", "b"])
 
     def test_force_and_cancel(self):
@@ -105,12 +105,12 @@ class RestartTest(unittest.TestCase):
         restart.cancel()
         self.assertTrue(wait_for(lambda: restart.snapshot() is None))
         self.assertFalse(fake.stopped.is_set())
-        self.assertEqual(len(fake.terminals.typed), 2)  # la pause, puis « on ne redémarre pas »
+        self.assertEqual(len(fake.terminals.typed), 2)  # the pause, then "not restarting"
         with self.assertRaises(RuntimeError):
             restart.cancel()
         restart.request()
         restart.force()
-        self.assertTrue(fake.stopped.wait(3))  # sans attendre l'agent au travail
+        self.assertTrue(fake.stopped.wait(3))  # without waiting for the working agent
         self.assertTrue(json.loads((self.dir / "restart.json").read_text())["forced"])
 
 

@@ -1,18 +1,18 @@
 // @ts-check
-// Tes messages, plus visibles dans le terminal. Claude Code les affiche sur un fond gris sombre
-// (48;2;55;55;55), précédés d'un « ❯ » gris : au passage, le fond devient une teinte orange de Ziggy et
-// le « ❯ » orange vif, en gras. On change la couleur à l'arrivée plutôt que de surligner des lignes :
-// Claude Code redessine l'écran sans cesse, la couleur suit. Si Claude Code change ce gris (nouvelle
-// version, autre /theme), rien n'est recoloré : l'affichage reste celui d'origine.
+// Your messages, more visible in the terminal. Claude Code shows them on a dark grey background
+// (48;2;55;55;55), preceded by a grey "❯": on the way through, the background becomes a Ziggy orange tint and
+// the "❯" bright orange, in bold. We change the color on arrival rather than highlighting lines:
+// Claude Code redraws the screen constantly, the color follows. If Claude Code changes this grey (new
+// version, other /theme), nothing is recolored: the display stays the original one.
 
 const encoder = new TextEncoder();
 const USER_BACKGROUND = "\x1b[48;2;55;55;55m";
 const PROMPT_GREY = "\x1b[38;2;153;153;153m";
 const TINT_BACKGROUND = "\x1b[48;2;70;50;38m";
-// Après le « ❯ », le gris attendu par Claude Code est remis : il ne le renvoie pas s'il le croit actif.
+// After the "❯", the grey Claude Code expects is restored: it does not send it again if it thinks it is active.
 const TINT_PROMPT = `${TINT_BACKGROUND}\x1b[1;38;2;251;146;60m❯\x1b[22m${PROMPT_GREY} `;
-// Du plus long au plus court. En redessinant l'écran, Claude Code omet le gris du « ❯ » s'il est déjà actif.
-// « ❯ » suivi d'une espace : ton message ; suivi d'une espace insécable, c'est la zone de saisie.
+// Longest to shortest. When redrawing the screen, Claude Code omits the grey of the "❯" if it is already active.
+// "❯" followed by a space: your message; followed by a non-breaking space, it is the input box.
 const RULES = [
   [`${USER_BACKGROUND}${PROMPT_GREY}❯ `, TINT_PROMPT],
   [`${USER_BACKGROUND}❯ `, TINT_PROMPT],
@@ -24,7 +24,7 @@ const ESC = 0x1b;
  * @param {Uint8Array} bytes
  * @param {number} at
  * @param {Uint8Array} pattern
- * @returns {"yes" | "no" | "maybe"} « maybe » : les octets s'arrêtent au milieu du motif
+ * @returns {"yes" | "no" | "maybe"} "maybe": the bytes stop in the middle of the pattern
  */
 function matchAt(bytes, at, pattern) {
   for (let i = 0; i < pattern.length; i++) {
@@ -35,8 +35,8 @@ function matchAt(bytes, at, pattern) {
 }
 
 /**
- * Recoloreur d'un flux d'écran. Une séquence peut arriver coupée entre deux morceaux : sa fin incomplète
- * est gardée pour le morceau suivant.
+ * Recolorer of a screen stream. A sequence can arrive split between two chunks: its incomplete end
+ * is kept for the next chunk.
  */
 export function createRecolor() {
   /** @type {Uint8Array} */
@@ -52,7 +52,7 @@ export function createRecolor() {
       for (let i = bytes.indexOf(ESC); i !== -1; i = bytes.indexOf(ESC, i + 1)) {
         const results = RULES.map(([from]) => matchAt(bytes, i, from));
         if (results.includes("maybe")) {
-          // Fin du morceau au milieu d'un motif possible (même après le fond : le « ❯ » peut suivre) : on attend la suite.
+          // End of the chunk in the middle of a possible pattern (even after the background: the "❯" may follow): wait for the rest.
           parts.push(bytes.subarray(start, i));
           carry = bytes.slice(i);
           return concat(parts);

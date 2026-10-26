@@ -1,12 +1,12 @@
-"""Activité partagée entre les agents d'un workspace qui travaillent dans le même dépôt.
+"""Activity shared between the agents of a workspace that work in the same repository.
 
-À la fin de chaque tour d'un agent, on note ce qu'il a fait : la demande, le début de sa réponse
-finale, les commits du tour. Avant d'envoyer un message à un agent, ziggy-one y ajoute ce
-qu'ont fait depuis son dernier message les autres agents de son workspace, dans le même dépôt
-(option du workspace, activée par défaut).
+At the end of each turn of an agent, we record what it did: the request, the start of its final
+answer, the commits of the turn. Before sending a message to an agent, ziggy-one adds to it what the
+other agents of its workspace did in the same repository since its last message (workspace option,
+on by default).
 
-Aucun appel à un modèle : la réponse finale d'un agent est déjà un résumé. Le contexte partagé est
-court (MAX_DIGEST caractères) et n'est ajouté que s'il y a du nouveau.
+No model call: an agent's final answer is already a summary. The shared context is short
+(MAX_DIGEST characters) and only added when there is something new.
 """
 
 import os
@@ -23,16 +23,16 @@ SHARED_RE = re.compile(rf"^\s*<{SHARED_TAG}>\n?(.*?)\n?</{SHARED_TAG}>\s*", re.D
 TAG_RE = re.compile(rf"</?{SHARED_TAG}>", re.IGNORECASE)
 MAX_EVENTS = 200
 MAX_CURSORS = 1000
-MAX_DIGEST = 1500  # caractères du contexte partagé, consignes comprises (≈ 400 tokens)
+MAX_DIGEST = 1500  # characters of the shared context, instructions included (≈ 400 tokens)
 MAX_PROMPT = 120
 MAX_SUMMARY = 220
 MAX_COMMITS = 5
 MAX_DIRTY = 8
-FIRST_LOOKBACK = 12 * 3600  # premier message d'un agent : l'activité des 12 dernières heures
+FIRST_LOOKBACK = 12 * 3600  # first message of an agent: the activity of the last 12 hours
 
 
 def split_shared(text):
-    """(contexte partagé ou None, message de l'utilisateur) d'un message envoyé à un agent."""
+    """(shared context or None, user message) of a message sent to an agent."""
     match = SHARED_RE.match(text) if isinstance(text, str) else None
     if match is None:
         return None, text
@@ -40,12 +40,12 @@ def split_shared(text):
 
 
 def with_shared(shared, text):
-    """Message envoyé à Claude : le contexte partagé (s'il y en a) puis le message de l'utilisateur."""
+    """Message sent to Claude: the shared context (if any) then the user message."""
     return f"<{SHARED_TAG}>\n{shared}\n</{SHARED_TAG}>\n\n{text}" if shared else text
 
 
 def _flat(text, limit):
-    """Une ligne, sans balise de contexte partagé (un agent ne peut pas fermer le bloc d'un autre)."""
+    """One line, without shared context tags (an agent cannot close another one's block)."""
     text = TAG_RE.sub("", text or "")
     text = re.sub(r"[*`#>]+", "", text)
     text = " ".join(text.split())
@@ -55,15 +55,15 @@ def _flat(text, limit):
 def _ago(seconds):
     minutes = int(seconds // 60)
     if minutes < 1:
-        return "à l'instant"
+        return "just now"
     if minutes < 60:
-        return f"il y a {minutes} min"
+        return f"{minutes} min ago"
     if minutes < 48 * 60:
-        return f"il y a {minutes // 60} h"
-    return f"il y a {minutes // (24 * 60)} j"
+        return f"{minutes // 60} h ago"
+    return f"{minutes // (24 * 60)} d ago"
 
 
-# --- état du dépôt -----------------------------------------------------------------------
+# --- repository state --------------------------------------------------------------------
 
 
 def _git(cwd, *args, strip=True):
@@ -77,9 +77,9 @@ def _git(cwd, *args, strip=True):
 
 
 def repo_snapshot(cwd):
-    """Dépôt du dossier (son .git commun, partagé par ses worktrees), commit et branche courants.
+    """Repository of the folder (its common .git, shared by its worktrees), current commit and branch.
 
-    Hors dépôt git, le dépôt est le dossier lui-même. None si le dossier n'existe pas.
+    Outside a git repository, the repository is the folder itself. None if the folder does not exist.
     """
     if not isinstance(cwd, str) or not os.path.isdir(cwd):
         return None
@@ -94,17 +94,17 @@ def repo_snapshot(cwd):
 
 
 def commits_between(cwd, before, after):
-    """Titres des commits arrivés pendant le tour (les plus récents d'abord)."""
+    """Titles of the commits made during the turn (most recent first)."""
     if not before or not after or before == after:
         return []
     out = _git(cwd, "log", f"-{MAX_COMMITS}", "--format=%h %s", f"{before}..{after}")
     if out:
         return [_flat(line, 90) for line in out.splitlines()]
-    return [f"HEAD déplacé sur {after[:7]}"]  # retour en arrière, changement de branche…
+    return [f"HEAD moved to {after[:7]}"]  # going back, branch switch…
 
 
 def dirty_files(cwd):
-    out = _git(cwd, "status", "--porcelain", "-z", "--untracked-files=normal", strip=False)  # « XY nom »
+    out = _git(cwd, "status", "--porcelain", "-z", "--untracked-files=normal", strip=False)  # "XY name"
     if not out:
         return []
     names, tokens, index = [], out.split("\0"), 0
@@ -114,11 +114,11 @@ def dirty_files(cwd):
         if len(token) > 3:
             names.append(token[3:])
             if token[0] in "RC":
-                index += 1  # renommage : le chemin d'origine suit
+                index += 1  # rename: the original path follows
     return names
 
 
-# --- journal -----------------------------------------------------------------------------
+# --- log ---------------------------------------------------------------------------------
 
 
 def _clean_event(raw):
@@ -131,7 +131,7 @@ def _clean_event(raw):
         "id": raw["id"],
         "at": raw.get("at") if isinstance(raw.get("at"), (int, float)) else 0,
         "agents": agents,
-        "name": _flat(raw.get("name") if isinstance(raw.get("name"), str) else "", 80) or "Un agent",
+        "name": _flat(raw.get("name") if isinstance(raw.get("name"), str) else "", 80) or "An agent",
         "repo": raw["repo"],
         "prompt": _flat(raw.get("prompt") if isinstance(raw.get("prompt"), str) else "", MAX_PROMPT),
         "summary": _flat(raw.get("summary") if isinstance(raw.get("summary"), str) else "", MAX_SUMMARY),
@@ -141,10 +141,10 @@ def _clean_event(raw):
 
 
 class SharedActivity:
-    """Journal de ce que font les agents, et contexte partagé à ajouter à leurs messages.
+    """Log of what the agents do, and shared context to add to their messages.
 
-    `workspace_for(keys)` : workspace de l'agent (ou None) ; `name_for(keys)` : son nom personnalisé.
-    Le journal et ce que chaque agent a déjà reçu sont gardés dans un fichier JSON local (0600).
+    `workspace_for(keys)`: workspace of the agent (or None); `name_for(keys)`: its custom name.
+    The log and what each agent has already received are kept in a local JSON file (0600).
     """
 
     def __init__(self, path, workspace_for, name_for, now=time.time):
@@ -153,7 +153,7 @@ class SharedActivity:
         self._name_for = name_for
         self._now = now
         self._lock = threading.Lock()
-        self._turns = {}  # discussion → état du dépôt au début de son tour (en mémoire)
+        self._turns = {}  # conversation → repository state at the start of its turn (in memory)
         data = read_json(self._path, {})
         data = data if isinstance(data, dict) else {}
         events = [_clean_event(raw) for raw in data.get("events", []) if isinstance(data.get("events"), list)]
@@ -167,17 +167,17 @@ class SharedActivity:
         return [key for key in (conversation.session_id, conversation.resume_from, conversation.id) if key]
 
     def _save(self):
-        # Appelé avec _lock acquis.
-        if len(self._cursors) > MAX_CURSORS:  # les plus anciens curseurs d'abord
+        # Called with _lock held.
+        if len(self._cursors) > MAX_CURSORS:  # oldest cursors first
             self._cursors = dict(sorted(self._cursors.items(), key=lambda item: item[1])[-MAX_CURSORS:])
         write_json(self._path, {"events": self._events, "cursors": self._cursors})
 
-    # --- avant un message ------------------------------------------------------------------
+    # --- before a message -------------------------------------------------------------------
 
     def before_send(self, conversation):
-        """Contexte partagé à ajouter au message de l'agent, ou None s'il n'y a rien de neuf.
+        """Shared context to add to the agent's message, or None if there is nothing new.
 
-        Note aussi l'état du dépôt, pour savoir à la fin du tour quels commits il a apportés.
+        Also records the repository state, to know at the end of the turn which commits it brought.
         """
         keys = self.keys_of(conversation)
         repo = repo_snapshot(conversation.cwd)
@@ -195,7 +195,7 @@ class SharedActivity:
                 and members.intersection(event["agents"]) and not set(keys).intersection(event["agents"])
                 and (known or event["at"] >= now - FIRST_LOOKBACK)
             ]
-            # Ce qui n'est pas partagé maintenant (option coupée, autre dépôt) ne le sera pas plus tard.
+            # What is not shared now (option off, other repository) will not be shared later either.
             latest = self._next_id - 1
             if any(self._cursors.get(key) != latest for key in keys):
                 for key in keys:
@@ -207,45 +207,45 @@ class SharedActivity:
 
     def _digest(self, workspace_name, events, cwd, now):
         head = (
-            f"Pour information : ce qu'ont fait les autres agents du workspace « {_flat(workspace_name, 80)} » "
-            "dans ce dépôt depuis ton dernier message. Ce n'est pas une demande : "
-            "n'agis dessus que si mon message le demande."
+            f"For your information: what the other agents of the workspace \"{_flat(workspace_name, 80)}\" "
+            "did in this repository since your last message. This is not a request: "
+            "only act on it if my message asks you to."
         )
         repo = repo_snapshot(cwd) or {}
         dirty = dirty_files(cwd) if repo.get("head") or repo.get("branch") else []
         state = ""
         if repo.get("branch") or dirty:
             files = ", ".join(dirty[:MAX_DIRTY]) + (" …" if len(dirty) > MAX_DIRTY else "")
-            state = "État de ton dossier : " + ", ".join(filter(None, [
-                f"branche {repo['branch']}" if repo.get("branch") else "",
-                f"{len(dirty)} fichier{'s' if len(dirty) > 1 else ''} non commité{'s' if len(dirty) > 1 else ''} ({files})"
-                if dirty else "aucun fichier non commité",
+            state = "State of your folder: " + ", ".join(filter(None, [
+                f"branch {repo['branch']}" if repo.get("branch") else "",
+                f"{len(dirty)} uncommitted file{'s' if len(dirty) > 1 else ''} ({files})"
+                if dirty else "no uncommitted files",
             ])) + "."
         budget = MAX_DIGEST - len(head) - len(state) - 40
         shown = []
-        for event in reversed(events):  # les plus récents d'abord, tant que ça tient
+        for event in reversed(events):  # most recent first, as long as it fits
             line = self._line(event, now)
             if shown and len(line) > budget:
                 break
             shown.append(line)
             budget -= len(line) + 1
         older = len(events) - len(shown)
-        lines = [f"- … et {older} action{'s' if older > 1 else ''} plus ancienne{'s' if older > 1 else ''}."] if older else []
-        lines += reversed(shown)  # ordre chronologique
+        lines = [f"- … and {older} older action{'s' if older > 1 else ''}."] if older else []
+        lines += reversed(shown)  # chronological order
         return "\n".join(filter(None, [head, *lines, state]))
 
     @staticmethod
     def _line(event, now):
-        outcome = "s'est arrêté sur une erreur" if event["error"] else (event["summary"] or "tour terminé")
-        line = f"- {event['name']}, {_ago(now - event['at'])} : « {event['prompt']} » → {outcome}"
+        outcome = "stopped on an error" if event["error"] else (event["summary"] or "turn finished")
+        line = f"- {event['name']}, {_ago(now - event['at'])}: \"{event['prompt']}\" → {outcome}"
         if event["commits"]:
-            line += f" Commits : {' ; '.join(event['commits'])}."
+            line += f" Commits: {'; '.join(event['commits'])}."
         return line
 
-    # --- après un tour -------------------------------------------------------------------
+    # --- after a turn --------------------------------------------------------------------
 
     def after_turn(self, conversation, prompt, result_text, is_error):
-        """Note ce que l'agent vient de faire (appelé à la fin de chacun de ses tours)."""
+        """Records what the agent just did (called at the end of each of its turns)."""
         keys = self.keys_of(conversation)
         with self._lock:
             before = self._turns.pop(conversation.id, None)
@@ -268,7 +268,7 @@ class SharedActivity:
             event["id"] = self._next_id
             self._next_id += 1
             self._events = [*self._events, event][-MAX_EVENTS:]
-            # Sa session a pu démarrer pendant le tour : elle reprend le curseur de la discussion.
+            # Its session may have started during the turn: it takes over the conversation's cursor.
             known = [self._cursors[key] for key in keys if key in self._cursors]
             for key in keys:
                 if known:

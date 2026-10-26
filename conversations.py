@@ -1,14 +1,14 @@
-"""Agents ouverts dans ziggy-one : un dossier, une session Claude Code, et son état.
+"""Agents open in ziggy-one: a folder, a Claude Code session, and its state.
 
-Claude Code tourne dans l'onglet Terminal de l'agent (terminal.py). Ce module ne lance rien : il garde
-pour chaque agent son dossier, sa session (connue dès que Claude Code l'a créée ou reprise) et s'il est
-au travail, d'après les hooks de Claude Code et le registre de ses sessions.
+Claude Code runs in the agent's Terminal tab (terminal.py). This module launches nothing: it keeps
+for each agent its folder, its session (known as soon as Claude Code has created or resumed it) and whether
+it is working, from the Claude Code hooks and its session registry.
 
-Un agent est désigné par sa discussion (identifiant ziggy-one, 12 caractères hexadécimaux) tant
-que sa session n'a pas d'historique, puis par sa session Claude Code.
+An agent is identified by its conversation (ziggy-one id, 12 hexadecimal characters) as long as
+its session has no history, then by its Claude Code session.
 
-Les agents ouverts sont enregistrés (conversations.json) : ils restent dans la liste après un redémarrage
-du serveur, même sans aucun message, jusqu'à ce qu'on les supprime.
+Open agents are saved (conversations.json): they stay in the list after a server restart,
+even without any message, until they are deleted.
 """
 
 import json
@@ -18,9 +18,12 @@ import threading
 import time
 from pathlib import Path
 
+from i18n import tr
 from storage import is_agent_key, read_json, write_json
 
-NEW_LABEL = "Nouvel agent"
+# Default name, stored in English and translated when shown (status()); "Nouvel agent" is the old stored form.
+NEW_LABEL = "New agent"
+LEGACY_NEW_LABELS = ("Nouvel agent",)
 CONVERSATION_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
 
@@ -33,7 +36,7 @@ def parse_json_line(line):
 
 
 class Conversation:
-    """Un agent ouvert ici. `prompt` : son dernier message (hook UserPromptSubmit), pour le bilan du tour."""
+    """An agent open here. `prompt`: its last message (UserPromptSubmit hook), for the turn summary."""
 
     def __init__(self, manager, conversation_id, cwd, resume_from=None, label=""):
         self._manager = manager
@@ -41,11 +44,11 @@ class Conversation:
         self.id = conversation_id
         self.cwd = cwd
         self.resume_from = resume_from
-        self.label = label or NEW_LABEL
-        self.git = manager.in_git_repo(cwd)  # dossier dans un dépôt git ?
+        self.label = label if label and label not in LEGACY_NEW_LABELS else NEW_LABEL
+        self.git = manager.in_git_repo(cwd)  # folder inside a git repository?
         self.session_id = None
         self.busy = False
-        self.waiting = None  # ce que l'agent attend de toi : "permission", "question", ou None
+        self.waiting = None  # what the agent waits for from you: "permission", "question", or None
         self.prompt = ""
         self.last_activity = time.time()
 
@@ -53,7 +56,7 @@ class Conversation:
         with self._lock:
             return {
                 "id": self.id,
-                "label": self.label,
+                "label": tr(NEW_LABEL) if self.label == NEW_LABEL else self.label,
                 "cwd": self.cwd,
                 "git": self.git,
                 "sessionId": self.session_id,
@@ -67,11 +70,11 @@ class Conversation:
         self._manager.bus.publish("status", self.status())
 
     def adopt_session(self, session_id):
-        """Session utilisée par Claude Code (créée, reprise, ou changée par /clear, /resume).
+        """Session used by Claude Code (created, resumed, or changed by /clear, /resume).
 
-        Adoptée seulement une fois son historique écrit : une session que Claude Code ouvre puis laisse
-        vide (ou quitte aussitôt pour une autre) n'emporte pas le nom, les épingles ni le workspace de
-        l'agent, qui disparaîtrait avec elle au redémarrage.
+        Adopted only once its history is written: a session that Claude Code opens then leaves
+        empty (or quits right away for another) does not take the agent's name, pins or workspace
+        along, which would vanish with it on restart.
         """
         if not self._manager.has_history(session_id):
             return
@@ -83,7 +86,7 @@ class Conversation:
         self._publish_status()
 
     def set_waiting(self, kind):
-        """L'agent attend ta réponse (« permission », « question ») ou plus (None) ; publié s'il change."""
+        """The agent waits for your answer ("permission", "question") or no longer does (None); published if it changes."""
         with self._lock:
             if kind == self.waiting:
                 return False
@@ -92,7 +95,7 @@ class Conversation:
         return True
 
     def set_busy(self, busy, prompt=None):
-        """Au travail ou non ; retourne True si l'état a changé."""
+        """Working or not; returns True if the state changed."""
         with self._lock:
             if prompt is not None:
                 self.prompt = prompt
@@ -103,30 +106,30 @@ class Conversation:
             self.busy = busy
             self.last_activity = time.time()
         if labelled and self.label != NEW_LABEL:
-            self._manager.save()  # premier message : son nom par défaut est enregistré
+            self._manager.save()  # first message: its default name is saved
         if changed or prompt is not None:
             self._publish_status()
         return changed
 
 
 class ConversationManager:
-    """Les agents ouverts dans ziggy-one, enregistrés pour être retrouvés au redémarrage du serveur."""
+    """The agents open in ziggy-one, saved to be found again when the server restarts."""
 
     def __init__(self, bus, default_cwd, in_git_repo=lambda cwd: False, on_session_started=None,
                  has_history=lambda session_id: True, path=None):
         self.bus = bus
         self.default_cwd = default_cwd
         self.in_git_repo = in_git_repo
-        self.has_history = has_history  # la session a-t-elle un historique sur disque ?
+        self.has_history = has_history  # does the session have a history on disk?
         self._on_session_started = on_session_started
         self._lock = threading.Lock()
         self._path = Path(path) if path else None
         self._conversations = self._load()
 
-    # --- fichier ------------------------------------------------------------------------
+    # --- file ---------------------------------------------------------------------------
 
     def _load(self):
-        """Agents ouverts avant le redémarrage, au repos ; un fichier absent ou abîmé n'en donne aucun."""
+        """Agents open before the restart, idle; a missing or damaged file gives none."""
         conversations = {}
         data = read_json(self._path, []) if self._path else []
         for raw in data if isinstance(data, list) else []:
@@ -145,12 +148,12 @@ class ConversationManager:
         return conversations
 
     def save(self):
-        """Enregistre les agents ouverts (dossier, session, nom par défaut), pour les retrouver au redémarrage."""
+        """Saves the open agents (folder, session, default name), to find them again on restart."""
         if self._path is None:
             return
         keep = ("id", "cwd", "sessionId", "resumeFrom", "label", "lastActivity")
         with self._lock:
-            records = [{key: c.status()[key] for key in keep} for c in self._conversations.values()]
+            records = [{**{key: c.status()[key] for key in keep}, "label": c.label} for c in self._conversations.values()]
             write_json(self._path, records)
 
     def get(self, conversation_id):
@@ -166,7 +169,7 @@ class ConversationManager:
         return sorted(statuses, key=lambda s: s["lastActivity"], reverse=True)
 
     def session_started(self, conversation_id, session_id, previous=None):
-        """Un agent vient d'obtenir (ou de changer de) session Claude Code ; `previous` : l'ancienne."""
+        """An agent has just got (or changed) its Claude Code session; `previous`: the old one."""
         self.save()
         if self._on_session_started is not None:
             self._on_session_started(conversation_id, session_id, previous)
@@ -178,7 +181,7 @@ class ConversationManager:
         return None
 
     def open(self, resume=None, cwd=None, label=""):
-        """Agent pour une session (celui qui la suit déjà, sinon un nouveau), ou un agent vierge."""
+        """Agent for a session (the one already following it, else a new one), or a blank agent."""
         if resume is not None:
             existing = self.find_by_session(resume)
             if existing is not None:

@@ -1,12 +1,13 @@
 // @ts-check
-// Onglet Discussion : la conversation de l'agent, mise en forme (ce que tu écris part dans le Terminal).
-// Relue depuis la session Claude Code tant que l'onglet est affiché ; le serveur ne la renvoie que si elle a
-// changé. En bas, une zone de saisie : le message envoyé est tapé dans le Terminal, où l'on bascule. Deux affichages : « Tout » (messages et réponses), « Mes messages » (seulement ce que tu as envoyé,
-// chaque réponse se déplie à la demande). Deux boutons flottants, en bas à droite contre les messages :
-// replier / déplier, et aller en haut / en bas. Aucun contenu ne passe par innerHTML.
+// Discussion tab: the agent's conversation, formatted (what you write goes to the Terminal).
+// Re-read from the Claude Code session while the tab is shown; the server only sends it back if it has
+// changed. At the bottom, an input box: the message sent is typed into the Terminal, which we switch to. Two views: "All" (messages and replies), "My messages" (only what you sent,
+// each reply unfolds on demand). Two floating buttons, bottom right against the messages:
+// fold / unfold, and go to top / bottom. No content goes through innerHTML.
 
 import { buildTurns, replyText, sentText, toolNames, toolSummary, turnMarkdown } from "./discussion-logic.js";
 import { createDropdown } from "./dropdown.js";
+import { locale, t, tn } from "./i18n.js";
 
 const MODE_KEY = "zo-discussion-mode";
 const POLL_MS = 2000;
@@ -19,13 +20,13 @@ const POLL_MS = 2000;
  * @property {(path: string, body?: object) => Promise<any>} api
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  * @property {(text: string, target: HTMLElement) => void} renderMarkdown
- * @property {(conversation: any) => string} [agentName] nom affiché de l'agent (titre des PDF)
- * @property {(conversation: any) => boolean} isRunning Claude Code est-il ouvert dans le Terminal ?
- * @property {(conversation: any, text: string) => Promise<void>} send tape le message dans le Terminal
+ * @property {(conversation: any) => string} [agentName] displayed name of the agent (PDF title)
+ * @property {(conversation: any) => boolean} isRunning is Claude Code open in the Terminal?
+ * @property {(conversation: any, text: string) => Promise<void>} send types the message into the Terminal
  */
 
 const ICONS = {
-  // Replier : ne garder que mes messages ; déplier : toute la discussion.
+  // Fold: keep only my messages; unfold: the whole discussion.
   collapse: "M7 4l5 5 5-5M7 20l5-5 5 5",
   expand: "M7 9l5-5 5 5M7 15l5 5 5-5",
   down: "M12 5v14M6 13l6 6 6-6",
@@ -37,7 +38,7 @@ const ICONS = {
   send: "M12 19V5M5 12l7-7 7 7",
 };
 
-/** @param {string} d tracé SVG (24×24, en traits) */
+/** @param {string} d SVG path (24×24, stroked) */
 function icon(d) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -53,7 +54,7 @@ function timeOf(iso) {
   if (!iso) return "";
   const date = new Date(iso);
   const sameDay = date.toDateString() === new Date().toDateString();
-  return date.toLocaleString("fr-FR", sameDay ? { hour: "2-digit", minute: "2-digit" } : { dateStyle: "short", timeStyle: "short" });
+  return date.toLocaleString(locale(), sameDay ? { hour: "2-digit", minute: "2-digit" } : { dateStyle: "short", timeStyle: "short" });
 }
 
 /** @param {string} key */
@@ -73,39 +74,39 @@ export function mountDiscussionView(root, deps) {
   const { api, el } = deps;
   /** @type {"all" | "mine"} */
   let mode = loadMode(MODE_KEY);
-  /** @type {any} agent affiché (null : onglet caché) */
+  /** @type {any} agent shown (null: tab hidden) */
   let shown = null;
   /** @type {string | null} */
   let session = null;
-  /** @type {string | null} agent de la discussion chargée (gardée quand on change d'onglet) */
+  /** @type {string | null} agent of the loaded discussion (kept when switching tabs) */
   let loadedFor = null;
-  /** @type {string | null} empreinte de la dernière version reçue */
+  /** @type {string | null} fingerprint of the last version received */
   let signature = null;
   /** @type {any} */
   let transcript = null;
   /** @type {number | undefined} */
   let timer;
   let loading = false;
-  // Menu d'un message (copier, PDF) : posé sur la page, il survit aux relectures de la discussion.
+  // Menu of a message (copy, PDF): placed on the page, it survives re-reads of the discussion.
   const dropdown = createDropdown({ el, icon });
-  /** @type {string | null} échange dont le menu est ouvert */
+  /** @type {string | null} exchange whose menu is open */
   let menuTurn = null;
-  // Résumé de la barre ; un message bref (copié, PDF…) le remplace un instant.
+  // Summary in the bar; a short message (copied, PDF…) replaces it for a moment.
   let summaryText = "";
   /** @type {number | undefined} */
   let flashTimer;
-  // Ce que tu as déplié ou replié : gardé d'une relecture à l'autre.
+  // What you unfolded or folded: kept from one re-read to the next.
   const openTurns = new Set();
-  const toggled = new Map(); // identifiant d'un bloc repliable → ouvert ?
+  const toggled = new Map(); // id of a foldable block → open?
 
-  // Barre : le résumé de la discussion.
+  // Bar: the summary of the discussion.
   const bar = el("div", "discussion-bar");
   const summary = el("span", "discussion-summary muted small");
   bar.append(summary);
   const log = el("div", "discussion-log");
   log.setAttribute("aria-live", "polite");
 
-  // Boutons flottants : replier / déplier, puis aller en haut / en bas (selon l'endroit où l'on est).
+  // Floating buttons: fold / unfold, then go to top / bottom (depending on where we are).
   const fabs = el("div", "discussion-fabs");
   const foldButton = el("button", "fab discussion-fold");
   foldButton.type = "button";
@@ -113,35 +114,35 @@ export function mountDiscussionView(root, deps) {
   const scrollButton = el("button", "fab discussion-scroll");
   scrollButton.type = "button";
   scrollButton.addEventListener("click", () => {
-    // Saut direct : une animation serait longue sur une grande discussion.
+    // Direct jump: an animation would be slow on a long discussion.
     log.scrollTop = atBottom() ? 0 : log.scrollHeight;
     renderFabs();
   });
   fabs.append(foldButton, scrollButton);
-  // Les boutons flottants restent contre les messages, au-dessus de la zone de saisie.
+  // The floating buttons stay against the messages, above the input box.
   const main = el("div", "discussion-main");
   main.append(log, fabs);
 
-  // Zone de saisie : Entrée envoie, Maj+Entrée ajoute une ligne (comme dans le Terminal). Un brouillon par agent.
+  // Input box: Enter sends, Shift+Enter adds a line (as in the Terminal). One draft per agent.
   /** @type {Map<string, string>} */
   const drafts = new Map();
   const composer = /** @type {HTMLFormElement} */ (el("form", "discussion-composer"));
   const input = /** @type {HTMLTextAreaElement} */ (el("textarea"));
   input.rows = 1;
-  input.setAttribute("aria-label", "Message à l'agent");
-  // Mode console (« !! » au début) : la saisie devient une commande shell, lancée dans le dossier de l'agent.
+  input.setAttribute("aria-label", t("Message to the agent"));
+  // Console mode ("!!" at the start): the input becomes a shell command, run in the agent's folder.
   const shellBadge = el("span", "shell-badge", "$");
-  shellBadge.title = "Mode console : la saisie est une commande shell (Échap pour revenir à l'agent)";
+  shellBadge.title = t("Console mode: the input is a shell command (Esc to go back to the agent)");
   shellBadge.hidden = true;
   const sendButton = /** @type {HTMLButtonElement} */ (el("button", "discussion-send"));
   sendButton.type = "submit";
-  sendButton.title = "Envoyer dans le Terminal (Entrée)";
-  sendButton.setAttribute("aria-label", "Envoyer dans le Terminal");
+  sendButton.title = t("Send to the Terminal (Enter)");
+  sendButton.setAttribute("aria-label", t("Send to the Terminal"));
   sendButton.append(icon(ICONS.send));
   composer.append(shellBadge, input, sendButton);
   root.append(bar, main, composer);
 
-  /** La zone grandit avec le message, jusqu'à une dizaine de lignes. */
+  /** The box grows with the message, up to about ten lines. */
   function fitInput() {
     input.style.height = "auto";
     const border = input.offsetHeight - input.clientHeight;
@@ -149,35 +150,37 @@ export function mountDiscussionView(root, deps) {
   }
 
   /**
-   * Un message part dans le Terminal : il faut que Claude Code y soit ouvert. Le mode console, lui, n'a pas
-   * besoin de Claude : la saisie reste donc toujours possible (« !! » pour y passer).
+   * A message goes to the Terminal: Claude Code must be open there. Console mode does not need Claude:
+   * so input always stays possible ("!!" to switch to it).
    */
   function renderComposer() {
     const running = Boolean(shown && deps.isRunning(shown));
     composer.classList.toggle("shell-mode", shellMode);
     shellBadge.hidden = !shellMode;
     input.disabled = !shown;
-    input.setAttribute("aria-label", shellMode ? "Commande shell" : "Message à l'agent");
+    input.setAttribute("aria-label", shellMode ? t("Shell command") : t("Message to the agent"));
     input.placeholder = shellMode
-      ? `Commande shell dans ${shown?.cwd ?? "le dossier de l'agent"} (Entrée lance, Échap revient à l'agent)`
+      ? (shown?.cwd
+        ? t("Shell command in {folder} (Enter runs, Esc goes back to the agent)", { folder: shown.cwd })
+        : t("Shell command in the agent's folder (Enter runs, Esc goes back to the agent)"))
       : running
-        ? "Écrire à l'agent… (Entrée envoie dans le Terminal, Maj+Entrée : nouvelle ligne, !! : commande shell)"
-        : "Ouvre Claude Code dans l'onglet Terminal pour écrire à l'agent, ou tape !! pour une commande shell.";
-    sendButton.title = shellMode ? "Lancer la commande (Entrée)" : "Envoyer dans le Terminal (Entrée)";
-    sendButton.setAttribute("aria-label", shellMode ? "Lancer la commande" : "Envoyer dans le Terminal");
+        ? t("Write to the agent… (Enter sends to the Terminal, Shift+Enter: new line, !!: shell command)")
+        : t("Open Claude Code in the Terminal tab to write to the agent, or type !! for a shell command.");
+    sendButton.title = shellMode ? t("Run the command (Enter)") : t("Send to the Terminal (Enter)");
+    sendButton.setAttribute("aria-label", shellMode ? t("Run the command") : t("Send to the Terminal"));
     sendButton.disabled = !input.value.trim() || (!shellMode && !running);
   }
 
-  // --- mode console : « !! commande » lance une commande shell dans le dossier de l'agent -----------
-  // La commande et sa sortie s'affichent dans la discussion, à la suite des messages ; rien ne part à Claude.
+  // --- console mode: "!! command" runs a shell command in the agent's folder ------------------------
+  // The command and its output are shown in the discussion, after the messages; nothing goes to Claude.
   const SHELL_PREFIX = "!!";
   let shellMode = false;
-  /** @type {string[]} commandes lancées, pour ↑ / ↓ en mode console */
+  /** @type {string[]} commands run, for ↑ / ↓ in console mode */
   const shellHistory = [];
   let historyIndex = -1;
   /** @type {Map<string, {node: HTMLElement, body: HTMLElement, status: HTMLElement, stop: HTMLElement}>} */
   const shellRuns = new Map();
-  /** @type {Map<string, HTMLElement[]>} blocs des commandes de chaque agent, gardés d'une relecture à l'autre */
+  /** @type {Map<string, HTMLElement[]>} command blocks of each agent, kept from one re-read to the next */
   const shellBlocks = new Map();
 
   /** @param {boolean} on */
@@ -203,12 +206,12 @@ export function mountDiscussionView(root, deps) {
     } catch (err) {
       input.value = command;
       renderComposer();
-      flash(`Commande impossible : ${/** @type {Error} */ (err).message}`);
+      flash(t("Command failed: {error}", { error: /** @type {Error} */ (err).message }));
     }
   }
 
   /**
-   * Événement d'une commande : début (bloc console), sortie (ajoutée au fil de l'eau), fin (code, durée).
+   * Event of a command: start (console block), output (appended as it comes), end (code, duration).
    *
    * @param {any} data
    */
@@ -216,8 +219,8 @@ export function mountDiscussionView(root, deps) {
     if (data.started) {
       const node = el("div", "entry console");
       const head = el("div", "console-head");
-      const status = el("span", "console-status", "en cours…");
-      const stop = el("button", "console-stop", "Arrêter");
+      const status = el("span", "console-status", t("running…"));
+      const stop = el("button", "console-stop", t("Stop"));
       /** @type {HTMLButtonElement} */ (stop).type = "button";
       stop.addEventListener("click", () => {
         /** @type {HTMLButtonElement} */ (stop).disabled = true;
@@ -244,10 +247,10 @@ export function mountDiscussionView(root, deps) {
     if (data.ended) {
       shellRuns.delete(data.run);
       run.stop.remove();
-      // Code négatif : arrêtée par un signal (bouton Arrêter, délai dépassé).
-      const outcome = data.timedOut ? "délai dépassé (10 min)" : data.code < 0 ? "arrêtée" : `code ${data.code}`;
-      const notes = [outcome, `${String(data.seconds).replace(".", ",")} s`];
-      if (data.truncated) notes.push("sortie tronquée");
+      // Negative code: stopped by a signal (Stop button, timeout).
+      const outcome = data.timedOut ? t("timed out (10 min)") : data.code < 0 ? t("stopped") : t("code {code}", { code: data.code });
+      const notes = [outcome, `${Number(data.seconds).toLocaleString(locale())} s`];
+      if (data.truncated) notes.push(t("output truncated"));
       run.status.textContent = notes.join(" · ");
       run.status.classList.add(data.code === 0 ? "ok" : "failed");
       if (!run.body.textContent) run.body.remove();
@@ -256,7 +259,7 @@ export function mountDiscussionView(root, deps) {
   }
 
   input.addEventListener("input", () => {
-    // « !! » au début passe en mode console (et ne fait pas partie de la commande).
+    // "!!" at the start switches to console mode (and is not part of the command).
     if (input.value.startsWith(SHELL_PREFIX)) {
       const caret = Math.max(0, input.selectionStart - SHELL_PREFIX.length);
       input.value = input.value.slice(SHELL_PREFIX.length);
@@ -268,14 +271,14 @@ export function mountDiscussionView(root, deps) {
     renderComposer();
   });
   input.addEventListener("keydown", (event) => {
-    // Mode console : Échap, ou Retour arrière au tout début, revient à l'agent.
+    // Console mode: Esc, or Backspace at the very start, goes back to the agent.
     if (shellMode && (event.key === "Escape" || (event.key === "Backspace" && input.selectionStart === 0 && input.selectionEnd === 0))) {
       event.preventDefault();
       event.stopPropagation();
       setShellMode(false);
       return;
     }
-    // Mode console : ↑ / ↓ rappellent les commandes déjà lancées.
+    // Console mode: ↑ / ↓ recall the commands already run.
     if (shellMode && (event.key === "ArrowUp" || event.key === "ArrowDown") && shellHistory.length && !input.value.includes("\n")) {
       event.preventDefault();
       const last = shellHistory.length - 1;
@@ -305,21 +308,21 @@ export function mountDiscussionView(root, deps) {
     try {
       await deps.send(conversation, text);
       drafts.delete(conversation.id);
-      // Onglet déjà masqué (bascule sur le Terminal) ou même agent : la zone se vide ; autre agent, son brouillon reste.
+      // Tab already hidden (switched to the Terminal) or same agent: the box is cleared; other agent, its draft stays.
       if (!shown || shown.id === conversation.id) input.value = "";
       fitInput();
       renderComposer();
     } catch (err) {
-      flash(`Envoi impossible : ${/** @type {Error} */ (err).message}`);
+      flash(t("Sending failed: {error}", { error: /** @type {Error} */ (err).message }));
     }
   });
 
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 60;
 
-  /** Les boutons flottants suivent l'affichage et la position dans la discussion. */
+  /** The floating buttons follow the view and the position in the discussion. */
   function renderFabs() {
     const mine = mode === "mine";
-    const foldLabel = mine ? "Afficher toute la discussion" : "N'afficher que mes messages";
+    const foldLabel = mine ? t("Show the whole discussion") : t("Show only my messages");
     foldButton.replaceChildren(icon(mine ? ICONS.expand : ICONS.collapse));
     foldButton.title = foldLabel;
     foldButton.setAttribute("aria-label", foldLabel);
@@ -327,7 +330,7 @@ export function mountDiscussionView(root, deps) {
     const scrollable = log.scrollHeight > log.clientHeight + 10;
     scrollButton.hidden = !scrollable;
     const down = !atBottom();
-    const scrollLabel = down ? "Aller en bas de la discussion" : "Aller en haut de la discussion";
+    const scrollLabel = down ? t("Go to the bottom of the discussion") : t("Go to the top of the discussion");
     scrollButton.replaceChildren(icon(down ? ICONS.down : ICONS.up));
     scrollButton.title = scrollLabel;
     scrollButton.setAttribute("aria-label", scrollLabel);
@@ -340,7 +343,7 @@ export function mountDiscussionView(root, deps) {
     try {
       localStorage.setItem(MODE_KEY, mode);
     } catch {
-      // Stockage indisponible : le choix vaut pour cet onglet seulement.
+      // Storage unavailable: the choice applies to this tab only.
     }
     root.classList.toggle("mine-only", mode === "mine");
     if (mode === "all") openTurns.clear();
@@ -349,12 +352,12 @@ export function mountDiscussionView(root, deps) {
   root.classList.toggle("mine-only", mode === "mine");
 
   /**
-   * Bloc repliable dont l'état survit aux relectures.
+   * Foldable block whose state survives re-reads.
    *
    * @param {string} key
    * @param {string} className
    * @param {Node[]} head
-   * @param {() => Node[]} body construit à l'ouverture seulement (sorties longues)
+   * @param {() => Node[]} body built on opening only (long outputs)
    */
   function foldable(key, className, head, body) {
     const details = /** @type {HTMLDetailsElement} */ (el("details", className));
@@ -387,7 +390,7 @@ export function mountDiscussionView(root, deps) {
     line.append(el("span", "tool-name", tool.name), el("span", "tool-summary", toolSummary(tool.name, tool.input)));
     row.append(line);
     if (tool.result) {
-      row.append(foldable(`result:${tool.id}`, "tool-result", [el("span", "", tool.isError ? "Erreur" : "Résultat")],
+      row.append(foldable(`result:${tool.id}`, "tool-result", [el("span", "", tool.isError ? t("Error") : t("Result"))],
         () => [el("pre", "", tool.result ?? "")]));
     }
     return row;
@@ -408,10 +411,10 @@ export function mountDiscussionView(root, deps) {
       const count = item.tools.length;
       const failed = item.tools.some((tool) => tool.isError);
       const head = [
-        el("span", "tool-group-count", `${count} action${count > 1 ? "s" : ""}`),
+        el("span", "tool-group-count", tn(count, "{n} action", "{n} actions")),
         el("span", "tool-group-names", toolNames(item.tools)),
       ];
-      if (failed) head.push(el("span", "tool-group-failed", "erreur"));
+      if (failed) head.push(el("span", "tool-group-failed", t("error")));
       return foldable(`${prefix}tools:${item.id}`, "tool-group", head, () => {
         const list = el("ol", "tool-list");
         list.append(...item.tools.map(toolRow));
@@ -420,13 +423,13 @@ export function mountDiscussionView(root, deps) {
     }
     if (item.kind === "subagent") {
       const sub = transcript?.subagents?.[item.id];
-      const description = item.input?.description || sub?.description || "Sous-agent";
-      const head = [el("span", "subagent-label", "Sous-agent"), el("span", "subagent-description", description)];
+      const description = item.input?.description || sub?.description || t("Subagent");
+      const head = [el("span", "subagent-label", t("Subagent")), el("span", "subagent-description", description)];
       const type = item.input?.subagent_type || sub?.type;
       if (type) head.push(el("span", "subagent-type", type));
       return foldable(`${prefix}agent:${item.id}`, "reply-subagent", head, () => {
-        if (!sub) return [el("p", "muted small", "Son travail n'est pas encore enregistré.")];
-        // Son travail : tout sauf sa consigne (le premier message), déjà résumée dans le titre.
+        if (!sub) return [el("p", "muted small", t("Its work is not recorded yet."))];
+        // Its work: everything but its instructions (the first message), already summarized in the title.
         const items = buildTurns(sub.messages).flatMap((turn, index) => (index === 0 && turn.sent ? turn.items : [
           ...(turn.sent ? [/** @type {Item} */ ({ kind: "info", text: turn.sent.text })] : []), ...turn.items,
         ]));
@@ -454,8 +457,8 @@ export function mountDiscussionView(root, deps) {
       const meta = el("div", "turn-meta muted small");
       meta.append(el("span", "", timeOf(turn.sent.timestamp)));
       if (turn.items.length) {
-        // « Mes messages » : la réponse se déplie sous le message.
-        const toggle = el("button", "link-button turn-toggle", open ? "Masquer la réponse" : "Voir la réponse");
+        // "My messages": the reply unfolds under the message.
+        const toggle = el("button", "link-button turn-toggle", open ? t("Hide the reply") : t("Show the reply"));
         toggle.type = "button";
         toggle.addEventListener("click", () => {
           if (openTurns.has(turn.id)) openTurns.delete(turn.id);
@@ -467,7 +470,7 @@ export function mountDiscussionView(root, deps) {
       meta.append(optionsButton(turn));
       sent.append(bubble, meta);
       if (turn.sent.shared) {
-        sent.append(foldable(`shared:${turn.id}`, "turn-shared", [el("span", "", "Contexte partagé avec l'agent")],
+        sent.append(foldable(`shared:${turn.id}`, "turn-shared", [el("span", "", t("Context shared with the agent"))],
           () => [el("div", "turn-shared-body", turn.sent?.shared ?? "")]));
       }
       article.append(sent);
@@ -478,35 +481,38 @@ export function mountDiscussionView(root, deps) {
     return article;
   }
 
-  /** @param {boolean} toBottom aller en bas (changement d'affichage, première lecture) */
+  /** @param {boolean} toBottom go to the bottom (view change, first read) */
   function render(toBottom) {
     const stick = toBottom || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     const scroll = log.scrollTop;
     if (!shown) return;
+    renderFabs(); // their icons, even when the discussion is still empty
     const consoleBlocks = shellBlocks.get(shown.id) ?? [];
     if (!session) {
-      log.replaceChildren(el("p", "discussion-empty muted", "Pas encore de discussion : écris à Claude Code dans l'onglet Terminal."),
+      log.replaceChildren(el("p", "discussion-empty muted", t("No discussion yet: write to Claude Code in the Terminal tab.")),
         ...consoleBlocks);
       summary.textContent = "";
       return;
     }
     if (!transcript) {
-      log.replaceChildren(el("p", "discussion-empty muted", "Chargement de la discussion…"));
+      log.replaceChildren(el("p", "discussion-empty muted", t("Loading the discussion…")));
       return;
     }
     const turns = buildTurns(transcript.messages);
     const sentCount = turns.filter((turn) => turn.sent).length;
-    const cost = typeof transcript.costUsd === "number" ? ` · ${transcript.costUsd.toFixed(2)} $` : "";
-    summaryText = `${sentCount} message${sentCount > 1 ? "s" : ""} envoyé${sentCount > 1 ? "s" : ""}${cost}`;
+    const cost = typeof transcript.costUsd === "number"
+      ? ` · ${transcript.costUsd.toLocaleString(locale(), { style: "currency", currency: "USD" })}`
+      : "";
+    summaryText = `${tn(sentCount, "{n} message sent", "{n} messages sent")}${cost}`;
     if (flashTimer === undefined) summary.textContent = summaryText;
     const nodes = turns.map(turnNode);
-    if (transcript.truncated) nodes.unshift(el("p", "discussion-empty muted small", "Seuls les 500 derniers messages sont affichés."));
-    if (!turns.length) nodes.push(el("p", "discussion-empty muted", "Pas encore de message dans cette session."));
-    // Commandes lancées en mode console : à la suite des messages (mêmes blocs, la sortie continue d'arriver).
+    if (transcript.truncated) nodes.unshift(el("p", "discussion-empty muted small", t("Only the last 500 messages are shown.")));
+    if (!turns.length) nodes.push(el("p", "discussion-empty muted", t("No message in this session yet.")));
+    // Commands run in console mode: after the messages (same blocks, the output keeps coming).
     log.replaceChildren(...nodes, ...consoleBlocks);
     log.scrollTop = stick ? log.scrollHeight : scroll;
     renderFabs();
-    // Menu ouvert : il suit le bouton redessiné de son message.
+    // Open menu: it follows the redrawn button of its message.
     if (menuTurn) {
       const button = [...log.querySelectorAll(".turn-options")].find((node) => node.closest("article")?.dataset.turn === menuTurn);
       dropdown.reanchor(/** @type {HTMLElement | null} */ (button ?? null));
@@ -515,15 +521,15 @@ export function mountDiscussionView(root, deps) {
   }
 
   /**
-   * Bouton « ⋯ » d'un message : copier ou exporter en PDF la question et la réponse, ou la réponse seule.
+   * "⋯" button of a message: copy or export to PDF the question and the answer, or the answer alone.
    *
    * @param {Turn} turn
    */
   function optionsButton(turn) {
     const button = el("button", "turn-options");
     /** @type {HTMLButtonElement} */ (button).type = "button";
-    button.title = "Options du message";
-    button.setAttribute("aria-label", "Options du message");
+    button.title = t("Message options");
+    button.setAttribute("aria-label", t("Message options"));
     button.setAttribute("aria-haspopup", "menu");
     button.setAttribute("aria-expanded", "false");
     button.append(icon(ICONS.more));
@@ -531,11 +537,11 @@ export function mountDiscussionView(root, deps) {
     button.addEventListener("click", () => {
       menuTurn = menuTurn === turn.id ? null : turn.id;
       dropdown.toggle(button, [
-        { label: "Copier la question et la réponse", icon: ICONS.copy, onSelect: () => copyTurn(turn, true, button) },
-        { label: "Copier la réponse", icon: ICONS.copy, disabled: !hasReply, onSelect: () => copyTurn(turn, false, button) },
+        { label: t("Copy the question and the answer"), icon: ICONS.copy, onSelect: () => copyTurn(turn, true, button) },
+        { label: t("Copy the answer"), icon: ICONS.copy, disabled: !hasReply, onSelect: () => copyTurn(turn, false, button) },
         "separator",
-        { label: "PDF : question et réponse", icon: ICONS.pdf, onSelect: () => exportPdf(turn, true) },
-        { label: "PDF : réponse seule", icon: ICONS.pdf, disabled: !hasReply, onSelect: () => exportPdf(turn, false) },
+        { label: t("PDF: question and answer"), icon: ICONS.pdf, onSelect: () => exportPdf(turn, true) },
+        { label: t("PDF: answer only"), icon: ICONS.pdf, disabled: !hasReply, onSelect: () => exportPdf(turn, false) },
       ]);
       if (!dropdown.isOpen()) menuTurn = null;
     });
@@ -551,15 +557,15 @@ export function mountDiscussionView(root, deps) {
     menuTurn = null;
     try {
       await navigator.clipboard.writeText(turnMarkdown(turn, withQuestion));
-      flash(withQuestion ? "Question et réponse copiées." : "Réponse copiée.");
+      flash(withQuestion ? t("Question and answer copied.") : t("Answer copied."));
       button.classList.add("done");
       window.setTimeout(() => button.classList.remove("done"), 1500);
     } catch {
-      flash("Copie refusée par le navigateur.");
+      flash(t("Copy refused by the browser."));
     }
   }
 
-  /** Message bref dans la barre de la discussion, à la place du résumé. @param {string} text */
+  /** Short message in the discussion bar, in place of the summary. @param {string} text */
   function flash(text) {
     summary.textContent = text;
     summary.classList.add("flash");
@@ -572,7 +578,7 @@ export function mountDiscussionView(root, deps) {
   }
 
   /**
-   * Contenu du PDF : la question (texte tel quel) et la réponse (Markdown rendu), construit sans innerHTML.
+   * Content of the PDF: the question (text as is) and the answer (rendered Markdown), built without innerHTML.
    *
    * @param {Turn} turn
    * @param {boolean} withQuestion
@@ -580,25 +586,25 @@ export function mountDiscussionView(root, deps) {
   function pdfContent(turn, withQuestion) {
     const page = el("div");
     const agent = shown ? deps.agentName?.(shown) ?? shown.label ?? "" : "";
-    page.append(el("h1", "", agent || "Discussion"));
+    page.append(el("h1", "", agent || t("Discussion")));
     const when = turn.sent?.timestamp ? new Date(turn.sent.timestamp) : null;
     if (when && !Number.isNaN(when.getTime())) {
-      page.append(el("p", "pdf-meta", when.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })));
+      page.append(el("p", "pdf-meta", when.toLocaleString(locale(), { dateStyle: "long", timeStyle: "short" })));
     }
     if (withQuestion && turn.sent) {
-      page.append(el("h2", "pdf-section", "Question"), el("div", "pdf-question", sentText(turn.sent)));
-      page.append(el("h2", "pdf-section", "Réponse"));
+      page.append(el("h2", "pdf-section", t("Question")), el("div", "pdf-question", sentText(turn.sent)));
+      page.append(el("h2", "pdf-section", t("Answer")));
     }
     const reply = el("div", "markdown");
     const text = replyText(turn);
     if (text) deps.renderMarkdown(text, reply);
-    else reply.append(el("p", "", "Pas de réponse écrite."));
+    else reply.append(el("p", "", t("No written answer.")));
     page.append(reply);
     return page;
   }
 
   /**
-   * Télécharge l'échange en PDF (fabriqué par le serveur) ; sans Chrome sur le poste, fenêtre d'impression.
+   * Downloads the exchange as a PDF (made by the server); without Chrome on the machine, print window.
    *
    * @param {Turn} turn
    * @param {boolean} withQuestion
@@ -606,10 +612,10 @@ export function mountDiscussionView(root, deps) {
   async function exportPdf(turn, withQuestion) {
     menuTurn = null;
     const content = pdfContent(turn, withQuestion);
-    const title = content.querySelector("h1")?.textContent ?? "Discussion";
+    const title = content.querySelector("h1")?.textContent ?? t("Discussion");
     const words = (turn.sent ? sentText(turn.sent) : "").split(/\s+/).slice(0, 6).join(" ");
-    const filename = `${withQuestion ? "question-reponse" : "reponse"}${words ? ` ${words}` : ""}`;
-    flash("PDF en préparation…");
+    const filename = `${withQuestion ? t("question-answer") : t("answer")}${words ? ` ${words}` : ""}`;
+    flash(t("Preparing the PDF…"));
     try {
       const res = await fetch("/api/pdf", {
         method: "POST",
@@ -629,14 +635,14 @@ export function mountDiscussionView(root, deps) {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      flash("PDF téléchargé.");
+      flash(t("PDF downloaded."));
     } catch (err) {
-      flash(`PDF impossible : ${err instanceof Error ? err.message : err}`);
+      flash(t("PDF failed: {error}", { error: err instanceof Error ? err.message : err }));
     }
   }
 
   /**
-   * Sans Chrome sur le poste : impression du navigateur (« Enregistrer en PDF »), dans un cadre caché.
+   * Without Chrome on the machine: browser printing ("Save as PDF"), in a hidden frame.
    *
    * @param {HTMLElement} content
    * @param {string} title
@@ -654,10 +660,10 @@ export function mountDiscussionView(root, deps) {
     doc.body.append(doc.importNode(content, true));
     frame.contentWindow?.print();
     window.setTimeout(() => frame.remove(), 60_000);
-    flash("Choisis « Enregistrer en PDF » dans la fenêtre d'impression.");
+    flash(t("Choose \"Save as PDF\" in the print window."));
   }
 
-  /** Relit la session si elle a changé (le serveur répond « inchangée » sinon). */
+  /** Re-reads the session if it has changed (otherwise the server answers "unchanged"). */
   async function refresh() {
     if (!shown || !session || loading) return;
     loading = true;
@@ -671,11 +677,11 @@ export function mountDiscussionView(root, deps) {
       signature = data.signature;
       render(first);
     } catch (err) {
-      // Session sans historique (Claude Code vient de démarrer) : on réessaie au prochain tour.
+      // Session without history (Claude Code just started): retry on the next round.
       if (!transcript) {
         log.replaceChildren(el("p", "discussion-empty muted", /** @type {any} */ (err).status === 404
-          ? "Pas encore de discussion : écris à Claude Code dans l'onglet Terminal."
-          : `Lecture impossible : ${/** @type {Error} */ (err).message}`));
+          ? t("No discussion yet: write to Claude Code in the Terminal tab.")
+          : t("Reading failed: {error}", { error: /** @type {Error} */ (err).message })));
       }
     } finally {
       loading = false;
@@ -684,7 +690,7 @@ export function mountDiscussionView(root, deps) {
 
   return {
     /**
-     * Affiche la discussion d'un agent (onglet visible) et la tient à jour.
+     * Shows an agent's discussion (visible tab) and keeps it up to date.
      *
      * @param {any} conversation
      */
@@ -699,7 +705,7 @@ export function mountDiscussionView(root, deps) {
       }
       renderComposer();
       if (changed) {
-        if (loadedFor !== conversation.id) setShellMode(false); // autre agent : on revient à l'écriture à l'agent
+        if (loadedFor !== conversation.id) setShellMode(false); // other agent: back to writing to the agent
         loadedFor = conversation.id;
         session = nextSession;
         signature = null;
@@ -713,11 +719,11 @@ export function mountDiscussionView(root, deps) {
       refresh();
       timer ??= window.setInterval(refresh, POLL_MS);
     },
-    /** Claude Code ouvert ou fermé dans le Terminal : la zone de saisie suit. */
+    /** Claude Code opened or closed in the Terminal: the input box follows. */
     refreshComposer() {
       if (shown) renderComposer();
     },
-    /** Commande shell lancée depuis la saisie (événement « shell » du serveur). */
+    /** Shell command run from the input ("shell" event of the server). */
     onShell,
     hide() {
       shown = null;

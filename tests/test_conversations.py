@@ -1,4 +1,4 @@
-"""Tests du registre des agents (conversations.py) : python3 -m unittest discover -s tests"""
+"""Tests of the agent registry (conversations.py): python3 -m unittest discover -s tests"""
 
 import sys
 import tempfile
@@ -25,9 +25,9 @@ class ConversationsTest(unittest.TestCase):
 
     def test_open_reuses_the_agent_of_a_session(self):
         fresh = self.manager.open()
-        resumed = self.manager.open(resume=SESSION, cwd="/projet")
+        resumed = self.manager.open(resume=SESSION, cwd="/project")
         self.assertIs(self.manager.open(resume=SESSION), resumed)
-        self.assertEqual((fresh.cwd, fresh.label, resumed.cwd), ("/tmp", NEW_LABEL, "/projet"))
+        self.assertEqual((fresh.cwd, fresh.label, resumed.cwd), ("/tmp", NEW_LABEL, "/project"))
         self.assertIs(self.manager.find_by_session(SESSION), resumed)
         self.assertEqual({s["id"] for s in self.manager.list()}, {fresh.id, resumed.id})
 
@@ -35,13 +35,13 @@ class ConversationsTest(unittest.TestCase):
         agent = self.manager.open()
         drain(self.events)
         agent.adopt_session(SESSION)
-        agent.adopt_session(SESSION)  # déjà connue : rien de plus
+        agent.adopt_session(SESSION)  # already known: nothing more
         self.assertEqual(self.started, [(agent.id, SESSION)])
-        self.assertTrue(agent.set_busy(True, prompt="Corrige le bug\nsuite"))
+        self.assertTrue(agent.set_busy(True, prompt="Fix the bug\nmore"))
         self.assertFalse(agent.set_busy(True))
         status = agent.status()
-        self.assertEqual((status["sessionId"], status["busy"], status["label"]), (SESSION, True, "Corrige le bug"))
-        self.assertEqual(agent.prompt, "Corrige le bug\nsuite")
+        self.assertEqual((status["sessionId"], status["busy"], status["label"]), (SESSION, True, "Fix the bug"))
+        self.assertEqual(agent.prompt, "Fix the bug\nmore")
         self.assertTrue(agent.set_busy(False))
         kinds = [kind for kind, _ in drain(self.events)]
         self.assertEqual(kinds, ["status"] * 3)
@@ -52,32 +52,32 @@ class ConversationsTest(unittest.TestCase):
         manager = ConversationManager(self.bus, "/tmp", has_history=lambda s: s in written,
                                       on_session_started=lambda c, s, previous=None: calls.append((s, previous)))
         agent = manager.open()
-        agent.adopt_session(SESSION)  # Claude Code l'a ouverte, mais rien n'est encore écrit
+        agent.adopt_session(SESSION)  # Claude Code opened it, but nothing is written yet
         self.assertIsNone(agent.session_id)
         written.add(SESSION)
         agent.adopt_session(SESSION)
         written.add(OTHER)
-        agent.adopt_session(OTHER)  # /clear : nouvelle session, l'ancienne est indiquée pour que tout suive
+        agent.adopt_session(OTHER)  # /clear: new session, the old one is given so that everything follows
         self.assertEqual(calls, [(SESSION, None), (OTHER, SESSION)])
 
     def test_agents_survive_a_restart_until_removed(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "conversations.json"
             manager = ConversationManager(self.bus, "/tmp", path=path)
-            empty = manager.open(cwd="/projet")  # jamais utilisé : il doit rester quand même
-            used = manager.open(cwd="/autre")
+            empty = manager.open(cwd="/project")  # never used: it must stay anyway
+            used = manager.open(cwd="/other")
             used.adopt_session(SESSION)
-            used.set_busy(True, prompt="Corrige le bug")
+            used.set_busy(True, prompt="Fix the bug")
             reloaded = ConversationManager(self.bus, "/tmp", path=path)
             statuses = {s["id"]: s for s in reloaded.list()}
             self.assertEqual(set(statuses), {empty.id, used.id})
-            self.assertEqual((statuses[empty.id]["cwd"], statuses[empty.id]["sessionId"]), ("/projet", None))
-            self.assertEqual((statuses[used.id]["sessionId"], statuses[used.id]["label"]), (SESSION, "Corrige le bug"))
-            self.assertFalse(statuses[used.id]["busy"])  # au repos après le redémarrage
+            self.assertEqual((statuses[empty.id]["cwd"], statuses[empty.id]["sessionId"]), ("/project", None))
+            self.assertEqual((statuses[used.id]["sessionId"], statuses[used.id]["label"]), (SESSION, "Fix the bug"))
+            self.assertFalse(statuses[used.id]["busy"])  # idle after the restart
             self.assertEqual(reloaded.find_by_session(SESSION).id, used.id)
             reloaded.remove(empty.id)
             self.assertEqual([s["id"] for s in ConversationManager(self.bus, "/tmp", path=path).list()], [used.id])
-            path.write_text("{abîmé")
+            path.write_text("{damaged")
             self.assertEqual(ConversationManager(self.bus, "/tmp", path=path).list(), [])
 
     def test_remove_publishes(self):

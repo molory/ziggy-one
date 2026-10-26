@@ -1,5 +1,5 @@
 // @ts-check
-// Mode Tâches : calculs sans DOM (testables avec Node) pour la liste des tableaux et les déplacements.
+// Tasks mode: DOM-free computations (testable with Node) for the board list and moves.
 
 /**
  * @typedef {{id: string, name: string, hue: number | null}} Column
@@ -10,15 +10,15 @@
  */
 
 /**
- * Un tableau vu comme une ligne de la barre latérale. Les fonctions d'épingles et de workspaces des
- * agents désignent une ligne par `sessionId` : le tableau y met son identifiant.
+ * A board seen as a sidebar row. The agents' pin and workspace functions identify a row by
+ * `sessionId`: the board puts its id there.
  *
  * @param {Board} board
  */
 export const boardRow = (board) => ({ sessionId: board.id, board });
 
 /**
- * Tickets d'une colonne, dans l'ordre.
+ * Tickets of a column, in order.
  *
  * @param {Ticket[]} tickets
  * @param {string} column
@@ -27,9 +27,9 @@ export const columnTickets = (tickets, column) =>
   tickets.filter((t) => t.column === column).sort((a, b) => a.position - b.position);
 
 /**
- * Position d'insertion d'après la hauteur du pointeur : avant le premier ticket dont le milieu est plus bas.
+ * Insertion index from the pointer height: before the first ticket whose middle is lower.
  *
- * @param {number[]} middles milieux verticaux des tickets de la colonne (sans celui qu'on déplace), dans l'ordre
+ * @param {number[]} middles vertical middles of the column's tickets (without the one being moved), in order
  * @param {number} y
  */
 export function dropIndex(middles, y) {
@@ -38,8 +38,8 @@ export function dropIndex(middles, y) {
 }
 
 /**
- * Déplacement appliqué tout de suite à l'écran, en attendant la réponse du serveur (même règle que lui) :
- * le ticket va à la position `index` (bornée) de `column`, et les colonnes touchées sont renumérotées.
+ * Move applied on screen right away, while waiting for the server's answer (same rule as the server):
+ * the ticket goes to position `index` (clamped) of `column`, and the affected columns are renumbered.
  *
  * @param {Ticket[]} tickets
  * @param {string} id
@@ -61,8 +61,8 @@ export function moveTicket(tickets, id, column, index) {
 }
 
 /**
- * Déplacement au clavier (Alt + flèche) : ←/→ change de colonne (même rang, borné), ↑/↓ change de rang.
- * Retourne null si le ticket est déjà au bord.
+ * Keyboard move (Alt + arrow): ←/→ changes column (same rank, clamped), ↑/↓ changes rank.
+ * Returns null if the ticket is already at the edge.
  *
  * @param {Column[]} columns
  * @param {Ticket[]} tickets
@@ -86,7 +86,7 @@ export function keyboardMove(columns, tickets, id, key) {
 }
 
 /**
- * Première ligne lisible d'une description Markdown (aperçu sur la carte).
+ * First readable line of a Markdown description (preview on the card).
  *
  * @param {string} description
  * @param {number} [limit]
@@ -100,20 +100,20 @@ export function descriptionPreview(description, limit = 140) {
   return line.length > limit ? `${line.slice(0, limit - 1).trimEnd()}…` : line;
 }
 
-// --- numéros et adresses des tickets ----------------------------------------------------------
+// --- ticket numbers and addresses -------------------------------------------------------------
 
 const TICKET_PATH = /^\/t\/([1-9]\d{0,8})$/;
 
 /**
- * Adresse d'un ticket, à partager (lien copié, référence dans un agent).
+ * Address of a ticket, to share (copied link, reference in an agent).
  *
- * @param {string} origin ex. http://127.0.0.1:6767
+ * @param {string} origin e.g. http://127.0.0.1:6767
  * @param {number} number
  */
 export const ticketUrl = (origin, number) => `${origin}/t/${number}`;
 
 /**
- * Lien à partager d'un ticket : avec sa clé de lecture (un agent peut alors le lire), sinon l'adresse simple.
+ * Share link of a ticket: with its read key (an agent can then read it), otherwise the plain address.
  *
  * @param {(path: string) => Promise<any>} api
  * @param {string} origin
@@ -128,7 +128,7 @@ export async function shareLink(api, origin, ticket) {
 }
 
 /**
- * Numéro du ticket désigné par un chemin d'adresse (/t/42), sinon null.
+ * Number of the ticket designated by an address path (/t/42), otherwise null.
  *
  * @param {string} pathname
  */
@@ -138,8 +138,8 @@ export function ticketNumberFromPath(pathname) {
 }
 
 /**
- * Découpe un texte autour des références « #42 » à des tickets connus : morceaux de texte et numéros.
- * « #42 » doit être un mot à part (pas « abc#42 », ni « #42b », ni une entité « &#42 »).
+ * Splits a text around "#42" references to known tickets: text pieces and numbers.
+ * "#42" must be a separate word (not "abc#42", nor "#42b", nor an entity "&#42").
  *
  * @param {string} text
  * @param {(number: number) => boolean} known

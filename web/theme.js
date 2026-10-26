@@ -1,7 +1,7 @@
-// Chargé de façon bloquante dans <head> : applique le thème choisi avant le premier rendu.
+// Loaded blocking in <head>: applies the chosen theme before the first render.
 try {
   const theme = localStorage.getItem("zo-theme");
   if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
 } catch {
-  // Stockage indisponible : on suit le thème du système.
+  // Storage unavailable: follow the system theme.
 }

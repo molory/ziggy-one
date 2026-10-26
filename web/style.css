@@ -15,7 +15,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Thème sombre : celui du système, sauf choix explicite dans le menu (data-theme sur <html>). */
+/* Dark theme: the system's, unless explicitly chosen in the menu (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
@@ -49,12 +49,12 @@
 :root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
-/* `hidden` l'emporte toujours, même sur les éléments dont le CSS fixe `display`. */
+/* `hidden` always wins, even on elements whose CSS sets `display`. */
 [hidden] { display: none !important; }
 
-/* Barres de défilement fines et arrondies, couleur d'accent au survol.
-   Firefox : propriétés standard. Chrome/Edge : pseudo-éléments ::-webkit-scrollbar,
-   qui ne s'appliquent que si scrollbar-width/scrollbar-color restent à « auto ». */
+/* Thin, rounded scrollbars, accent color on hover.
+   Firefox: standard properties. Chrome/Edge: ::-webkit-scrollbar pseudo-elements,
+   which only apply if scrollbar-width/scrollbar-color stay at "auto". */
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
@@ -79,14 +79,14 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* La page tient dans la fenêtre : la barre latérale et la discussion défilent chacune de leur côté. */
+  /* The page fits in the window: the sidebar and the discussion each scroll on their own. */
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 h1 { font-size: 1.15rem; margin: 0; }
-/* Logo : un simple Z (le nom complet reste lu par les lecteurs d'écran). */
+/* Logo: a plain Z (the full name is still read by screen readers). */
 .logo { font-size: 1.35rem; font-weight: 800; line-height: 1; color: var(--accent); }
 h2 { font-size: 0.95rem; margin: 0; }
 code { font-family: var(--mono); font-size: 0.9em; }
@@ -127,7 +127,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .icon-button.loading svg { animation: none; }
 }
-/* Bouton bascule (« Épinglés seulement ») : teinté quand il est actif. */
+/* Toggle button ("Pinned only"): tinted when active. */
 .icon-button.toggle-button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .icon-button.toggle-button[aria-pressed="true"] svg { fill: currentColor; }
 .hidden-agents .link-button { font-size: 0.78rem; color: var(--muted); }
@@ -135,7 +135,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .icon-button.danger { background: var(--surface); border-color: var(--border); color: var(--bad); }
 .icon-button.danger:hover:not(:disabled) { border-color: var(--bad); }
 
-/* En tête de la barre latérale : logo, puis compte et usage. Même hauteur que l'en-tête de la discussion. */
+/* At the top of the sidebar: logo, then account and usage. Same height as the discussion header. */
 .sidebar-top {
   container-type: inline-size;
   flex: none;
@@ -147,7 +147,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   border-bottom: 1px solid var(--border);
 }
 
-/* --- Compte et usage du forfait : un clic ouvre le détail --- */
+/* --- Account and plan usage: a click opens the details --- */
 .usage {
   display: flex;
   align-items: center;
@@ -201,7 +201,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .usage-chip.level-warm { --ring: var(--warn); }
 .usage-chip.level-hot { --ring: var(--bad); }
 .usage-chip.level-unknown { --ring: var(--muted); }
-/* Jauge circulaire : un anneau rempli à --pct %. */
+/* Circular gauge: a ring filled to --pct %. */
 .usage-ring {
   width: 15px;
   height: 15px;
@@ -212,7 +212,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 }
 .usage-label { color: var(--muted); }
 .usage-value { font-weight: 600; font-variant-numeric: tabular-nums; }
-/* Usage en colonne en bas du rail : seulement quand la barre est repliée (voir plus bas). */
+/* Usage as a column at the bottom of the rail: only when the bar is collapsed (see below). */
 .rail-usage { display: none; }
 .usage-alert {
   margin-left: 0.6rem;
@@ -235,7 +235,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   font-size: 0.85rem;
 }
 
-/* --- Fenêtre « Compte et usage » --- */
+/* --- "Account and usage" window --- */
 .account-dialog { width: min(520px, calc(100vw - 2rem)); }
 .account-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 0.9rem 0.9rem 1rem; }
 .account-head .avatar { width: 2.6rem; height: 2.6rem; font-size: 1.1rem; }
@@ -262,7 +262,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .account-details:empty { display: none; }
 .account-details dt { color: var(--muted); }
 .account-details dd { margin: 0; }
-/* Une barre par fenêtre d'usage : verte, orange dès 50 %, rouge dès 80 %. */
+/* One bar per usage window: green, orange from 50%, red from 80%. */
 .usage-bars { display: flex; flex-direction: column; gap: 0.75rem; }
 .usage-bar { --bar: var(--ok); display: flex; flex-direction: column; gap: 0.25rem; }
 .usage-bar.level-warm { --bar: var(--warn); }
@@ -303,7 +303,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   display: grid;
   grid-template-columns: var(--sidebar-width, 340px) auto minmax(0, 1fr);
 }
-/* Mise en page à plat, sans cartes : la barre latérale sur le fond, le contenu sur la surface. */
+/* Flat layout, without cards: the sidebar on the background, the content on the surface. */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -311,7 +311,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   overflow-y: auto;
 }
 
-/* Poignée de redimensionnement : 1 px dans la grille, zone de saisie de 9 px qui déborde de chaque côté. */
+/* Resize handle: 1 px in the grid, 9 px grab area overflowing on each side. */
 .resizer {
   position: relative;
   z-index: 1;
@@ -344,7 +344,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 
 .card { min-width: 0; }
-/* En-tête de zone : titre et actions sur une ligne, séparé du contenu par un trait. */
+/* Area header: title and actions on one line, separated from the content by a rule. */
 .card-head {
   display: flex;
   align-items: center;
@@ -360,7 +360,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .small { font-size: 0.8rem; }
 
 .sessions { list-style: none; margin: 0; padding: 0.25rem 0.25rem 0.5rem 0; display: flex; flex-direction: column; gap: 0.05rem; }
-/* Toute la ligne est cliquable : elle ouvre (ou reprend) la discussion. */
+/* The whole row is clickable: it opens (or resumes) the discussion. */
 .session-open {
   all: unset;
   box-sizing: border-box;
@@ -369,7 +369,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   align-items: center;
   gap: 0.6rem;
   padding: 0.3rem 0.5rem;
-  /* Coins gauches droits : la bordure d'accent de la ligne sélectionnée reste nette. */
+  /* Square left corners: the accent border of the selected row stays crisp. */
   border-radius: 0 8px 8px 0;
   border-left: 3px solid transparent;
   overflow-wrap: anywhere;
@@ -379,16 +379,16 @@ body.resizing { cursor: col-resize; user-select: none; }
 .session-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .session.selected .session-open { background: var(--user-bg); border-left-color: var(--accent); }
 .agent-text { display: flex; flex-direction: column; min-width: 0; }
-/* Agent nommé : son nom en titre, son dernier message juste dessous (une ligne chacun). */
+/* Named agent: its name as title, its last message just below (one line each). */
 .agent-title,
 .last-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-title { font-weight: 600; }
 .last-message { font-size: 0.85rem; }
 
-/* Épingle : visible au survol de la ligne, toujours visible (et pleine) sur un agent épinglé. */
+/* Pin: visible on row hover, always visible (and filled) on a pinned agent. */
 .session { position: relative; }
 .session .session-open { padding-right: 2.1rem; }
-/* Épingle et ⋯ empilés à droite de la ligne. */
+/* Pin and ⋯ stacked on the right of the row. */
 .row-actions { position: absolute; top: 0.15rem; right: 0.25rem; display: flex; flex-direction: column; }
 .pin-button {
   all: unset;
@@ -410,7 +410,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .pin-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .session.pinned .pin-button:not(.more-button) { color: var(--accent); }
 .session.pinned .pin-button:not(.more-button) svg { fill: currentColor; }
-/* Agent qui a du nouveau (tour terminé pas encore consulté) : un point d'accent après son nom. */
+/* Agent with something new (finished turn not viewed yet): an accent dot after its name. */
 .session.unseen .agent-text > :first-child::after {
   content: "";
   display: inline-block;
@@ -423,19 +423,19 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .session.unseen .agent-text > :first-child { font-weight: 700; }
 
-/* Interrupteur des notifications dans le menu du compte. */
+/* Notifications switch in the account menu. */
 .toggle { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; }
 .toggle input { margin-top: 0.2rem; accent-color: var(--accent); }
 .notify-hint { margin: 0.4rem 0 0; }
 
-/* Agent en cours de configuration dans la carte centrale. */
+/* Agent being configured in the central card. */
 .session.configuring .session-open { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .session.configuring .more-button { color: var(--accent); }
-/* Écran tactile : pas de survol, l'épingle reste visible. */
+/* Touch screen: no hover, the pin stays visible. */
 @media (hover: none) {
   .pin-button { opacity: 1; }
 }
-/* --- Workspaces : un bloc teinté, icône carrée (les agents ont un avatar rond), repliable --- */
+/* --- Workspaces: a tinted block, square icon (agents have a round avatar), collapsible --- */
 .workspace {
   --agent-hue: 20;
   margin: 0.2rem 0 0.2rem 0.25rem;
@@ -444,8 +444,8 @@ body.resizing { cursor: col-resize; user-select: none; }
   background: hsl(var(--agent-hue) 55% 45% / 0.07);
 }
 .workspace-head { position: relative; }
-/* Ligne « x/y épinglés » et son interrupteur, posée sur la place que lui réserve le bouton du workspace
-   (icône 2,1rem + écart 0,65rem + marge 0,5rem). Les clics passent au bouton, sauf sur l'interrupteur. */
+/* "x/y pinned" line and its switch, placed in the space the workspace button reserves for it
+   (icon 2.1rem + gap 0.65rem + margin 0.5rem). Clicks go to the button, except on the switch. */
 .workspace-count-space { visibility: hidden; }
 .workspace-sub {
   position: absolute;
@@ -510,7 +510,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   color: #fff;
   font-weight: 700;
   font-size: 0.9rem;
-  /* Effet « pile » : le workspace contient plusieurs agents. */
+  /* "Stack" effect: the workspace contains several agents. */
   box-shadow: 3px -3px 0 -1px hsl(var(--agent-hue) 55% 45% / 0.45);
 }
 .workspace .agent-dot { box-shadow: 0 0 0 2px var(--surface); }
@@ -531,18 +531,18 @@ body.resizing { cursor: col-resize; user-select: none; }
 .workspace-head:focus-within .pin-button,
 .workspace.pinned > .workspace-head .pin-button:not(.more-button),
 .workspace.configuring > .workspace-head .more-button { opacity: 1; }
-/* Flèche plier / déplier d'un workspace : toujours visible, à droite. */
+/* Fold / unfold arrow of a workspace: always visible, on the right. */
 .workspace-head .workspace-fold { opacity: 1; display: grid; place-items: center; }
 .workspace-fold .workspace-chevron { margin: 0; }
 .workspace.pinned > .workspace-head .pin-button:not(.more-button) { color: var(--accent); }
 .workspace.pinned > .workspace-head .pin-button:not(.more-button) svg { fill: currentColor; }
 .workspace.configuring { outline: 2px dashed var(--accent); outline-offset: 1px; }
 .workspace.configuring > .workspace-head .more-button { color: var(--accent); }
-/* Agents du workspace : sans marge horizontale, leur avatar aligné sur l'icône du workspace (même padding
-   gauche que .workspace-toggle). La barre d'accent est une ombre : une bordure, arrondie au pixel selon
-   le zoom, décalerait l'avatar. */
+/* Agents of the workspace: no horizontal margin, their avatar aligned with the workspace icon (same left
+   padding as .workspace-toggle). The accent bar is a shadow: a border, rounded to the pixel depending on
+   the zoom, would shift the avatar. */
 .workspace-agents { list-style: none; margin: 0; padding: 0 0 0.25rem; display: flex; flex-direction: column; gap: 0.1rem; }
-/* Séparateur entre la cellule du workspace et ses agents, dans la couleur du cadre. */
+/* Separator between the workspace cell and its agents, in the frame color. */
 .workspace-agents:not(:empty) { border-top: 1px solid hsl(var(--agent-hue) 55% 45% / 0.25); padding-top: 0.25rem; }
 .workspace-agents .session-open { padding-left: 0.5rem; border-left: 0; border-radius: 0; }
 .workspace-agents .session.selected .session-open { box-shadow: inset 3px 0 0 var(--accent); }
@@ -558,9 +558,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 .link-button:hover { text-decoration: underline; }
 .link-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
-/* Trait entre les agents épinglés et les autres. */
+/* Rule between the pinned agents and the others. */
 .session.pinned-last { margin-bottom: 0.35rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--border); }
-/* Un workspace épinglé, dernier de la tête de liste : même séparation, sous le bloc. */
+/* A pinned workspace, last of the list head: same separation, below the block. */
 .workspace.pinned-last { position: relative; margin-bottom: 0.6rem; }
 .workspace.pinned-last::after {
   content: "";
@@ -570,15 +570,15 @@ body.resizing { cursor: col-resize; user-select: none; }
   bottom: calc(-0.3rem - 1px);
   border-bottom: 1px solid var(--border);
 }
-/* Date · dossier · coût sur une ligne : seul le dossier se raccourcit (chemin complet au survol). */
+/* Date · folder · cost on one line: only the folder shrinks (full path on hover). */
 .agent-meta { display: flex; align-items: center; gap: 0.4rem; min-width: 0; margin-top: 0.15rem; white-space: nowrap; }
 .agent-meta > span { flex: none; }
-/* Point séparateur entre date et coût seulement : la cartouche du dossier, l'icône git et le camembert se suffisent. */
+/* Separator dot between date and cost only: the folder chip, the git icon and the pie stand on their own. */
 .agent-meta > span:not(.agent-folder, .agent-git) + span:not(.agent-folder, .agent-git, .context-chip)::before { content: "·"; margin-right: 0.4rem; }
-/* Icône git, collée à droite de la cartouche du dossier. */
+/* Git icon, right next to the folder chip. */
 .agent-meta > .agent-git { display: inline-flex; margin-left: -0.15rem; color: #e8613c; }
 .agent-git svg { width: 0.85rem; height: 0.85rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* Contexte, juste après le coût : camembert rempli à --pct %, vert, orange dès 50 %, rouge dès 80 %. */
+/* Context, right after the cost: pie filled to --pct %, green, orange from 50%, red from 80%. */
 .context-chip {
   --slice: var(--ok);
   display: inline-flex;
@@ -596,7 +596,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   background: conic-gradient(var(--slice) calc(var(--pct) * 1%), var(--tool-bg) 0);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 35%, transparent);
 }
-/* Cartouche du dossier, dans la couleur de l'avatar de l'agent. */
+/* Folder chip, in the color of the agent's avatar. */
 .agent-folder {
   flex: 0 1 auto !important;
   min-width: 0;
@@ -611,7 +611,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   line-height: 1.5;
 }
 
-/* Avatar de l'agent : initiale sur une couleur propre à l'agent, pastille d'état en bas à droite. */
+/* Agent avatar: initial on a color of its own, state dot at the bottom right. */
 .session { --agent-hue: 20; }
 .agent-avatar {
   position: relative;
@@ -634,13 +634,13 @@ body.resizing { cursor: col-resize; user-select: none; }
   height: 0.7rem;
   border-radius: 50%;
   background: var(--muted);
-  box-shadow: 0 0 0 2px var(--surface); /* détache la pastille de l'avatar */
+  box-shadow: 0 0 0 2px var(--surface); /* detaches the dot from the avatar */
 }
 .session-open:hover .agent-dot { box-shadow: 0 0 0 2px var(--tool-bg); }
 .session.selected .agent-dot { box-shadow: 0 0 0 2px var(--user-bg); }
 .session.state-active .agent-dot { background: var(--ok); }
 .session.state-busy .agent-dot { background: #f59e0b; animation: twinkle 1s ease-in-out infinite; }
-/* L'agent attend ta réponse (autorisation, question) : pastille rouge avec « ! », qui bat doucement. */
+/* The agent is waiting for your answer (permission, question): red dot with "!", gently beating. */
 .session.state-waiting .agent-dot,
 .workspace.state-waiting > .workspace-head .agent-dot {
   width: 0.85rem;
@@ -671,7 +671,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   .session.state-waiting .agent-dot, .workspace.state-waiting > .workspace-head .agent-dot { animation: none; }
 }
 
-/* Texte lu par les lecteurs d'écran, invisible à l'écran. */
+/* Text read by screen readers, invisible on screen. */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -688,12 +688,12 @@ body.resizing { cursor: col-resize; user-select: none; }
   overflow: hidden;
 }
 .segmented.two { grid-template-columns: repeat(2, auto); }
-/* Filtre + actualiser forment un bloc : si la barre est trop étroite, il passe en entier à la ligne. */
+/* Filter + refresh form a block: if the bar is too narrow, it wraps to the next line as a whole. */
 .sessions-head { flex-wrap: wrap; row-gap: 0.3rem; }
 .sessions-head h2 { white-space: nowrap; }
 .head-controls { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; min-width: 0; max-width: 100%; }
 .head-controls .segmented { min-width: 0; grid-template-columns: repeat(2, minmax(0, auto)); }
-/* Même hauteur que les boutons icône. */
+/* Same height as the icon buttons. */
 .head-controls .segmented { height: 2rem; }
 .head-controls .segmented > label > span {
   height: 100%;
@@ -707,19 +707,19 @@ body.resizing { cursor: col-resize; user-select: none; }
   text-overflow: ellipsis;
 }
 .segmented .count { margin-left: 0.3rem; opacity: 0.75; }
-/* Barre latérale à sa largeur minimale : même sur sa propre ligne, le bloc ne tient qu'en masquant les compteurs. */
+/* Sidebar at its minimum width: even on its own line, the block only fits by hiding the counters. */
 .sessions-card { container-type: inline-size; }
 @container (max-width: 220px) {
   .segmented .count { display: none; }
 }
-/* Bouton replier / garder ouverte, au bout de la ligne. */
+/* Collapse / keep open button, at the end of the line. */
 .sidebar-toggle { flex: none; width: 1.75rem; height: 1.75rem; margin-left: auto; border-color: transparent; background: none; color: var(--muted); }
 .sidebar-toggle:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
 .sidebar-toggle .icon-expand, .layout.collapsed .sidebar-toggle .icon-collapse { display: none; }
 .layout.collapsed .sidebar-toggle .icon-expand { display: block; }
 
-/* Barre latérale étroite : l'avatar et les anneaux s'effacent pour laisser la place aux pourcentages
-   (le détail reste dans la fenêtre). */
+/* Narrow sidebar: the avatar and the rings fade out to make room for the percentages
+   (the details stay in the window). */
 @container (max-width: 300px) {
   .usage-open .avatar, .usage-ring { display: none; }
   .usage-open { padding-left: 0.4rem; }
@@ -735,7 +735,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 .chat-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* --- Carte centrale : créer un agent ou un workspace, gérer un workspace --- */
+/* --- Central card: create an agent or a workspace, manage a workspace --- */
 .panel-body {
   flex: 1;
   min-height: 0;
@@ -743,7 +743,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  /* Le retrait laisse aussi la place aux contours de sélection et de focus des éléments collés aux bords. */
+  /* The indent also leaves room for the selection and focus outlines of elements stuck to the edges. */
   padding: 0.75rem;
 }
 .panel-body > p { margin: 0; }
@@ -801,7 +801,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .picker-item .small-avatar { width: 1.7rem; height: 1.7rem; font-size: 0.75rem; }
 .picker-item .session-name { -webkit-line-clamp: 1; }
 
-/* --- Carte « Configurer l'agent » --- */
+/* --- "Configure the agent" card --- */
 .agent-summary {
   display: flex;
   align-items: center;
@@ -811,8 +811,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .big-avatar { width: 3rem; height: 3rem; font-size: 1.2rem; }
 .big-avatar .agent-dot { width: 0.85rem; height: 0.85rem; }
 
-/* Avatar choisi : 2 caractères un peu plus petits, un animal sur un fond clair de la couleur de l'agent,
-   une image qui remplit le rond. */
+/* Chosen avatar: 2 slightly smaller characters, an animal on a light background of the agent's color,
+   an image that fills the circle. */
 .agent-avatar.two-chars .avatar-text { font-size: 0.82em; letter-spacing: -0.02em; }
 .agent-avatar.is-animal { background: hsl(var(--agent-hue) 60% 88%); }
 .agent-avatar.is-image { background: var(--tool-bg); }
@@ -826,7 +826,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .chat-heading { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
 .header-avatar { width: 1.6rem; height: 1.6rem; font-size: 0.72rem; }
 
-/* Configuration : section Avatar. */
+/* Configuration: Avatar section. */
 .settings-section.avatar-section { align-items: stretch; }
 .avatar-editor { width: min(100%, 46rem); display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 .avatar-preview {
@@ -901,7 +901,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .avatar-crop {
   position: relative;
   flex: none;
-  width: 176px; /* CROP dans avatar-editor.js */
+  width: 176px; /* CROP in avatar-editor.js */
   height: 176px;
   overflow: hidden;
   border-radius: var(--radius);
@@ -944,7 +944,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .agents-section { align-items: stretch; }
 .agents-section .text-input { width: 100%; }
 
-/* Choix de la couleur d'un workspace : carrés comme son icône. */
+/* Choice of a workspace's color: squares like its icon. */
 .swatches { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .swatch {
   all: unset;
@@ -965,13 +965,13 @@ body.resizing { cursor: col-resize; user-select: none; }
   border: 1px dashed var(--muted);
   color: var(--text);
 }
-/* Survol sans changer de taille : rien ne déborde de la zone défilante. */
+/* Hover without changing size: nothing overflows the scrolling area. */
 .swatch:hover { filter: brightness(1.15); box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35); }
 .swatch.auto:hover { filter: none; border-color: var(--text); }
 .swatch[aria-checked="true"] { outline: 2px solid var(--text); outline-offset: 2px; }
 .swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* --- Nouvel agent : choix du dossier --- */
+/* --- New agent: choosing the folder --- */
 .recent-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.6rem; width: 100%; }
 .recent-folder {
   all: unset;
@@ -1012,7 +1012,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .recent-folder-name, .recent-folder-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .browse-section { align-items: stretch; }
-/* « Nouveau dossier ici », sous la liste des sous-dossiers. */
+/* "New folder here", below the list of subfolders. */
 .new-folder-toggle { display: inline-flex; align-items: center; gap: 0.4rem; align-self: flex-start; }
 .new-folder-toggle svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .new-folder-form { width: 100%; }
@@ -1023,7 +1023,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .crumb:hover { background: var(--tool-bg); color: var(--text); }
 .crumb:focus-visible { outline: 2px solid var(--accent); }
 .crumb.current { color: var(--text); font-weight: 600; }
-/* Séparateur entre deux segments (le premier, « / », est la racine). */
+/* Separator between two segments (the first, "/", is the root). */
 .crumb + .crumb::before { content: "/"; margin-right: 0.35rem; color: var(--border); }
 .crumb:nth-child(2)::before { content: none; }
 .folder-list {
@@ -1053,7 +1053,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .folder-empty { padding: 0.35rem 0.5rem; }
 .chosen-folder { margin: 0 auto 0 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* --- Onglets de la discussion : Discussion / Git --- */
+/* --- Discussion tabs: Discussion / Git --- */
 .chat-tabs { display: flex; gap: 0.2rem; padding: 0 0.5rem; border-bottom: 1px solid var(--border); }
 .chat-tabs [role="tab"] {
   all: unset;
@@ -1069,7 +1069,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .chat-tabs [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
 .chat-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-/* --- Écran Git (façon Sourcetree) --- */
+/* --- Git screen (Sourcetree style) --- */
 .git-view { gap: 0.5rem; padding: 0.5rem 0.75rem; }
 .git-view.busy { cursor: progress; }
 .git-view.busy button { pointer-events: none; opacity: 0.6; }
@@ -1114,10 +1114,10 @@ body.resizing { cursor: col-resize; user-select: none; }
 .git-nav.active { background: var(--user-bg); color: var(--accent); font-weight: 600; }
 .git-nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-count { margin-left: auto; padding: 0 0.4rem; border-radius: 999px; background: var(--tool-bg); font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-/* Branche ouverte dans un autre worktree : un clic affiche ce worktree. */
+/* Branch open in another worktree: a click shows that worktree. */
 .git-worktree-badge { margin-left: auto; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
 .git-count + .git-worktree-badge { margin-left: 0.3rem; }
-/* Bandeau : on regarde un autre worktree que celui de l'agent. */
+/* Banner: we are looking at a worktree other than the agent's. */
 .git-elsewhere { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; padding: 0.4rem 0.6rem; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 0.8rem; }
 .git-elsewhere-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
 .git-branch .git-nav-label { font-family: var(--mono); font-size: 0.8rem; }
@@ -1173,7 +1173,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   all: unset;
   box-sizing: border-box;
   width: 100%;
-  height: 28px; /* doit suivre ROW_HEIGHT dans git-view.js */
+  height: 28px; /* must follow ROW_HEIGHT in git-view.js */
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1221,7 +1221,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   .git-working, .git-commit-split { grid-template-columns: 1fr; }
 }
 
-/* --- Agents supprimés --- */
+/* --- Deleted agents --- */
 .deleted-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.4rem 0.5rem; border-radius: 8px; }
 .deleted-item:hover { background: var(--tool-bg); }
 .deleted-item .agent-text { flex: 1; }
@@ -1285,31 +1285,31 @@ body.resizing { cursor: col-resize; user-select: none; }
   overflow-y: auto;
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
-/* Questions de Claude (AskUserQuestion) : un bloc par question, options à cocher, réponse libre. */
+/* Claude's questions (AskUserQuestion): one block per question, options to check, free answer. */
 .modal-extra { max-height: 60vh; overflow-y: auto; margin: 0 -0.25rem 1.25rem; padding: 0 0.25rem; }
 .modal-extra[hidden] { display: none; }
 
-/* --- Barre repliée en rail : la même barre, rognée à la colonne des avatars (4rem) ---
-   Les lignes gardent leur taille : survolée, la barre s'ouvre par-dessus le contenu (« peek »)
-   et chaque avatar reste exactement à sa place. Sur petit écran, la barre ne se replie pas. */
+/* --- Bar collapsed into a rail: the same bar, cropped to the avatar column (4rem) ---
+   Rows keep their size: on hover, the bar opens over the content ("peek")
+   and each avatar stays exactly in place. On small screens, the bar does not collapse. */
 @media (min-width: 801px) {
-  /* Colonnes explicites (la poignée fait 1 px) pour que replier et déplier s'animent. */
+  /* Explicit columns (the handle is 1 px) so that collapsing and expanding animate. */
   .layout { position: relative; grid-template-columns: var(--sidebar-width, 340px) 1px minmax(0, 1fr); }
   .layout.collapsed { grid-template-columns: 4rem 0 minmax(0, 1fr); }
   .layout.collapsed .resizer { display: none; }
   .main { grid-column: 3; }
   .layout.collapsed .sidebar { border-right: 1px solid var(--border); }
-  /* Le contenu garde sa largeur (rogné) : rien ne se réorganise pendant les animations.
-     La barre de défilement est masquée, la molette fait toujours défiler. */
+  /* The content keeps its width (cropped): nothing rearranges during the animations.
+     The scrollbar is hidden, the wheel still scrolls. */
   .layout:is(.collapsed, .expanding) .sidebar { overflow-x: hidden; scrollbar-width: none; }
   .layout:is(.collapsed, .expanding) .sidebar::-webkit-scrollbar { display: none; }
   .layout:is(.collapsed, .expanding) .sidebar > * { min-width: var(--sidebar-width); }
-  /* Le logo s'efface : l'avatar du compte prend la tête du rail, aligné sur ceux des agents. */
+  /* The logo fades out: the account avatar takes the head of the rail, aligned with the agents' ones. */
   .layout.collapsed .logo { display: none; }
   .layout.collapsed .usage-open .avatar { display: grid; }
-  .layout.collapsed .usage { overflow: visible; } /* l'anneau d'usage autour de l'avatar */
+  .layout.collapsed .usage { overflow: visible; } /* the usage ring around the avatar */
 
-  /* Rail : rien d'autre que les avatars (le texte rogné serait illisible). */
+  /* Rail: nothing but the avatars (cropped text would be unreadable). */
   .layout.collapsed:not(.peek) :is(.agent-text, .usage-windows, .usage-refresh, .workspace-chevron, .row-actions, .workspace-empty, .workspace-sub) {
     opacity: 0;
     pointer-events: none;
@@ -1321,10 +1321,10 @@ body.resizing { cursor: col-resize; user-select: none; }
   .usage-open .avatar[data-level="ok"] { --level-color: var(--ok); }
   .usage-open .avatar[data-level="warm"] { --level-color: var(--warn); }
   .usage-open .avatar[data-level="hot"] { --level-color: var(--bad); }
-  /* En-tête Agents / Tâches : invisible dans le rail, mais garde sa place pour que les avatars
-     ne bougent pas quand la barre s'ouvre au survol. */
+  /* Agents / Tasks header: invisible in the rail, but keeps its space so that the avatars
+     do not move when the bar opens on hover. */
   .layout.collapsed:not(.peek) .sessions-head { opacity: 0; pointer-events: none; }
-  /* Usage du forfait : jauges empilées, collées en bas du rail même quand la liste défile. */
+  /* Plan usage: stacked gauges, stuck to the bottom of the rail even when the list scrolls. */
   .layout.collapsed:not(.peek) .sidebar > .rail-usage:not([hidden]) {
     all: unset;
     position: sticky;
@@ -1350,7 +1350,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   .rail-gauge + .rail-gauge { margin: 0; padding: 0; border: 0; }
   .rail-gauge .usage-ring { width: 22px; height: 22px; margin-bottom: 0.1rem; }
   .rail-gauge.level-hot .usage-value { color: var(--bad); }
-  /* Agent qui a du nouveau : le point d'accent passe sur l'avatar. */
+  /* Agent with something new: the accent dot moves onto the avatar. */
   .layout.collapsed:not(.peek) .session.unseen .agent-avatar::before {
     content: "";
     position: absolute;
@@ -1363,7 +1363,7 @@ body.resizing { cursor: col-resize; user-select: none; }
     box-shadow: 0 0 0 2px var(--bg);
   }
 
-  /* Survol : la barre s'ouvre par-dessus le contenu, sans le décaler. */
+  /* Hover: the bar opens over the content, without shifting it. */
   .layout.peek .sidebar {
     position: absolute;
     z-index: 20;
@@ -1375,8 +1375,8 @@ body.resizing { cursor: col-resize; user-select: none; }
     box-shadow: 8px 0 24px rgb(0 0 0 / 0.18);
   }
 }
-/* Animations : la colonne se resserre ou s'élargit ; survolée, la barre se déplie depuis le rail
-   et s'y replie, son ombre apparaît puis s'efface ; les textes s'estompent. */
+/* Animations: the column narrows or widens; on hover, the bar unfolds from the rail
+   and folds back into it, its shadow appears then fades; the texts fade. */
 @media (min-width: 801px) and (prefers-reduced-motion: no-preference) {
   .layout { transition: grid-template-columns 0.24s cubic-bezier(0.2, 0, 0, 1); }
   body.resizing .layout, .layout.instant, .layout.instant .sidebar * { transition: none; }
@@ -1409,8 +1409,8 @@ body.resizing { cursor: col-resize; user-select: none; }
   .chat { height: 80vh; }
 }
 
-/* --- Onglet Fichiers --- */
-/* --- Écran Terminal : le vrai Claude Code (xterm.js), sur fond sombre comme la console --- */
+/* --- Files tab --- */
+/* --- Terminal screen: the real Claude Code (xterm.js), on a dark background like the console --- */
 .terminal-view { gap: 0.5rem; padding: 0.5rem 0.75rem 0.75rem; }
 .terminal-view [hidden] { display: none !important; }
 .terminal-bar { display: flex; align-items: center; gap: 0.75rem; }
@@ -1430,8 +1430,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .terminal-intro { max-width: 36rem; margin: 2rem auto; display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
 .terminal-intro h3 { margin: 0; font-size: 1rem; }
 .terminal-intro p { margin: 0; }
-/* La marge est sur le conteneur : l'addon fit mesure le parent de xterm (border-box) sans retirer son padding,
-   et calculerait une ligne et une colonne de trop, coupées en bas et à droite. */
+/* The margin is on the container: the fit addon measures xterm's parent (border-box) without removing its padding,
+   and would compute one row and one column too many, cut off at the bottom and right. */
 .terminal-screens { flex: 1; min-height: 0; display: flex; padding: 0.4rem; border-radius: 8px; background: #1d1f23; }
 .terminal-screen { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .terminal-screen .xterm { height: 100%; }
@@ -1483,7 +1483,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 .files-content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .files-placeholder { margin: auto; padding: 1rem; text-align: center; }
-.files-code { flex: 1; min-height: 0; overflow: auto; font-family: var(--mono); font-size: 0.78rem; line-height: 1.5; /* LINE_HEIGHT dans files-view.js */ }
+.files-code { flex: 1; min-height: 0; overflow: auto; font-family: var(--mono); font-size: 0.78rem; line-height: 1.5; /* LINE_HEIGHT in files-view.js */ }
 .files-code-inner { position: relative; display: grid; grid-template-columns: auto 1fr; width: max-content; min-width: 100%; }
 .files-code pre { margin: 0; padding: 0.5rem 0.75rem; font: inherit; line-height: inherit; tab-size: 4; white-space: pre; }
 .files-gutter { position: sticky; left: 0; z-index: 1; text-align: right; color: var(--muted); background: var(--tool-bg); border-right: 1px solid var(--border); user-select: none; }
@@ -1505,8 +1505,8 @@ body.resizing { cursor: col-resize; user-select: none; }
   .files-side { max-height: 12rem; border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 0.5rem; }
 }
 
-/* --- Modes : Agents ou Tâches (tableaux Kanban) ---
-   La mise en page porte la classe mode-tasks ; chaque élément dit à quel mode il appartient. */
+/* --- Modes: Agents or Tasks (Kanban boards) ---
+   The layout carries the mode-tasks class; each element says which mode it belongs to. */
 .layout:not(.mode-tasks) .tasks-only,
 .layout.mode-tasks .agents-only,
 .layout.mode-tasks #chat,
@@ -1521,10 +1521,10 @@ body.resizing { cursor: col-resize; user-select: none; }
   font-weight: 600;
 }
 
-/* Liste des tableaux : mêmes lignes que les agents ; l'avatar est carré (un tableau, pas un agent). */
+/* List of boards: same rows as the agents; the avatar is square (a board, not an agent). */
 .board-avatar { border-radius: 7px; }
 .board-spread { display: inline-flex; gap: 0.2rem; }
-.agent-meta > .board-spread::before { content: none !important; } /* pas de « · » avant les pastilles */
+.agent-meta > .board-spread::before { content: none !important; } /* no "·" before the dots */
 .board-spread-chip {
   --col-hue: 0;
   min-width: 1.1rem;
@@ -1538,7 +1538,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .board-spread-chip.neutral { background: var(--tool-bg); color: var(--muted); }
 
-/* --- Carte du tableau --- */
+/* --- Board card --- */
 .board-card { display: flex; flex-direction: column; width: 100%; height: 100%; }
 .board-body { padding: 0.75rem; }
 .kanban-host { flex: 1; min-height: 0; display: flex; }
@@ -1575,7 +1575,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   list-style: none;
   margin: 0;
   padding: 0.25rem 0.5rem;
-  min-height: 2.5rem; /* une colonne vide reste une cible de dépôt */
+  min-height: 2.5rem; /* an empty column stays a drop target */
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -1595,7 +1595,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   cursor: grab;
 }
 .kanban-card-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 8px; }
-/* Numéro du ticket, au-dessus du titre : un clic copie le lien du ticket. */
+/* Ticket number, above the title: a click copies the ticket link. */
 .kanban-card-number {
   all: unset;
   display: inline-block;
@@ -1637,7 +1637,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .kanban-new-column-form { display: flex; gap: 0.4rem; padding: 0.55rem; }
 .kanban-new-column-form .text-input { flex: 1; min-width: 0; }
 
-/* Réglages d'un tableau : une ligne par colonne (couleur, nom, nombre de tickets, ordre, suppression). */
+/* Board settings: one row per column (color, name, number of tickets, order, deletion). */
 .column-editor { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .column-editor-row { --col-hue: 0; display: flex; align-items: center; gap: 0.4rem; }
 .column-editor-row .text-input { flex: 1; min-width: 0; }
@@ -1659,7 +1659,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .danger-icon:hover:not(:disabled) { color: var(--bad); }
 
-/* --- Fiche d'un ticket --- */
+/* --- Ticket sheet --- */
 .ticket-dialog { width: min(720px, calc(100vw - 2rem)); }
 .ticket-dialog.dropping { outline: 3px dashed var(--accent); outline-offset: -6px; }
 .ticket-body { padding: 1rem 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.75rem; max-height: calc(100vh - 4rem); overflow-y: auto; }
@@ -1676,7 +1676,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   padding: 0.3rem 0.65rem;
   font-size: 0.8rem;
 }
-/* Référence « #42 » dans une description : lien vers le ticket. */
+/* "#42" reference in a description: link to the ticket. */
 .ticket-ref { font-weight: 600; text-decoration: none; border-bottom: 1px dotted currentColor; }
 .ticket-title {
   flex: 1;
@@ -1726,7 +1726,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .ticket-footer { display: flex; align-items: center; gap: 0.5rem; }
 .ticket-footer .spacer { flex: 1; }
 
-/* Erreur passagère (action refusée, réseau…), en bas de l'écran. */
+/* Passing error (refused action, network…), at the bottom of the screen. */
 .toast {
   position: fixed;
   z-index: 50;
@@ -1743,7 +1743,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .toast[hidden] { display: none; }
 
-/* --- Onglet Discussion : la conversation de l'agent, en lecture seule --- */
+/* --- Discussion tab: the agent's conversation, read-only --- */
 .discussion-view { position: relative; gap: 0.5rem; padding: 0.5rem 0.75rem 0; }
 .discussion-view[hidden] { display: none; }
 .discussion-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
@@ -1756,11 +1756,11 @@ body.resizing { cursor: col-resize; user-select: none; }
   display: flex;
   flex-direction: column;
   gap: 1.4rem;
-  padding: 1rem 0.5rem 5.5rem; /* en bas, la place des boutons flottants */
+  padding: 1rem 0.5rem 5.5rem; /* at the bottom, room for the floating buttons */
 }
 .discussion-log > * { width: 100%; max-width: 54rem; margin: 0 auto; }
 .discussion-empty { text-align: center; padding: 2rem 0; }
-/* Boutons flottants en bas à droite, contre la colonne des messages (54rem centrée) quand il y a la place. */
+/* Floating buttons at the bottom right, against the message column (54rem centered) when there is room. */
 .discussion-fabs {
   position: absolute;
   bottom: 0.75rem;
@@ -1789,7 +1789,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .fab svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .discussion-fold[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-/* Un échange : ton message à droite, la réponse de l'agent en dessous. */
+/* An exchange: your message on the right, the agent's reply below. */
 .turn { display: flex; flex-direction: column; gap: 0.7rem; }
 .turn-sent { align-self: flex-end; max-width: min(80%, 40rem); display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
 .turn-bubble {
@@ -1814,7 +1814,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .reply-text { line-height: 1.6; overflow-wrap: anywhere; }
 .reply-info { margin: 0; font-size: 0.8rem; color: var(--muted); font-style: italic; }
 
-/* Actions de l'agent : regroupées, repliées, une ligne par action. */
+/* Agent's actions: grouped, folded, one line per action. */
 .tool-group, .reply-subagent {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1876,7 +1876,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .reply-output-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .reply-output pre { background: #1d1f23; color: #e4e6eb; }
 
-/* --- Menu déroulant (dropdown.js) : réutilisable, posé sur la page --- */
+/* --- Dropdown menu (dropdown.js): reusable, placed on the page --- */
 .dropdown-menu {
   position: fixed;
   z-index: 50;
@@ -1906,7 +1906,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .dropdown-item svg { flex: none; width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
 .dropdown-separator { height: 1px; margin: 0.3rem 0.2rem; background: var(--border); }
 
-/* Bouton « ⋯ » sous un message de la discussion : copier, exporter en PDF. */
+/* "⋯" button below a discussion message: copy, export to PDF. */
 .turn-options {
   all: unset;
   display: inline-grid;
@@ -1924,7 +1924,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .discussion-summary.flash { color: var(--text); }
 .print-frame { position: fixed; width: 0; height: 0; border: 0; visibility: hidden; }
 
-/* Zone de saisie de l'onglet Discussion : le message part dans le Terminal. */
+/* Input box of the Discussion tab: the message goes to the Terminal. */
 .discussion-composer {
   display: flex;
   align-items: flex-end;
@@ -1966,7 +1966,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .discussion-send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .discussion-send svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* --- Raccourcis de prompts : onglet, éditeur, panneau du Terminal --- */
+/* --- Prompt shortcuts: tab, editor, Terminal panel --- */
 .shortcuts-view { overflow-y: auto; padding: 0.75rem; }
 .shortcuts-view[hidden] { display: none; }
 .shortcut-page { width: 100%; max-width: 46rem; margin: 0 auto; display: flex; flex-direction: column; gap: 0.6rem; }
@@ -2030,12 +2030,12 @@ kbd {
 .shortcut-add[hidden] { display: none; }
 .shortcut-add svg { width: 0.95rem; height: 0.95rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-/* Vue du workspace : onglets Réglages / Raccourcis. */
+/* Workspace view: Settings / Shortcuts tabs. */
 .panel-tabs { padding: 0; margin-bottom: 0.25rem; }
 .panel-pane { display: flex; flex-direction: column; gap: 1rem; }
 .panel-pane[hidden] { display: none; }
 
-/* Bouton de la barre du Terminal. */
+/* Button of the Terminal bar. */
 .terminal-shortcuts {
   all: unset;
   flex: none;
@@ -2052,7 +2052,7 @@ kbd {
 .terminal-shortcuts:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .terminal-shortcuts svg { width: 0.9rem; height: 0.9rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
 
-/* Panneau sur le Terminal : monte du bas en fondu, ses raccourcis arrivent l'un après l'autre. */
+/* Panel over the Terminal: rises from the bottom with a fade, its shortcuts arrive one after the other. */
 .terminal-screens { position: relative; }
 .shortcut-panel {
   position: absolute;
@@ -2108,11 +2108,11 @@ kbd {
   .shortcut-panel, .shortcut-panel-item { transition: none; }
 }
 
-/* Onglet Configuration d'un agent : les réglages, dans la carte. */
+/* Configuration tab of an agent: the settings, in the card. */
 .config-view .config-body { max-width: 46rem; }
 .config-missing { padding: 1rem; }
 
-/* Mode console de la Discussion (« !! ») : la saisie devient un terminal, précédée d'un « $ ». */
+/* Discussion console mode ("!!"): the input becomes a terminal, preceded by a "$". */
 .discussion-composer { --console-bg: #1d1f23; --console-text: #e4e6eb; --console-muted: #9aa0aa; }
 .shell-badge {
   flex: none;
@@ -2137,9 +2137,9 @@ kbd {
 }
 .discussion-composer.shell-mode textarea::placeholder { color: var(--console-muted); }
 .discussion-composer.shell-mode textarea:focus { border-color: #7ee0a1; box-shadow: 0 0 0 3px rgb(126 224 161 / 0.18); }
-/* Commande shell dans la discussion : la commande, son état, puis sa sortie. */
+/* Shell command in the discussion: the command, its state, then its output. */
 .entry.console {
-  flex: none; /* dans une discussion qui défile, le bloc ne doit pas rétrécir */
+  flex: none; /* in a scrolling discussion, the block must not shrink */
   align-self: stretch;
   overflow: hidden;
   padding: 0;
@@ -2166,7 +2166,7 @@ kbd {
 .console-stop:hover:not(:disabled) { border-color: #ff8a80; color: #ff8a80; }
 .console-body { margin: 0; padding: 0.5rem 0.7rem; max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* --- Configuration : bouton de la fenêtre de l'usage, et onglet Terminaux Claude --- */
+/* --- Configuration: usage window button, and Claude terminals tab --- */
 .account-footer { padding: 0.75rem 1rem 1rem; border-top: 1px solid var(--border); }
 .settings-button {
   width: 100%;
@@ -2241,7 +2241,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   .terminal-actions { grid-column: 2 / -1; }
 }
 
-/* Bandeau du redémarrage du serveur : en attente (orange), en cours, confirmé (vert). */
+/* Server restart banner: pending (orange), in progress, confirmed (green). */
 .main { position: relative; }
 .server-banner {
   position: absolute;
@@ -2275,7 +2275,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 }
 @media (prefers-reduced-motion: reduce) { .server-spinner { animation: none; } }
 
-/* Onglet Serveur de l'écran Configuration. */
+/* Server tab of the Configuration screen. */
 .server-card { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); max-width: 44rem; }
 .server-card-head { display: flex; align-items: center; gap: 0.55rem; font-size: 1.05rem; }
 .server-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
@@ -2283,7 +2283,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .server-card .primary { align-self: flex-start; }
 .server-card p { margin: 0; }
 
-/* --- Écran d'accueil (aucun agent ouvert) : Ziggy en chef d'orchestre (web/hero.js) --- */
+/* --- Welcome screen (no agent open): Ziggy as conductor (web/hero.js) --- */
 #panel.hero-mode > .card-head { display: none; }
 #panel.hero-mode .panel-body { padding: 0; overflow: hidden; }
 .hero {
@@ -2302,7 +2302,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   overflow: hidden;
   isolation: isolate;
 }
-/* Aurore : trois taches floues qui dérivent lentement. */
+/* Aurora: three blurred blobs drifting slowly. */
 .hero-aurora { position: absolute; inset: -20%; z-index: -1; pointer-events: none; }
 .hero-aurora .blob { position: absolute; width: 46%; aspect-ratio: 1; border-radius: 50%; filter: blur(70px); opacity: 0.22; }
 .hero-aurora .b1 { left: 18%; top: 14%; background: var(--hero-a); animation: hero-drift 18s ease-in-out infinite alternate; }
@@ -2319,13 +2319,13 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   stroke-dasharray: 3 6;
 }
 @keyframes hero-orbit-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
-/* Les orbites s'ouvrent depuis le centre (le groupe : chaque ellipse garde son inclinaison). */
+/* The orbits open from the center (the group: each ellipse keeps its tilt). */
 .hero-orbits { transform-box: view-box; transform-origin: 0 0; animation: hero-orbit-in 1.2s ease-out both 0.25s; }
 .hero-beam { stroke-width: 1.2; stroke-linecap: round; }
-/* Note : un point net, avec un liseré clair de sa couleur en guise de halo (pas de filtre de flou). */
+/* Note: a crisp dot, with a light outline of its color as a halo (no blur filter). */
 .hero-note { stroke-width: 4; stroke-opacity: 0.25; }
 
-/* Emblème : apparaît, respire ; l'anneau tourne. */
+/* Emblem: appears, breathes; the ring spins. */
 .hero-emblem { animation: hero-pop 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) both; transform-origin: 0 0; }
 @keyframes hero-pop { from { opacity: 0; transform: scale(0.3) rotate(-25deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 .hero-halo { animation: hero-breathe 3.2s ease-in-out infinite; transform-origin: 0 0; }
@@ -2343,14 +2343,14 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .hero-tile { filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--hero-a) 45%, transparent)); }
 .hero-z { fill: #fff; font: 800 38px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; letter-spacing: -1px; }
 
-/* Agents en orbite : leur couleur, leur initiale ; ceux au travail ou qui t'attendent pulsent. */
+/* Orbiting agents: their color, their initial; those working or waiting for you pulse. */
 .hero-agent-disc { stroke: var(--surface); stroke-width: 2.5; }
 .hero-agent-letter { fill: #fff; font: 700 13px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
 .hero-agent-pulse { fill: none; stroke: #f59e0b; stroke-width: 2; transform-origin: 0 0; animation: hero-ping 1.8s ease-out infinite; }
 .hero-agent.state-waiting .hero-agent-pulse { stroke: var(--bad); }
 @keyframes hero-ping { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.1); opacity: 0; } }
 
-/* Texte : le titre monte lettre par lettre, puis le reste. */
+/* Text: the title rises letter by letter, then the rest. */
 .hero-copy { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; text-align: center; margin-top: -0.5rem; }
 .hero-title {
   margin: 0;
@@ -2361,8 +2361,8 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 }
 .hero-title span {
   display: inline-block;
-  /* Le dégradé n'est peint que dans la boîte de la lettre : on l'agrandit vers le bas (et un peu à droite, pour
-     l'italique de l'animation) pour que les jambages (g, y) ne soient pas coupés, sans décaler la ligne. */
+  /* The gradient is only painted in the letter's box: we extend it downwards (and a little to the right, for
+     the animation's italics) so that descenders (g, y) are not cut, without shifting the line. */
   padding: 0 0.04em 0.22em 0;
   margin: 0 -0.04em -0.22em 0;
   background: linear-gradient(110deg, var(--hero-a), var(--hero-b) 60%, var(--hero-c));
@@ -2389,7 +2389,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 }
 @keyframes hero-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-/* Les deux boutons, centrés. */
+/* The two buttons, centered. */
 .hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.9rem; margin-top: 0.9rem; animation: hero-rise 0.8s cubic-bezier(0.2, 1.2, 0.4, 1) both 1.45s; }
 .hero-button {
   all: unset;
@@ -2428,11 +2428,11 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .hero-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--hero-a) 60%, transparent); outline-offset: 3px; }
 .hero-hint { margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--muted); animation: hero-rise 0.7s ease-out both 1.7s; }
 
-/* Moins de mouvement : tout est posé, sans animation. */
+/* Less motion: everything is in place, without animation. */
 .hero.reduced *, .hero.reduced *::before { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .hero *, .hero *::before { animation: none !important; }
 }
 
-/* Rôle d'un agent (réglages) : texte libre, lu par les autres agents. */
+/* Role of an agent (settings): free text, read by the other agents. */
 .role-section textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; line-height: 1.4; }

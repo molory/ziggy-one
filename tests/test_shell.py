@@ -1,4 +1,4 @@
-"""Tests de la console « !! commande » : python3 -m unittest discover -s tests"""
+"""Tests of the "!! command" console: python3 -m unittest discover -s tests"""
 
 import sys
 import tempfile
@@ -27,7 +27,7 @@ class ShellRunsTest(unittest.TestCase):
         self.seen = []
 
     def run_events(self, run_id, timeout=5):
-        """Événements de la commande jusqu'à sa fin."""
+        """Events of the command until it ends."""
         def ended():
             self.seen += [data for kind, data in drain(self.events) if kind == "shell"]
             return any(e["run"] == run_id and e.get("ended") for e in self.seen)
@@ -38,17 +38,17 @@ class ShellRunsTest(unittest.TestCase):
         return "".join(e.get("output", "") for e in events)
 
     def test_runs_in_the_agent_folder_and_merges_stderr(self):
-        events = self.run_events(self.shell.start(CONV, self.cwd, "pwd; echo erreur >&2; exit 3"))
+        events = self.run_events(self.shell.start(CONV, self.cwd, "pwd; echo error >&2; exit 3"))
         self.assertEqual(events[0], {"conversation": CONV, "run": events[0]["run"], "started": True,
-                                     "command": "pwd; echo erreur >&2; exit 3", "cwd": self.cwd})
-        self.assertEqual(self.output(events), f"{Path(self.cwd).resolve()}\nerreur\n")
+                                     "command": "pwd; echo error >&2; exit 3", "cwd": self.cwd})
+        self.assertEqual(self.output(events), f"{Path(self.cwd).resolve()}\nerror\n")
         end = events[-1]
         self.assertEqual((end["code"], end["truncated"], end["timedOut"]), (3, False, False))
         self.assertEqual(self.shell.running(), [])
 
     def test_no_terminal_colors_and_no_input(self):
-        events = self.run_events(self.shell.start(CONV, self.cwd, "printf '\\033[31mrouge\\033[0m\\n'; cat; echo fin"))
-        self.assertEqual(self.output(events), "rouge\nfin\n")
+        events = self.run_events(self.shell.start(CONV, self.cwd, "printf '\\033[31mred\\033[0m\\n'; cat; echo end"))
+        self.assertEqual(self.output(events), "red\nend\n")
 
     def test_stop_kills_the_whole_command(self):
         run_id = self.shell.start(CONV, self.cwd, "sleep 30 & sleep 30")

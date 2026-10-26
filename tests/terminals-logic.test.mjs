@@ -4,20 +4,20 @@ import { test } from "node:test";
 
 import { formatBytes, formatSince, isIdle, sortTerminals } from "../web/terminals-logic.js";
 
-test("formatBytes : Mo puis Go", () => {
-  assert.equal(formatBytes(312 * 1024 * 1024), "312 Mo");
-  assert.equal(formatBytes(1.4 * 1024 * 1024 * 1024), "1,4 Go");
+test("formatBytes: MB then GB", () => {
+  assert.equal(formatBytes(312 * 1024 * 1024), "312 MB");
+  assert.equal(formatBytes(1.4 * 1024 * 1024 * 1024), "1.4 GB");
   assert.equal(formatBytes(null), "—");
 });
 
-test("formatSince : minutes, heures, jours", () => {
-  assert.equal(formatSince(1000, 1020), "à l'instant");
+test("formatSince: minutes, hours, days", () => {
+  assert.equal(formatSince(1000, 1020), "just now");
   assert.equal(formatSince(0, 5 * 60), "5 min");
-  assert.equal(formatSince(0, (2 * 60 + 4) * 60), "2 h 04");
-  assert.equal(formatSince(0, (3 * 24 + 4) * 3600), "3 j 4 h");
+  assert.equal(formatSince(0, (2 * 60 + 4) * 60), "2h 04m");
+  assert.equal(formatSince(0, (3 * 24 + 4) * 3600), "3d 4h");
 });
 
-test("sortTerminals : en attente, au travail, puis par mémoire", () => {
+test("sortTerminals: waiting, working, then by memory", () => {
   const rows = [
     { id: "a", state: "active", memory: 900 },
     { id: "b", state: "busy", memory: 100 },

@@ -1,10 +1,12 @@
 // @ts-check
-// Onglet Discussion : la session découpée en échanges, sans DOM (testable avec Node).
+// Discussion tab: the session split into exchanges, without DOM (testable with Node).
 //
-// Un échange = ce que tu as envoyé (message, commande /…, commande !…) puis la réponse de l'agent :
-// ses textes, ses actions (outils, regroupés tant qu'il n'écrit rien entre deux), ses sous-agents, et
-// les sorties de commandes. Les textes que Claude Code glisse dans la conversation (rappels, fichier
-// ouvert dans l'IDE…) sont ignorés, sauf ceux qui disent quelque chose d'utile.
+// An exchange = what you sent (message, /… command, !… command) then the agent's reply: its texts, its
+// actions (tools, grouped as long as it writes nothing in between), its subagents, and command outputs.
+// The texts Claude Code slips into the conversation (reminders, file opened in the IDE…) are ignored,
+// except those that say something useful.
+
+import { t } from "./i18n.js";
 
 /**
  * @typedef {{type: string, text?: string, id?: string, name?: string, input?: any, toolUseId?: string,
@@ -27,7 +29,7 @@ export const SUBAGENT_TOOLS = new Set(["Agent", "Task"]);
 const tagContent = (text, tag) => text.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1]?.trim();
 
 /**
- * Ce que dit un texte « utilisateur » : un message à toi, une commande, une sortie, ou rien d'intéressant.
+ * What a "user" text says: a message from you, a command, an output, or nothing of interest.
  *
  * @param {string} text
  * @returns {{sent: Sent} | {item: Item} | null}
@@ -41,7 +43,7 @@ export function classifyUserText(text) {
   }
   const bash = tagContent(text, "bash-input");
   if (bash !== undefined) return { sent: { kind: "bash", text: bash } };
-  for (const [tag, label] of [["bash-stdout", "Sortie"], ["bash-stderr", "Erreur"], ["local-command-stdout", "Sortie"]]) {
+  for (const [tag, label] of [["bash-stdout", t("Output")], ["bash-stderr", t("Error")], ["local-command-stdout", t("Output")]]) {
     const output = tagContent(text, tag);
     if (output) return { item: { kind: "output", label, text: output } };
   }
@@ -49,11 +51,11 @@ export function classifyUserText(text) {
     const summary = tagContent(text, "summary");
     return summary ? { item: { kind: "info", text: summary } } : null;
   }
-  return null; // rappel système, fichier ouvert dans l'IDE… : rien à montrer
+  return null; // system reminder, file opened in the IDE…: nothing to show
 }
 
 /**
- * Découpe la session en échanges.
+ * Splits the session into exchanges.
  *
  * @param {Message[]} messages
  * @returns {Turn[]}
@@ -63,7 +65,7 @@ export function buildTurns(messages) {
   const turns = [];
   /** @type {Turn | null} */
   let turn = null;
-  /** @type {Map<string, Tool>} actions en attente de leur résultat */
+  /** @type {Map<string, Tool>} actions waiting for their result */
   const tools = new Map();
   /** @param {string} id */
   const current = (id) => {
@@ -106,7 +108,7 @@ export function buildTurns(messages) {
 }
 
 /**
- * Résumé d'une action sur une ligne : la commande, le fichier, le motif cherché…
+ * One-line summary of an action: the command, the file, the searched pattern…
  *
  * @param {string} name
  * @param {any} input
@@ -123,14 +125,14 @@ export function toolSummary(name, input) {
 }
 
 /**
- * Noms des actions d'un groupe, sans doublon, dans l'ordre (« Bash, Read, Edit »).
+ * Names of the actions of a group, without duplicates, in order ("Bash, Read, Edit").
  *
  * @param {Tool[]} tools
  */
 export const toolNames = (tools) => [...new Set(tools.map((tool) => tool.name))].join(", ");
 
 /**
- * Réponse d'un échange en texte : les messages de l'agent, sans ses actions ni ses sorties.
+ * Reply of an exchange as text: the agent's messages, without its actions or outputs.
  *
  * @param {Turn} turn
  */
@@ -138,14 +140,14 @@ export const replyText = (turn) =>
   turn.items.filter((item) => item.kind === "text").map((item) => /** @type {{text: string}} */ (item).text.trim()).join("\n\n");
 
 /**
- * Ce que tu as envoyé, tel quel (une commande garde son « / » ou son « ! »).
+ * What you sent, as is (a command keeps its "/" or "!").
  *
  * @param {Sent} sent
  */
 export const sentText = (sent) => (sent.kind === "bash" ? `! ${sent.text}` : sent.text);
 
 /**
- * Échange à copier ou exporter, en Markdown : la question puis la réponse, ou la réponse seule.
+ * Exchange to copy or export, in Markdown: the question then the answer, or the answer alone.
  *
  * @param {Turn} turn
  * @param {boolean} withQuestion
@@ -153,5 +155,5 @@ export const sentText = (sent) => (sent.kind === "bash" ? `! ${sent.text}` : sen
 export function turnMarkdown(turn, withQuestion) {
   const reply = replyText(turn);
   if (!withQuestion || !turn.sent) return reply;
-  return `## Question\n\n${sentText(turn.sent)}\n\n## Réponse\n\n${reply || "_Pas de réponse écrite._"}`;
+  return `## ${t("Question")}\n\n${sentText(turn.sent)}\n\n## ${t("Answer")}\n\n${reply || `_${t("No written answer.")}_`}`;
 }

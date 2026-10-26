@@ -1,7 +1,9 @@
 // @ts-check
-// Markdown des réponses de Claude, sans dépendance et sans innerHTML : le texte est d'abord analysé
-// en une structure (parseMarkdown, sans DOM, testable avec Node), puis rendu élément par élément
-// (renderMarkdown) avec textContent. Les liens ne sont gardés que pour http(s) et mailto.
+// Markdown of Claude's answers, with no dependency and no innerHTML: the text is first parsed into a
+// structure (parseMarkdown, no DOM, testable with Node), then rendered element by element
+// (renderMarkdown) with textContent. Links are only kept for http(s) and mailto.
+
+import { t } from "./i18n.js";
 
 /**
  * @typedef {{type: "text" | "code", text: string}
@@ -19,14 +21,14 @@
 const SAFE_LINK = /^(https?:\/\/|mailto:)/i;
 const INLINE = new RegExp(
   [
-    /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/.source, // 1-2 : code
-    /\[([^\]\n]+)\]\(([^)\s]+)\)/.source, // 3-4 : lien
-    /\*\*(?=\S)([\s\S]*?\S)\*\*/.source, // 5 : gras
-    /__(?=\S)([\s\S]*?\S)__/.source, // 6 : gras
-    /~~(?=\S)([\s\S]*?\S)~~/.source, // 7 : barré
-    /\*(?=[^\s*])([\s\S]*?[^\s*])\*/.source, // 8 : italique
-    /(?<![\p{L}\p{N}_])_(?=\S)([\s\S]*?\S)_(?![\p{L}\p{N}_])/.source, // 9 : italique
-    /(https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/.source, // 10 : adresse nue
+    /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/.source, // 1-2: code
+    /\[([^\]\n]+)\]\(([^)\s]+)\)/.source, // 3-4: link
+    /\*\*(?=\S)([\s\S]*?\S)\*\*/.source, // 5: bold
+    /__(?=\S)([\s\S]*?\S)__/.source, // 6: bold
+    /~~(?=\S)([\s\S]*?\S)~~/.source, // 7: strikethrough
+    /\*(?=[^\s*])([\s\S]*?[^\s*])\*/.source, // 8: italic
+    /(?<![\p{L}\p{N}_])_(?=\S)([\s\S]*?\S)_(?![\p{L}\p{N}_])/.source, // 9: italic
+    /(https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"])/.source, // 10: bare URL
   ].join("|"),
   "gu",
 );
@@ -53,7 +55,7 @@ export function parseInline(text) {
     last = index + whole.length;
   }
   if (last < text.length) nodes.push({ type: "text", text: text.slice(last) });
-  // Morceaux de texte consécutifs (par exemple un lien refusé) fusionnés en un seul.
+  // Consecutive text pieces (a rejected link, for example) merged into one.
   return nodes.reduce((merged, node) => {
     const previous = merged[merged.length - 1];
     if (node.type === "text" && previous?.type === "text") previous.text += node.text;
@@ -88,7 +90,7 @@ export function parseMarkdown(text) {
       continue;
     }
 
-    // Bloc de code (jusqu'à la clôture, ou jusqu'à la fin s'il n'est pas refermé).
+    // Code block (up to the closing fence, or to the end if it is not closed).
     const fence = FENCE.exec(line);
     if (fence) {
       const marker = fence[1];
@@ -120,7 +122,7 @@ export function parseMarkdown(text) {
       continue;
     }
 
-    // Tableau : une ligne d'en-tête avec des |, puis une ligne de séparation.
+    // Table: a header line with |, then a separator line.
     if (line.includes("|") && i + 1 < lines.length && TABLE_SEPARATOR.test(lines[i + 1])) {
       const head = splitRow(line);
       const align = splitRow(lines[i + 1]).map((cell) => (cell.endsWith(":") ? (cell.startsWith(":") ? "center" : "right") : "left"));
@@ -138,7 +140,7 @@ export function parseMarkdown(text) {
       continue;
     }
 
-    // Paragraphe : jusqu'à une ligne vide ou un autre type de bloc. Les retours à la ligne sont gardés.
+    // Paragraph: up to an empty line or another block type. Line breaks are kept.
     const body = [];
     while (
       i < lines.length && lines[i].trim() && !FENCE.test(lines[i]) && !HEADING.test(lines[i])
@@ -153,7 +155,7 @@ export function parseMarkdown(text) {
 }
 
 /**
- * Liste (et ses sous-listes, plus indentées) à partir de la ligne `start`.
+ * List (and its sublists, more indented) from line `start`.
  *
  * @param {string[]} lines
  * @param {number} start
@@ -170,18 +172,18 @@ function parseList(lines, start) {
     const item = LIST_ITEM.exec(lines[i]);
     if (!item || item[1].length < indent || (item[1].length === indent && (item[3] !== undefined) !== ordered)) break;
     if (item[1].length > indent) {
-      // Sous-liste : rattachée à l'élément précédent.
+      // Sublist: attached to the previous item.
       const sub = parseList(lines, i);
       items[items.length - 1]?.push(sub.block);
       i = sub.next;
       continue;
     }
-    // Texte de l'élément : sa ligne, plus les lignes de continuation (indentées, non vides, pas un élément).
+    // Item text: its line, plus the continuation lines (indented, not empty, not an item).
     const text = [item[4]];
     i += 1;
     while (i < lines.length && lines[i].trim() && !LIST_ITEM.test(lines[i]) && /^\s+/.test(lines[i])) text.push(lines[i++].trim());
     items.push([{ type: "paragraph", children: parseInline(text.join("\n")) }]);
-    // Ligne vide entre deux éléments de la même liste : on continue.
+    // Empty line between two items of the same list: keep going.
     if (i < lines.length && !lines[i].trim() && i + 1 < lines.length && LIST_ITEM.test(lines[i + 1])) {
       const nextItem = /** @type {RegExpExecArray} */ (LIST_ITEM.exec(lines[i + 1]));
       if (nextItem[1].length >= indent) i += 1;
@@ -190,7 +192,7 @@ function parseList(lines, start) {
   return { block: { type: "list", ordered, start: ordered ? Number(first[3]) : 1, items }, next: i };
 }
 
-// --- rendu (navigateur) ---------------------------------------------------------------------
+// --- rendering (browser) --------------------------------------------------------------------
 
 /**
  * @param {Inline[]} nodes
@@ -227,7 +229,7 @@ function renderInline(nodes, parent) {
 function renderBlocks(blocks, parent) {
   for (const block of blocks) {
     if (block.type === "heading") {
-      // Titres plus petits que ceux de la page : # devient h3.
+      // Headings smaller than the page's: # becomes h3.
       const heading = document.createElement(`h${Math.min(6, block.level + 2)}`);
       renderInline(block.children, heading);
       parent.appendChild(heading);
@@ -284,7 +286,7 @@ function renderBlocks(blocks, parent) {
 }
 
 /**
- * Bloc de code : langage et bouton « Copier » au-dessus.
+ * Code block: language and "Copy" button above it.
  *
  * @param {string} lang
  * @param {string} text
@@ -299,17 +301,17 @@ function codeBlock(lang, text) {
   const copy = document.createElement("button");
   copy.type = "button";
   copy.className = "md-copy";
-  copy.textContent = "Copier";
+  copy.textContent = t("Copy");
   copy.addEventListener("click", () => {
     navigator.clipboard.writeText(text).then(
       () => {
-        copy.textContent = "Copié";
+        copy.textContent = t("Copied");
         setTimeout(() => {
-          copy.textContent = "Copier";
+          copy.textContent = t("Copy");
         }, 1500);
       },
       () => {
-        copy.textContent = "Copie impossible";
+        copy.textContent = t("Copy failed");
       },
     );
   });
@@ -323,7 +325,7 @@ function codeBlock(lang, text) {
 }
 
 /**
- * Rend du Markdown dans un élément (sans jamais interpréter de HTML).
+ * Renders Markdown into an element (never interpreting HTML).
  *
  * @param {string} text
  * @param {HTMLElement} target

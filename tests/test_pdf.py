@@ -1,4 +1,4 @@
-"""Tests de l'export PDF d'un échange : python3 -m unittest discover -s tests"""
+"""Tests of the PDF export of an exchange: python3 -m unittest discover -s tests"""
 
 import sys
 import unittest
@@ -12,14 +12,14 @@ import pdf  # noqa: E402
 
 class PdfTest(unittest.TestCase):
     def test_safe_filename(self):
-        self.assertEqual(pdf.safe_filename("question-reponse Corrige le bug / ça ?"), "question-reponse-Corrige-le-bug-ça.pdf")
+        self.assertEqual(pdf.safe_filename("question-answer Fix the café / bug ?"), "question-answer-Fix-the-café-bug.pdf")
         self.assertEqual(pdf.safe_filename("../../etc/passwd"), "etc-passwd.pdf")
-        self.assertEqual(pdf.safe_filename(None), "discussion.pdf")
+        self.assertEqual(pdf.safe_filename(None), "conversation.pdf")
 
     def test_page_forbids_scripts_and_loading(self):
-        page = pdf.full_page('Titre <b>"', '<p>contenu</p>')
-        self.assertIn("default-src 'none'", page)  # CSP : ni script, ni chargement extérieur
-        self.assertIn("<title>Titre &lt;b&gt;&quot;</title>", page)
+        page = pdf.full_page('Title <b>"', '<p>content</p>')
+        self.assertIn("default-src 'none'", page)  # CSP: no script, no external loading
+        self.assertIn("<title>Title &lt;b&gt;&quot;</title>", page)
         self.assertTrue(page.startswith("<!doctype html>"))
 
     def test_invalid_or_unavailable(self):
@@ -29,9 +29,9 @@ class PdfTest(unittest.TestCase):
         with mock.patch.object(pdf, "find_browser", return_value=None), self.assertRaises(pdf.PdfUnavailable):
             pdf.html_to_pdf("<p>ok</p>")
 
-    @unittest.skipUnless(pdf.find_browser(), "Chrome ou Chromium absent")
+    @unittest.skipUnless(pdf.find_browser(), "Chrome or Chromium missing")
     def test_real_pdf(self):
-        data = pdf.html_to_pdf("<h1>Réponse</h1><p>éàç</p>", "Test")
+        data = pdf.html_to_pdf("<h1>Answer</h1><p>éàç</p>", "Test")
         self.assertTrue(data.startswith(b"%PDF-"))
 
 

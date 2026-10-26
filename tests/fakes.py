@@ -1,4 +1,4 @@
-"""Outils partagés par les tests : un faux exécutable `claude` (aucun quota consommé)."""
+"""Helpers shared by the tests: a fake `claude` executable (no quota used)."""
 
 import os
 import sys
@@ -6,11 +6,11 @@ import time
 from pathlib import Path
 from unittest import mock
 
-# Faux `claude` : répond à chaque message stream-json par init, assistant (12 000 tokens de contexte)
-# puis result (fenêtre de 400 000 tokens).
-# - `--resume X` garde la session X, sauf avec `--fork-session` (nouvelle session, comme le vrai) ;
-# - un message qui commence par « lent » met 1,5 s à répondre (pour simuler un tour en cours) ;
-# - si FAKE_CLAUDE_LOG est défini, chaque lancement y ajoute une ligne avec ses arguments.
+# Fake `claude`: answers each stream-json message with init, assistant (12,000 context tokens)
+# then result (400,000-token window).
+# - `--resume X` keeps session X, except with `--fork-session` (new session, like the real one);
+# - a message starting with "slow" takes 1.5 s to answer (to simulate a turn in progress);
+# - if FAKE_CLAUDE_LOG is set, each launch appends a line with its arguments to it.
 FAKE_CLAUDE = f"""#!{sys.executable}
 import json, os, sys, time, uuid
 args = sys.argv[1:]
@@ -22,10 +22,10 @@ if "--resume" in args and "--fork-session" not in args:
     sid = args[args.index("--resume") + 1]
 for line in sys.stdin:
     content = json.loads(line)["message"]["content"]
-    if isinstance(content, list):  # fichiers joints : on répond avec le type des blocs et le texte
+    if isinstance(content, list):  # attached files: answer with the block types and the text
         content = " ".join(b.get("text") or "[" + b["type"] + "]" for b in content)
     text = content
-    if text.startswith("lent"):
+    if text.startswith("slow"):
         time.sleep(1.5)
     for event in (
         {{"type": "system", "subtype": "init", "session_id": sid}},
@@ -42,7 +42,7 @@ for line in sys.stdin:
 
 
 def install_fake_claude(test_case, directory):
-    """Place le faux `claude` en tête du PATH le temps du test. Retourne le fichier des lancements."""
+    """Puts the fake `claude` first in PATH for the test. Returns the launches file."""
     fake = Path(directory) / "claude"
     fake.write_text(FAKE_CLAUDE)
     fake.chmod(0o755)
@@ -66,15 +66,15 @@ def wait_for(predicate, timeout=5):
 
 
 def drain(events):
-    """Événements (type, données) déjà publiés sur une file d'abonnement."""
+    """Events (type, data) already published on a subscription queue."""
     items = []
     while not events.empty():
         items.append(events.get_nowait())
     return items
 
 
-# Faux `claude` interactif : dit s'il a un terminal (et un terminal de contrôle), ses arguments,
-# deux variables d'environnement, sa taille (et la redit à chaque SIGWINCH), puis répète chaque ligne tapée.
+# Fake interactive `claude`: says whether it has a terminal (and a controlling terminal), its arguments,
+# two environment variables, its size (repeated on each SIGWINCH), then echoes each typed line.
 FAKE_INTERACTIVE = f"""#!{sys.executable}
 import json, os, signal, sys
 def size(*_):
@@ -97,7 +97,7 @@ for line in sys.stdin:
 
 
 def install_fake_interactive_claude(test_case, directory):
-    """Place le faux `claude` interactif en tête du PATH le temps du test."""
+    """Puts the fake interactive `claude` first in PATH for the test."""
     fake = Path(directory) / "claude"
     fake.write_text(FAKE_INTERACTIVE)
     fake.chmod(0o755)

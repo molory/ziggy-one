@@ -1,4 +1,4 @@
-"""Tests des rôles d'agents et de l'annuaire donné au démarrage des sessions : python3 -m unittest discover -s tests"""
+"""Tests of the agent roles and of the directory given when sessions start: python3 -m unittest discover -s tests"""
 
 import json
 import sys
@@ -29,37 +29,37 @@ class AgentRolesTest(unittest.TestCase):
 
     def test_role_is_cleaned_saved_and_cleared(self):
         settings = AgentSettings(server.Bus(), self.tmp / "agents.json")
-        settings.set_role("0123456789ab", "  Envoie les\n messages\x1b Teams  " + "x" * 1000)
+        settings.set_role("0123456789ab", "  Sends the\n Teams\x1b messages  " + "x" * 1000)
         role = settings.snapshot()["0123456789ab"]["role"]
-        self.assertTrue(role.startswith("Envoie les messages Teams "))
+        self.assertTrue(role.startswith("Sends the Teams messages "))
         self.assertEqual(len(role), MAX_ROLE)
-        self.assertEqual(AgentSettings(server.Bus(), self.tmp / "agents.json").snapshot(), settings.snapshot(), "relu du disque")
+        self.assertEqual(AgentSettings(server.Bus(), self.tmp / "agents.json").snapshot(), settings.snapshot(), "read back from the disk")
         settings.set_role("0123456789ab", "")
         self.assertNotIn("0123456789ab", settings.snapshot())
         with self.assertRaises(ValueError):
-            settings.set_role("pas-une-cle", "x")
+            settings.set_role("not-a-key", "x")
 
     def test_directory_lists_the_other_agents_with_a_role(self):
         me = self.agent("Ziggy Boss")
-        self.assertEqual(self.srv.agent_directory(me), "", "personne n'a de rôle : rien d'ajouté")
-        self.agent("Teams", "Envoie et lit les messages Teams.")
-        self.agent("Jira", "Gère les tickets Jira.")
-        self.agent("Sans rôle")
-        hidden = self.agent("Supprimé", "Ne doit pas apparaître.")
+        self.assertEqual(self.srv.agent_directory(me), "", "nobody has a role: nothing added")
+        self.agent("Teams", "Sends and reads the Teams messages.")
+        self.agent("Jira", "Handles the Jira tickets.")
+        self.agent("No role")
+        hidden = self.agent("Deleted", "Must not appear.")
         self.srv.agents.hide(hidden.id)
         text = self.srv.agent_directory(me)
-        self.assertTrue(text.startswith("<ziggy-agents>\nTu es « Ziggy Boss »"), text)
-        self.assertIn("SendMessage(to: \"<nom>\")", text)
-        self.assertLess(text.index("« Jira »"), text.index("« Teams »"), "rangés par nom")
-        self.assertIn("- « Teams » (fermé pour l’instant) : Envoie et lit les messages Teams.", text)
-        self.assertNotIn("Sans rôle", text)
-        self.assertNotIn("Supprimé", text)
+        self.assertTrue(text.startswith("<ziggy-agents>\nYou are \"Ziggy Boss\""), text)
+        self.assertIn("SendMessage(to: \"<name>\")", text)
+        self.assertLess(text.index("\"Jira\""), text.index("\"Teams\""), "sorted by name")
+        self.assertIn("- \"Teams\" (closed for now): Sends and reads the Teams messages.", text)
+        self.assertNotIn("No role", text)
+        self.assertNotIn("Deleted", text)
 
     def test_an_agent_learns_its_own_role_but_is_not_listed_to_itself(self):
-        teams = self.agent("Teams", "Envoie les messages Teams.")
+        teams = self.agent("Teams", "Sends the Teams messages.")
         text = self.srv.agent_directory(teams)
-        self.assertIn("Ton rôle : Envoie les messages Teams.", text)
-        self.assertNotIn("- « Teams »", text)
+        self.assertIn("Your role: Sends the Teams messages.", text)
+        self.assertNotIn("- \"Teams\"", text)
 
     def test_terminals_get_a_session_start_hook(self):
         conversation = self.agent("A")

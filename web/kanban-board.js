@@ -1,10 +1,11 @@
 // @ts-check
-// Mode Tâches : le tableau affiché au centre. Colonnes côte à côte (défilement horizontal), tickets en
-// cartes, ajout rapide en bas de colonne, colonne « + » au bout. Déplacement par glisser-déposer
-// (glisser-déposer natif du navigateur, sans bibliothèque) ou au clavier : Alt + flèches sur une carte.
-// Le déplacement s'affiche tout de suite ; la réponse du serveur (événement kanban_board) fait foi.
-// Aucun contenu ne passe par innerHTML : uniquement des nœuds texte.
+// Tasks mode: the board shown in the center. Columns side by side (horizontal scrolling), tickets as
+// cards, quick add at the bottom of a column, "+" column at the end. Moves by drag and drop
+// (the browser's native drag and drop, no library) or with the keyboard: Alt + arrows on a card.
+// The move shows right away; the server's answer (kanban_board event) is authoritative.
+// No content goes through innerHTML: text nodes only.
 
+import { t, tn } from "./i18n.js";
 import { columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink } from "./kanban-logic.js";
 
 const TICKET_TYPE = "application/x-ziggy-ticket";
@@ -31,19 +32,19 @@ export function mountBoardView(root, deps) {
   const { api, el, icon } = deps;
   /** @type {BoardData | null} */
   let data = null;
-  /** @type {{id: string, height: number} | null} ticket en cours de glisser */
+  /** @type {{id: string, height: number} | null} ticket being dragged */
   let dragged = null;
-  /** @type {BoardData | null} données reçues pendant un glisser, affichées à la fin */
+  /** @type {BoardData | null} data received during a drag, shown at the end */
   let pending = null;
-  /** @type {string | null} carte à refocaliser après un déplacement au clavier */
+  /** @type {string | null} card to refocus after a keyboard move */
   let focusAfter = null;
-  /** @type {string | null} colonne dont la zone d'ajout rapide est ouverte */
+  /** @type {string | null} column whose quick-add area is open */
   let addingIn = null;
   const placeholder = el("li", "kanban-placeholder");
   placeholder.setAttribute("aria-hidden", "true");
 
   /**
-   * Couleur d'une colonne : sa teinte, ou neutre.
+   * Color of a column: its hue, or neutral.
    *
    * @param {HTMLElement} target
    * @param {number | null} hue
@@ -54,7 +55,7 @@ export function mountBoardView(root, deps) {
   };
 
   /**
-   * Déplace un ticket : tout de suite à l'écran, puis sur le serveur (qui renvoie le tableau à jour).
+   * Moves a ticket: on screen right away, then on the server (which sends back the updated board).
    *
    * @param {string} id
    * @param {string} column
@@ -66,13 +67,13 @@ export function mountBoardView(root, deps) {
     render();
     api(`/api/kanbans/tickets/${id}/move`, { column, index }).catch((err) => {
       deps.showError(err);
-      // Le serveur a refusé : on revient à son état.
+      // The server refused: go back to its state.
       api(`/api/kanbans/${data?.board.id}`).then(update).catch(() => {});
     });
   }
 
   /**
-   * Numéro du ticket : un clic copie son lien (à coller dans un autre ticket ou un agent).
+   * Ticket number: a click copies its link (to paste into another ticket or an agent).
    *
    * @param {Ticket} ticket
    */
@@ -80,8 +81,8 @@ export function mountBoardView(root, deps) {
     const label = `#${ticket.number}`;
     const button = el("button", "kanban-card-number", label);
     /** @type {HTMLButtonElement} */ (button).type = "button";
-    button.title = "Copier le lien du ticket";
-    button.setAttribute("aria-label", `Copier le lien du ticket ${label}`);
+    button.title = t("Copy the ticket link");
+    button.setAttribute("aria-label", t("Copy the link of ticket {label}", { label }));
     /** @type {number | undefined} */
     let timer;
     button.addEventListener("click", async (event) => {
@@ -89,11 +90,11 @@ export function mountBoardView(root, deps) {
       const url = await shareLink(api, location.origin, ticket);
       try {
         await navigator.clipboard.writeText(url);
-        button.textContent = "Lien copié";
+        button.textContent = t("Link copied");
         button.classList.add("copied");
       } catch {
         button.textContent = label;
-        deps.showError(new Error(`Copie refusée par le navigateur. Lien du ticket : ${url}`));
+        deps.showError(new Error(t("Copy blocked by the browser. Ticket link: {url}", { url })));
       }
       clearTimeout(timer);
       timer = window.setTimeout(() => {
@@ -113,14 +114,14 @@ export function mountBoardView(root, deps) {
     open.type = "button";
     open.dataset.id = ticket.id;
     open.setAttribute("aria-keyshortcuts", "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
-    open.title = "Ouvrir le ticket · Alt + flèches pour le déplacer";
+    open.title = t("Open the ticket · Alt + arrows to move it");
     open.append(el("span", "kanban-card-title", ticket.title));
     const preview = descriptionPreview(ticket.description);
     if (preview) open.append(el("span", "kanban-card-preview", preview));
     if (ticket.files.length) {
       const files = el("span", "kanban-card-meta");
       files.append(icon(deps.icons.file), el("span", "", String(ticket.files.length)));
-      files.title = `${ticket.files.length} fichier${ticket.files.length > 1 ? "s" : ""} joint${ticket.files.length > 1 ? "s" : ""}`;
+      files.title = tn(ticket.files.length, "{n} attached file", "{n} attached files");
       open.append(files);
     }
     open.addEventListener("click", () => deps.openTicket(ticket.id));
@@ -139,7 +140,7 @@ export function mountBoardView(root, deps) {
       event.dataTransfer.setData(TICKET_TYPE, ticket.id);
       event.dataTransfer.effectAllowed = "move";
       placeholder.style.height = `${dragged.height}px`;
-      // Au tick suivant : le navigateur a déjà pris l'image de la carte à glisser.
+      // On the next tick: the browser has already taken the image of the dragged card.
       requestAnimationFrame(() => item.classList.add("dragging"));
     });
     item.addEventListener("dragend", () => {
@@ -154,7 +155,7 @@ export function mountBoardView(root, deps) {
   }
 
   /**
-   * Zone d'ajout rapide en bas de colonne : un titre, Entrée crée le ticket (Échap annule).
+   * Quick-add area at the bottom of a column: a title, Enter creates the ticket (Esc cancels).
    *
    * @param {string} columnId
    */
@@ -163,7 +164,7 @@ export function mountBoardView(root, deps) {
     if (addingIn !== columnId) {
       const open = el("button", "kanban-add-open");
       open.type = "button";
-      open.append(icon(deps.icons.plus), el("span", "", "Ajouter un ticket"));
+      open.append(icon(deps.icons.plus), el("span", "", t("Add a ticket")));
       open.addEventListener("click", () => {
         addingIn = columnId;
         render();
@@ -175,7 +176,7 @@ export function mountBoardView(root, deps) {
     const input = /** @type {HTMLTextAreaElement} */ (el("textarea", "text-input kanban-add-input"));
     input.rows = 2;
     input.maxLength = 200;
-    input.placeholder = "Titre du ticket… (Entrée pour créer, Échap pour annuler)";
+    input.placeholder = t("Ticket title… (Enter to create, Esc to cancel)");
     const create = async () => {
       const title = input.value.trim();
       if (!title || !data) return;
@@ -203,7 +204,7 @@ export function mountBoardView(root, deps) {
     input.addEventListener("blur", () => {
       if (!input.value.trim() && addingIn === columnId) {
         addingIn = null;
-        // Après le clic éventuel ailleurs (autre colonne) : on ne redessine pas sous le pointeur.
+        // After a possible click elsewhere (another column): do not redraw under the pointer.
         setTimeout(() => addingIn === null && render());
       }
     });
@@ -223,9 +224,9 @@ export function mountBoardView(root, deps) {
     dot.setAttribute("aria-hidden", "true");
     head.append(dot, el("h3", "kanban-column-name", column.name), el("span", "kanban-count", String(tickets.length)));
     const list = el("ol", "kanban-cards");
-    list.setAttribute("aria-label", `Tickets « ${column.name} »`);
+    list.setAttribute("aria-label", t("Tickets in \"{name}\"", { name: column.name }));
     list.append(...tickets.map(card));
-    // Glisser-déposer : la ligne d'insertion suit le pointeur dans la colonne survolée.
+    // Drag and drop: the insertion line follows the pointer in the hovered column.
     section.addEventListener("dragover", (event) => {
       if (!dragged || !event.dataTransfer?.types.includes(TICKET_TYPE)) return;
       event.preventDefault();
@@ -250,14 +251,14 @@ export function mountBoardView(root, deps) {
     return section;
   }
 
-  /** Colonne « + » au bout du tableau : ajoute une colonne. */
+  /** "+" column at the end of the board: adds a column. */
   function addColumn() {
     const section = el("section", "kanban-column kanban-new-column");
     const form = el("form", "kanban-new-column-form");
     const input = /** @type {HTMLInputElement} */ (el("input", "text-input"));
-    Object.assign(input, { placeholder: "Nouvelle colonne", maxLength: 60, autocomplete: "off" });
-    input.setAttribute("aria-label", "Nom de la nouvelle colonne");
-    const add = el("button", "", "Ajouter");
+    Object.assign(input, { placeholder: t("New column"), maxLength: 60, autocomplete: "off" });
+    input.setAttribute("aria-label", t("Name of the new column"));
+    const add = el("button", "", t("Add"));
     add.type = "submit";
     form.append(input, add);
     form.addEventListener("submit", async (event) => {
@@ -293,11 +294,11 @@ export function mountBoardView(root, deps) {
   /** @param {BoardData} next */
   function update(next) {
     if (dragged) {
-      pending = next; // pas de redessin sous le pointeur pendant un glisser
+      pending = next; // no redraw under the pointer during a drag
       return;
     }
     pending = null;
-    // Le ticket qui avait le clavier le garde ; la zone d'ajout rapide garde sa saisie.
+    // The ticket that had the keyboard keeps it; the quick-add area keeps its input.
     const active = /** @type {HTMLElement | null} */ (document.activeElement);
     if (!focusAfter && active?.classList.contains("kanban-card-open") && root.contains(active)) focusAfter = active.dataset.id ?? null;
     const typing = active?.classList.contains("kanban-add-input") && root.contains(active)

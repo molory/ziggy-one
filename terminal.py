@@ -1,11 +1,11 @@
-"""Claude Code dans un vrai terminal (onglet Terminal) : `claude` interactif dans un pseudo-terminal.
+"""Claude Code in a real terminal (Terminal tab): interactive `claude` in a pseudo-terminal.
 
-Le serveur lance `claude` lui-même (jamais un shell) dans le dossier de l'agent, en reprenant sa
-session. L'écran (octets bruts du terminal, en base64) part sur le flux SSE, numéroté ; les touches
-arrivent par POST. La sortie récente est gardée pour redessiner l'écran à l'ouverture de l'onglet.
+The server launches `claude` itself (never a shell) in the agent's folder, resuming its
+session. The screen (raw terminal bytes, in base64) goes out on the SSE stream, numbered; keys
+come in by POST. Recent output is kept to redraw the screen when the tab opens.
 
-`setsid --ctty --wait` donne à Claude Code un terminal de contrôle (redimensionnement, Ctrl+C) sans
-fork dans ce processus Python multi-thread.
+`setsid --ctty --wait` gives Claude Code a controlling terminal (resizing, Ctrl+C) without
+forking in this multi-threaded Python process.
 """
 
 import base64
@@ -19,11 +19,13 @@ import termios
 import threading
 import time
 
-REPLAY_BYTES = 512 * 1024  # sortie gardée pour redessiner l'écran d'un onglet qui s'ouvre
-MAX_INPUT = 64 * 1024  # caractères par envoi de touches (un collage compris)
+from i18n import tr
+
+REPLAY_BYTES = 512 * 1024  # output kept to redraw the screen of a tab that opens
+MAX_INPUT = 64 * 1024  # characters per key send (a paste included)
 READ_SIZE = 65536
-# Variables d'une session Claude Code parente (le serveur peut avoir été lancé par un agent) :
-# héritées, elles feraient croire au nouveau `claude` qu'il tourne dans une autre session.
+# Variables of a parent Claude Code session (the server may have been started by an agent):
+# if inherited, they would make the new `claude` believe it runs inside another session.
 PARENT_SESSION_VARS = (
     "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION",
     "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
@@ -33,7 +35,7 @@ PARENT_SESSION_VARS = (
 
 def clean_size(cols, rows):
     if not all(isinstance(v, int) and not isinstance(v, bool) for v in (cols, rows)):
-        raise ValueError("taille du terminal invalide")
+        raise ValueError(tr("Invalid terminal size"))
     return max(20, min(cols, 500)), max(5, min(rows, 200))
 
 
@@ -52,17 +54,17 @@ class _Terminal:
         self.proc = proc
         self.fd = fd
         self.seq = 0
-        self.chunks = collections.deque()  # (numéro, octets) récents
+        self.chunks = collections.deque()  # recent (number, bytes)
         self.size = 0
         self.started = time.time()
 
 
 class Terminals:
-    """Terminaux Claude Code ouverts, un par discussion. Événements : terminal, terminal_status."""
+    """Open Claude Code terminals, one per conversation. Events: terminal, terminal_status."""
 
     def __init__(self, bus, on_exit=None):
         self._bus = bus
-        self._on_exit = on_exit  # appelé (discussion, pid de claude) quand un terminal se ferme
+        self._on_exit = on_exit  # called (conversation, claude pid) when a terminal closes
         self._lock = threading.Lock()
         self._terminals = {}
 
@@ -75,14 +77,14 @@ class Terminals:
             return sorted(self._terminals)
 
     def claude_pid(self, conversation):
-        """Pid du processus `claude` (enfant de setsid), pour le retrouver dans le registre des sessions."""
+        """Pid of the `claude` process (child of setsid), to find it in the session registry."""
         with self._lock:
             terminal = self._terminals.get(conversation)
         if terminal is None:
             return None
         pid = terminal.proc.pid
         try:
-            # setsid ne fait un fork que s'il dirige déjà un groupe ; sinon il devient lui-même `claude`.
+            # setsid only forks if it already leads a group; otherwise it becomes `claude` itself.
             if open(f"/proc/{pid}/comm").read().strip() != "setsid":
                 return pid
             children = open(f"/proc/{pid}/task/{pid}/children").read().split()
@@ -93,7 +95,7 @@ class Terminals:
     def start(self, conversation, cwd, args, cols, rows):
         cols, rows = clean_size(cols, rows)
         if not os.path.isdir(cwd):
-            raise ValueError("dossier de l'agent introuvable")
+            raise ValueError(tr("Agent folder not found"))
         with self._lock:
             if conversation in self._terminals:
                 return
@@ -116,11 +118,11 @@ class Terminals:
 
     def write(self, conversation, data):
         if not isinstance(data, str) or len(data) > MAX_INPUT:
-            raise ValueError("saisie invalide")
+            raise ValueError(tr("Invalid input"))
         with self._lock:
             terminal = self._terminals.get(conversation)
         if terminal is None:
-            raise RuntimeError("le terminal est fermé")
+            raise RuntimeError(tr("The terminal is closed"))
         payload = data.encode()
         while payload:
             written = os.write(terminal.fd, payload)
@@ -133,16 +135,16 @@ class Terminals:
         if terminal is None:
             return
         _set_size(terminal.fd, cols, rows)
-        # Même taille qu'avant : le noyau ne prévient pas. On demande quand même un redessin
-        # (un onglet qui se rouvre veut un écran complet).
+        # Same size as before: the kernel does not notify. Ask for a redraw anyway
+        # (a tab that reopens wants a full screen).
         try:
             os.killpg(os.tcgetpgrp(terminal.fd), signal.SIGWINCH)
         except OSError:
             pass
 
     def stats(self):
-        """Terminaux ouverts : {conversation, startedAt, memory}. `memory` : mémoire vive (octets) de tous les
-        processus de la session du terminal (Claude Code, ses commandes, ses serveurs MCP), None si illisible."""
+        """Open terminals: {conversation, startedAt, memory}. `memory`: RAM (bytes) of all the processes of
+        the terminal's session (Claude Code, its commands, its MCP servers), None if unreadable."""
         with self._lock:
             items = [(conversation, terminal.started) for conversation, terminal in self._terminals.items()]
         sessions = {}
@@ -161,19 +163,19 @@ class Terminals:
             try:
                 with open(f"/proc/{entry.name}/stat") as file:
                     stat = file.read()
-                # Après le nom (entre parenthèses) : état, parent, groupe, session…
+                # After the name (in parentheses): state, parent, group, session…
                 sid = int(stat[stat.rindex(")") + 2:].split()[3])
                 if sid in wanted:
                     with open(f"/proc/{entry.name}/statm") as file:
                         memory[sid] += int(file.read().split()[1]) * page
             except (OSError, ValueError, IndexError):
-                continue  # processus terminé entre-temps
+                continue  # process ended in the meantime
         return [{"conversation": conversation, "startedAt": started,
                  "memory": memory.get(sessions[conversation]) if sessions[conversation] else None}
                 for conversation, started in items]
 
     def snapshot(self, conversation):
-        """Sortie récente, pour redessiner l'écran : {running, seq (dernier numéro inclus), data}."""
+        """Recent output, to redraw the screen: {running, seq (last number included), data}."""
         with self._lock:
             terminal = self._terminals.get(conversation)
             if terminal is None:
@@ -182,7 +184,7 @@ class Terminals:
             return {"running": True, "seq": terminal.seq, "data": base64.b64encode(data).decode()}
 
     def stop(self, conversation):
-        """Ferme Claude Code (SIGHUP, comme un terminal qu'on ferme), puis le tue s'il traîne."""
+        """Closes Claude Code (SIGHUP, like closing a terminal), then kills it if it lingers."""
         with self._lock:
             terminal = self._terminals.get(conversation)
         if terminal is None:
@@ -202,7 +204,7 @@ class Terminals:
         while True:
             try:
                 chunk = os.read(terminal.fd, READ_SIZE)
-            except OSError:  # EIO : plus aucun processus n'a le terminal ouvert
+            except OSError:  # EIO: no process has the terminal open any more
                 break
             if not chunk:
                 break
@@ -226,7 +228,7 @@ class Terminals:
 
 
 def _signal_group(proc, sig):
-    """Le signal va à tout le groupe de la session (setsid, claude et ce qu'il a lancé)."""
+    """The signal goes to the whole session group (setsid, claude and what it launched)."""
     try:
         os.killpg(proc.pid, sig)
     except (ProcessLookupError, PermissionError):

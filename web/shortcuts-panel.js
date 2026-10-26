@@ -1,9 +1,10 @@
 // @ts-check
-// Panneau des raccourcis, par-dessus le Terminal. Ctrl+Maj maintenus : il apparaît (et disparaît au
-// relâchement) ; Ctrl+Maj+1…9, 0 envoie le raccourci de ce chiffre. Ctrl+chiffre seul est pris par le
-// navigateur (changement d'onglet), Ctrl+Maj+chiffre ne l'est pas. Le bouton « Raccourcis » de la barre
-// le garde ouvert : on clique un raccourci, ou on tape son chiffre ; Échap le ferme.
+// Shortcuts panel, over the Terminal. Ctrl+Shift held: it appears (and disappears on
+// release); Ctrl+Shift+1…9, 0 sends the shortcut of that digit. Ctrl+digit alone is taken by the
+// browser (tab switching), Ctrl+Shift+digit is not. The "Shortcuts" button of the bar
+// keeps it open: click a shortcut, or type its digit; Esc closes it.
 
+import { t } from "./i18n.js";
 import { indexForCode, shortcutLabel } from "./shortcuts-logic.js";
 
 /**
@@ -11,27 +12,27 @@ import { indexForCode, shortcutLabel } from "./shortcuts-logic.js";
  *
  * @typedef {object} PanelDeps
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
- * @property {() => boolean} active le Terminal d'un agent est affiché
- * @property {() => PanelItem[]} items raccourcis de l'agent affiché
- * @property {() => boolean} canSend Claude Code est ouvert
+ * @property {() => boolean} active an agent's Terminal is shown
+ * @property {() => PanelItem[]} items shortcuts of the agent shown
+ * @property {() => boolean} canSend Claude Code is open
  * @property {(item: PanelItem) => void} send
- * @property {() => void} manage ouvre l'onglet Raccourcis
+ * @property {() => void} manage opens the Shortcuts tab
  */
 
 /**
- * @param {HTMLElement} host zone du terminal (le panneau s'y pose en bas)
+ * @param {HTMLElement} host terminal area (the panel sits at its bottom)
  * @param {PanelDeps} deps
  */
 export function mountShortcutsPanel(host, deps) {
   const { el } = deps;
   const panel = el("div", "shortcut-panel");
   panel.setAttribute("role", "dialog");
-  panel.setAttribute("aria-label", "Raccourcis");
+  panel.setAttribute("aria-label", t("Shortcuts"));
   panel.setAttribute("aria-hidden", "true");
   host.append(panel);
-  /** @type {"closed" | "held" | "pinned"} held : Ctrl+Maj maintenus ; pinned : ouvert par le bouton */
+  /** @type {"closed" | "held" | "pinned"} held: Ctrl+Shift held; pinned: opened by the button */
   let state = "closed";
-  // Ctrl+Maj maintenus un court instant avant d'ouvrir : Ctrl+Maj+C (copier) ne fait pas clignoter le panneau.
+  // Ctrl+Shift held for a short moment before opening: Ctrl+Shift+C (copy) does not make the panel flicker.
   const HOLD_MS = 150;
   /** @type {number | undefined} */
   let holdTimer;
@@ -44,8 +45,8 @@ export function mountShortcutsPanel(host, deps) {
     const items = deps.items();
     const head = el("div", "shortcut-panel-head");
     const keys = el("span", "shortcut-panel-keys");
-    keys.append(el("kbd", "", "Ctrl"), el("kbd", "", "Maj"), el("span", "", "+ chiffre"));
-    head.append(el("strong", "", "Raccourcis"), keys);
+    keys.append(el("kbd", "", "Ctrl"), el("kbd", "", t("Shift")), el("span", "", t("+ digit")));
+    head.append(el("strong", "", t("Shortcuts")), keys);
     const list = el("ol", "shortcut-panel-list");
     items.forEach((item, index) => {
       const li = el("li");
@@ -59,16 +60,16 @@ export function mountShortcutsPanel(host, deps) {
         el("span", "shortcut-panel-label", shortcutLabel(item.shortcut)),
       );
       if (item.source === "workspace") button.append(el("span", "shortcut-panel-tag", "workspace"));
-      // mousedown : le terminal garderait sinon le clavier… et Ctrl+Maj relâchés fermeraient le panneau avant le clic.
+      // mousedown: the terminal would otherwise keep the keyboard… and releasing Ctrl+Shift would close the panel before the click.
       button.addEventListener("mousedown", (event) => event.preventDefault());
       button.addEventListener("click", () => trigger(index));
       li.append(button);
       list.append(li);
     });
     const foot = el("div", "shortcut-panel-foot muted small");
-    if (!items.length) foot.append("Aucun raccourci. ");
-    else if (!deps.canSend()) foot.append("Ouvre Claude Code pour envoyer un raccourci. ");
-    const manage = el("button", "link-button", items.length ? "Gérer les raccourcis" : "Ajouter un raccourci");
+    if (!items.length) foot.append(`${t("No shortcuts.")} `);
+    else if (!deps.canSend()) foot.append(`${t("Open Claude Code to send a shortcut.")} `);
+    const manage = el("button", "link-button", items.length ? t("Manage shortcuts") : t("Add a shortcut"));
     /** @type {HTMLButtonElement} */ (manage).type = "button";
     manage.addEventListener("mousedown", (event) => event.preventDefault());
     manage.addEventListener("click", () => {
@@ -102,7 +103,7 @@ export function mountShortcutsPanel(host, deps) {
     deps.send(item);
   }
 
-  // Phase de capture : avant xterm.js, qui enverrait sinon la touche à Claude Code.
+  // Capture phase: before xterm.js, which would otherwise send the key to Claude Code.
   window.addEventListener("keydown", (event) => {
     cancelHold();
     if (!deps.active()) {
@@ -126,7 +127,7 @@ export function mountShortcutsPanel(host, deps) {
       event.stopPropagation();
       close();
     } else if (state === "held" && chord) {
-      close(); // Ctrl+Maj+autre touche (Ctrl+Maj+C…) : ce n'était pas pour les raccourcis
+      close(); // Ctrl+Shift+other key (Ctrl+Shift+C…): it was not for the shortcuts
     }
   }, true);
   window.addEventListener("keyup", (event) => {
@@ -139,13 +140,13 @@ export function mountShortcutsPanel(host, deps) {
   });
 
   return {
-    /** Bouton de la barre : ouvre ou ferme le panneau. */
+    /** Button of the bar: opens or closes the panel. */
     toggle() {
       if (state === "pinned") close();
       else open("pinned");
     },
     close,
-    /** Raccourcis ou état changés : le panneau ouvert suit. */
+    /** Shortcuts or state changed: the open panel follows. */
     refresh() {
       if (state !== "closed") render();
     },

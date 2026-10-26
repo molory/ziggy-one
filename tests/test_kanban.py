@@ -1,4 +1,4 @@
-"""Tests du mode Tâches (tableaux Kanban) : python3 -m unittest discover -s tests"""
+"""Tests of the Tasks mode (Kanban boards): python3 -m unittest discover -s tests"""
 
 import base64
 import http.cookiejar
@@ -39,7 +39,7 @@ class KanbanTest(unittest.TestCase):
 
     def test_new_board_has_default_columns_and_is_saved_privately(self):
         self.assertEqual(self.board["name"], "Ziggy roadmap")
-        self.assertEqual([c["name"] for c in self.board["columns"]], ["À faire", "En cours", "Fait"])
+        self.assertEqual([c["name"] for c in self.board["columns"]], ["To do", "In progress", "Done"])
         self.assertEqual((self.dir / "data" / "kanbans.json").stat().st_mode & 0o777, 0o600)
         kinds = [kind for kind, _ in drain(self.events)]
         self.assertEqual(kinds, ["kanbans", "kanban_board"])
@@ -52,7 +52,7 @@ class KanbanTest(unittest.TestCase):
         ids = {t: self.kb.create_ticket(board, self.todo, t)["id"] for t in ("A", "B", "C")}
         self.kb.move_ticket(ids["C"], self.todo, 0)
         self.assertEqual(self.titles(self.todo), ["C", "A", "B"])
-        self.kb.move_ticket(ids["A"], self.doing, 99)  # bornée à la fin
+        self.kb.move_ticket(ids["A"], self.doing, 99)  # clamped to the end
         self.assertEqual((self.titles(self.todo), self.titles(self.doing)), (["C", "B"], ["A"]))
         self.kb.move_ticket(ids["B"], self.doing, 0)
         self.assertEqual(self.titles(self.doing), ["B", "A"])
@@ -66,9 +66,9 @@ class KanbanTest(unittest.TestCase):
     def test_ticket_edit_and_delete_renumbers(self):
         board = self.board["id"]
         a, b = (self.kb.create_ticket(board, self.todo, t)["id"] for t in ("A", "B"))
-        self.kb.update_ticket(b, {"title": " B  bis ", "description": "# Détail\\n\\n- point"})
+        self.kb.update_ticket(b, {"title": " B  bis ", "description": "# Details\\n\\n- item"})
         ticket = next(t for t in self.kb.get(board)["tickets"] if t["id"] == b)
-        self.assertEqual((ticket["title"], ticket["description"]), ("B bis", "# Détail\\n\\n- point"))
+        self.assertEqual((ticket["title"], ticket["description"]), ("B bis", "# Details\\n\\n- item"))
         self.kb.delete_ticket(a)
         self.assertEqual([t["position"] for t in self.kb.get(board)["tickets"]], [0])
         with self.assertRaises(ValueError):
@@ -76,36 +76,36 @@ class KanbanTest(unittest.TestCase):
 
     def test_columns_can_be_customized(self):
         board = self.board["id"]
-        review = self.kb.add_column(board, "Relecture", 200)["id"]
-        self.kb.update_column(board, review, {"name": "Revue", "hue": None})
+        review = self.kb.add_column(board, "Proofreading", 200)["id"]
+        self.kb.update_column(board, review, {"name": "Review", "hue": None})
         self.kb.move_column(board, review, 1)
         columns = self.kb.get(board)["board"]["columns"]
-        self.assertEqual([(c["name"], c["hue"]) for c in columns][:2], [("À faire", None), ("Revue", None)])
+        self.assertEqual([(c["name"], c["hue"]) for c in columns][:2], [("To do", None), ("Review", None)])
         with self.assertRaises(ValueError):
             self.kb.update_column(board, review, {"hue": 400})
         for index in range(MAX_COLUMNS - 4):
             self.kb.add_column(board, f"C{index}")
         with self.assertRaises(ValueError):
-            self.kb.add_column(board, "de trop")
+            self.kb.add_column(board, "one too many")
 
     def test_deleting_a_non_empty_column_needs_a_destination(self):
         board = self.board["id"]
-        self.kb.create_ticket(board, self.done, "fini")
-        self.kb.create_ticket(board, self.todo, "à faire")
-        with self.assertRaisesRegex(ValueError, "contient des tickets"):
+        self.kb.create_ticket(board, self.done, "finished")
+        self.kb.create_ticket(board, self.todo, "to do")
+        with self.assertRaisesRegex(ValueError, "contains tickets"):
             self.kb.delete_column(board, self.todo)
         self.kb.delete_column(board, self.todo, into=self.done)
-        self.assertEqual(self.titles(self.done), ["fini", "à faire"])
-        self.kb.delete_column(board, self.doing)  # vide : pas besoin de destination
-        with self.assertRaisesRegex(ValueError, "au moins une colonne"):
+        self.assertEqual(self.titles(self.done), ["finished", "to do"])
+        self.kb.delete_column(board, self.doing)  # empty: no destination needed
+        with self.assertRaisesRegex(ValueError, "at least one column"):
             self.kb.delete_column(board, self.done)
 
     def test_files_are_private_and_removed_with_their_ticket_or_board(self):
         board = self.board["id"]
-        ticket = self.kb.create_ticket(board, self.todo, "avec fichier")["id"]
-        entry = self.kb.add_file(ticket, "../../etc/passwd", "text/plain", b"contenu")
+        ticket = self.kb.create_ticket(board, self.todo, "with a file")["id"]
+        entry = self.kb.add_file(ticket, "../../etc/passwd", "text/plain", b"content")
         path, name, media_type = self.kb.file(ticket, entry["id"])
-        self.assertEqual((path.read_bytes(), name, media_type), (b"contenu", "_.._.._etc_passwd", "text/plain"))
+        self.assertEqual((path.read_bytes(), name, media_type), (b"content", "_.._.._etc_passwd", "text/plain"))
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
         self.kb.delete_file(ticket, entry["id"])
@@ -119,13 +119,13 @@ class KanbanTest(unittest.TestCase):
 
     def test_every_change_is_recorded_in_the_ticket_history(self):
         board = self.board["id"]
-        ticket = self.kb.create_ticket(board, self.todo, "Écrire")["id"]
-        other = self.kb.create_ticket(board, self.todo, "Autre")["id"]
-        self.kb.update_ticket(ticket, {"title": "Écrire les tests", "description": "v1"})
-        self.kb.update_ticket(ticket, {"title": "Écrire les tests", "description": "v1"})  # rien ne change
-        self.kb.move_ticket(ticket, self.todo, 1)  # simple changement de rang : pas noté
+        ticket = self.kb.create_ticket(board, self.todo, "Write")["id"]
+        other = self.kb.create_ticket(board, self.todo, "Other")["id"]
+        self.kb.update_ticket(ticket, {"title": "Write the tests", "description": "v1"})
+        self.kb.update_ticket(ticket, {"title": "Write the tests", "description": "v1"})  # nothing changes
+        self.kb.move_ticket(ticket, self.todo, 1)  # mere reordering: not recorded
         self.kb.move_ticket(ticket, self.doing, 0)
-        self.kb.update_column(board, self.doing, {"name": "En cours (renommée)"})
+        self.kb.update_column(board, self.doing, {"name": "In progress (renamed)"})
         entry = self.kb.add_file(ticket, "spec.pdf", "application/pdf", b"%PDF")
         self.kb.delete_file(ticket, entry["id"])
         self.kb.delete_column(board, self.doing, into=self.done)
@@ -133,48 +133,48 @@ class KanbanTest(unittest.TestCase):
         self.assertEqual([h["kind"] for h in history],
                          ["created", "title", "description", "moved", "file_added", "file_removed", "moved"])
         created, title, description, moved, added, removed, forced = history
-        self.assertEqual((created["column"], created["title"]), ("À faire", "Écrire"))
-        self.assertEqual((title["before"], title["after"]), ("Écrire", "Écrire les tests"))
+        self.assertEqual((created["column"], created["title"]), ("To do", "Write"))
+        self.assertEqual((title["before"], title["after"]), ("Write", "Write the tests"))
         self.assertEqual((description["before"], description["after"]), ("", "v1"))
-        self.assertEqual((moved["fromColumn"], moved["toColumn"]), ("À faire", "En cours"), "noms au moment du changement")
+        self.assertEqual((moved["fromColumn"], moved["toColumn"]), ("To do", "In progress"), "names at the time of the change")
         self.assertEqual((added["name"], added["size"], removed["name"]), ("spec.pdf", 4, "spec.pdf"))
-        self.assertEqual((forced["fromColumn"], forced["toColumn"], forced["reason"]), ("En cours (renommée)", "Fait", "colonne supprimée"))
+        self.assertEqual((forced["fromColumn"], forced["toColumn"], forced["reason"]), ("In progress (renamed)", "Done", "column deleted"))
         self.assertEqual([h["kind"] for h in self.kb.ticket_history(other)], ["created"])
 
     def test_history_is_persisted_append_only(self):
         board = self.board["id"]
-        ticket = self.kb.create_ticket(board, self.todo, "Persisté")["id"]
-        self.kb.update_ticket(ticket, {"title": "Persisté !"})
+        ticket = self.kb.create_ticket(board, self.todo, "Persisted")["id"]
+        self.kb.update_ticket(ticket, {"title": "Persisted!"})
         journal = self.dir / "data" / "kanban-history.jsonl"
         self.assertEqual(journal.stat().st_mode & 0o777, 0o600)
         with journal.open("a") as file:
-            file.write('{"ticket": "coupé en plein')  # plantage pendant une écriture…
-        self.kb = self.make()  # …puis redémarrage
+            file.write('{"ticket": "cut off mid-wr')  # crash during a write…
+        self.kb = self.make()  # …then restart
         self.assertEqual([h["kind"] for h in self.kb.ticket_history(ticket)], ["created", "title"])
         self.kb.delete_ticket(ticket)
         with self.assertRaises(KeyError):
-            self.kb.ticket_history(ticket)  # le ticket n'existe plus…
+            self.kb.ticket_history(ticket)  # the ticket no longer exists…
         kinds = [json.loads(line).get("kind") for line in journal.read_text().splitlines() if line.endswith("}")]
-        self.assertEqual(kinds, ["created", "title", "deleted"], "…mais son historique reste dans le journal")
+        self.assertEqual(kinds, ["created", "title", "deleted"], "…but its history stays in the log")
 
     def test_tickets_get_unique_numbers_never_reused(self):
-        other = self.kb.create_board("Autre")
-        first = self.kb.create_ticket(self.board["id"], self.todo, "Un")
-        second = self.kb.create_ticket(other["id"], other["columns"][0]["id"], "Deux")
-        self.assertEqual((first["number"], second["number"]), (1, 2), "numérotation commune à tous les tableaux")
+        other = self.kb.create_board("Other")
+        first = self.kb.create_ticket(self.board["id"], self.todo, "One")
+        second = self.kb.create_ticket(other["id"], other["columns"][0]["id"], "Two")
+        self.assertEqual((first["number"], second["number"]), (1, 2), "numbering shared by all boards")
         self.kb.delete_ticket(second["id"])
-        third = self.kb.create_ticket(self.board["id"], self.todo, "Trois")
-        self.assertEqual(third["number"], 3, "un numéro supprimé n'est pas réutilisé")
-        self.assertEqual(self.make().create_ticket(self.board["id"], self.todo, "Quatre")["number"], 4, "compteur persisté")
+        third = self.kb.create_ticket(self.board["id"], self.todo, "Three")
+        self.assertEqual(third["number"], 3, "a deleted number is not reused")
+        self.assertEqual(self.make().create_ticket(self.board["id"], self.todo, "Four")["number"], 4, "persisted counter")
         self.assertEqual(self.kb.find_number(3), {"board": self.board["id"], "ticket": third["id"], "number": 3})
         with self.assertRaisesRegex(KeyError, "#2"):
             self.kb.find_number(2)
         self.assertEqual({(t["number"], t["title"], t["boardName"]) for t in self.kb.index()},
-                         {(1, "Un", "Ziggy roadmap"), (3, "Trois", "Ziggy roadmap")})
+                         {(1, "One", "Ziggy roadmap"), (3, "Three", "Ziggy roadmap")})
 
     def test_tickets_created_before_numbers_are_numbered_oldest_first(self):
         board = self.board["id"]
-        for title in ("Ancien", "Récent", "Doublon"):
+        for title in ("Old", "Recent", "Duplicate"):
             self.kb.create_ticket(board, self.todo, title)
         path = self.dir / "data" / "kanbans.json"
         data = json.loads(path.read_text())
@@ -185,26 +185,26 @@ class KanbanTest(unittest.TestCase):
         data["tickets"][0]["createdAt"], data["tickets"][1]["createdAt"] = 1, 2
         path.write_text(json.dumps(data))
         numbers = {t["title"]: t["number"] for t in self.make().get(board)["tickets"]}
-        self.assertEqual(numbers, {"Doublon": 7, "Ancien": 8, "Récent": 9})
-        self.assertEqual(json.loads(path.read_text())["nextNumber"], 10, "numéros enregistrés dès le chargement")
+        self.assertEqual(numbers, {"Duplicate": 7, "Old": 8, "Recent": 9})
+        self.assertEqual(json.loads(path.read_text())["nextNumber"], 10, "numbers saved as soon as loaded")
 
     def test_reload_ignores_damaged_entries(self):
         board = self.board["id"]
-        self.kb.create_ticket(board, self.todo, "gardé")
+        self.kb.create_ticket(board, self.todo, "kept")
         path = self.dir / "data" / "kanbans.json"
         data = json.loads(path.read_text())
-        data["boards"].append({"id": "pas-un-id", "name": "x", "columns": []})
-        data["tickets"] += [{"id": "a" * 12, "board": board, "column": "inconnue", "title": "orphelin"}, "n'importe quoi"]
+        data["boards"].append({"id": "not-an-id", "name": "x", "columns": []})
+        data["tickets"] += [{"id": "a" * 12, "board": board, "column": "unknown", "title": "orphan"}, "anything"]
         path.write_text(json.dumps(data))
         reloaded = self.make()
         self.assertEqual([b["name"] for b in reloaded.list()], ["Ziggy roadmap"])
-        self.assertEqual([t["title"] for t in reloaded.get(board)["tickets"]], ["gardé"])
-        path.write_text("pas du json")
+        self.assertEqual([t["title"] for t in reloaded.get(board)["tickets"]], ["kept"])
+        path.write_text("not json")
         self.assertEqual(self.make().list(), [])
 
 
 class KanbanHttpTest(unittest.TestCase):
-    """Les routes de bout en bout, sur un vrai serveur local."""
+    """The routes end to end, on a real local server."""
 
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -228,24 +228,24 @@ class KanbanHttpTest(unittest.TestCase):
     def test_board_ticket_file_workspace_and_pin(self):
         board = self.post("/api/kanbans", {"name": "Sprint"})
         todo = board["columns"][0]["id"]
-        ticket = self.post(f"/api/kanbans/{board['id']}/tickets", {"column": todo, "title": "Écrire les tests"})
+        ticket = self.post(f"/api/kanbans/{board['id']}/tickets", {"column": todo, "title": "Write the tests"})
         self.post(f"/api/kanbans/tickets/{ticket['id']}/move", {"column": board["columns"][1]["id"], "index": 0})
         found = json.loads(self.get(f"/api/kanbans/tickets/number/{ticket['number']}"))
         self.assertEqual(found["ticket"], ticket["id"])
-        self.assertIn(b'<div class="layout', self.get(f"/t/{ticket['number']}"), "l'adresse d'un ticket sert la page")
+        self.assertIn(b'<div class="layout', self.get(f"/t/{ticket['number']}"), "a ticket's address serves the page")
         history = json.loads(self.get(f"/api/kanbans/tickets/{ticket['id']}/history"))["history"]
-        self.assertEqual([(h["kind"], h.get("toColumn")) for h in history], [("created", None), ("moved", "En cours")])
+        self.assertEqual([(h["kind"], h.get("toColumn")) for h in history], [("created", None), ("moved", "In progress")])
         data = base64.b64encode(b"%PDF-1.4 fake").decode()
         entry = self.post(f"/api/kanbans/tickets/{ticket['id']}/files", {"name": "spec.pdf", "type": "application/pdf", "data": data})
         self.assertEqual(self.get(f"/api/kanbans/tickets/{ticket['id']}/files/{entry['id']}/spec.pdf"), b"%PDF-1.4 fake")
-        workspace = self.post("/api/kanbans/workspaces", {"name": "Projets"})
+        workspace = self.post("/api/kanbans/workspaces", {"name": "Projects"})
         self.post(f"/api/kanbans/workspaces/{workspace['id']}/add", {"board": board["id"]})
         self.post("/api/kanbans/pins", {"pins": [board["id"]]})
         listing = json.loads(self.get("/api/kanbans"))
         self.assertEqual(listing["boards"][0]["counts"][board["columns"][1]["id"]], 1)
         self.assertEqual(listing["workspaces"][0]["agents"], [board["id"]])
         self.assertEqual(listing["pins"], [board["id"]])
-        # Les workspaces et épingles d'agents ne sont pas touchés.
+        # Agent workspaces and pins are not touched.
         self.assertEqual(self.srv.workspaces.list(), [])
         self.post(f"/api/kanbans/{board['id']}/delete", {})
         listing = json.loads(self.get("/api/kanbans"))
@@ -254,24 +254,24 @@ class KanbanHttpTest(unittest.TestCase):
     def test_shared_link_lets_an_agent_read_the_ticket(self):
         board = self.post("/api/kanbans", {"name": "Sprint"})
         todo = board["columns"][0]["id"]
-        cited = self.post(f"/api/kanbans/{board['id']}/tickets", {"column": todo, "title": "Ticket cité"})
+        cited = self.post(f"/api/kanbans/{board['id']}/tickets", {"column": todo, "title": "Cited ticket"})
         ticket = self.post(f"/api/kanbans/{board['id']}/tickets", {
-            "column": todo, "title": "Lire un ticket", "description": f"Voir #{cited['number']} pour le contexte."})
+            "column": todo, "title": "Read a ticket", "description": f"See #{cited['number']} for context."})
         self.post(f"/api/kanbans/tickets/{ticket['id']}/files",
-                  {"name": "notes.txt", "type": "text/plain", "data": base64.b64encode(b"contenu joint").decode()})
+                  {"name": "notes.txt", "type": "text/plain", "data": base64.b64encode(b"attached content").decode()})
         link = json.loads(self.get(f"/api/kanbans/tickets/{ticket['id']}/link"))["path"]
         self.assertRegex(link, rf"^/t/{ticket['number']}\?k=[0-9a-f]{{20}}$")
-        agent = urllib.request.build_opener()  # un agent : pas de cookie
+        agent = urllib.request.build_opener()  # an agent: no cookie
         text = agent.open(self.base + link).read().decode()
-        self.assertIn(f"# #{ticket['number']} · Lire un ticket", text)
-        self.assertIn("- Colonne : À faire", text)
-        self.assertIn(f"Voir #{cited['number']} pour le contexte.", text)
-        self.assertIn("## Historique", text)
-        file_url = next(line.split(" : ", 1)[1] for line in text.splitlines() if line.startswith("- notes.txt"))
-        self.assertEqual(agent.open(file_url).read(), b"contenu joint")
-        cited_url = next(line.split(" : ", 1)[1] for line in text.splitlines() if line.startswith(f"- #{cited['number']}"))
-        self.assertIn("# #1 · Ticket cité", agent.open(cited_url).read().decode(), "les tickets cités se suivent")
-        # Dans le navigateur (cookie), la même adresse ouvre la page.
+        self.assertIn(f"# #{ticket['number']} · Read a ticket", text)
+        self.assertIn("- Column: To do", text)
+        self.assertIn(f"See #{cited['number']} for context.", text)
+        self.assertIn("## History", text)
+        file_url = next(line.split(": ", 1)[1] for line in text.splitlines() if line.startswith("- notes.txt"))
+        self.assertEqual(agent.open(file_url).read(), b"attached content")
+        cited_url = next(line.split(": ", 1)[1] for line in text.splitlines() if line.startswith(f"- #{cited['number']}"))
+        self.assertIn("# #1 · Cited ticket", agent.open(cited_url).read().decode(), "cited tickets can be followed")
+        # In the browser (cookie), the same address opens the page.
         self.assertIn(b'<div class="layout', self.get(link))
         for bad in (f"/t/{ticket['number']}", f"/t/{ticket['number']}?k=0000", f"/t/{cited['number']}?k={link.split('k=')[1]}"):
             with self.assertRaises(urllib.error.HTTPError) as caught:
@@ -282,7 +282,7 @@ class KanbanHttpTest(unittest.TestCase):
     def test_errors_are_explained(self):
         with self.assertRaises(urllib.error.HTTPError) as caught:
             self.post("/api/kanbans/tickets/aaaaaaaaaaaa/update", {"title": "x"})
-        self.assertEqual((caught.exception.code, json.loads(caught.exception.read())["error"]), (404, "ticket inconnu"))
+        self.assertEqual((caught.exception.code, json.loads(caught.exception.read())["error"]), (404, "Unknown ticket"))
         with self.assertRaises(urllib.error.HTTPError) as caught:
             self.post("/api/kanbans", {"name": ""})
         self.assertEqual(caught.exception.code, 400)

@@ -13,8 +13,9 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 > HTML/CSS/JS with no npm and no build step. The only vendored code is [xterm.js](https://xtermjs.org/) (MIT), pinned
 > and checksummed, with its full TypeScript source in the published source map, plus 42 [Twemoji](https://github.com/jdecked/twemoji) SVGs (CC-BY 4.0) used as avatars.
 
-> The user interface and the code comments are in **French**. Translations are welcome (see
-> [CONTRIBUTING.md](CONTRIBUTING.md)). A detailed French guide lives in [docs/GUIDE.fr.md](docs/GUIDE.fr.md).
+> The interface is in **English** by default and also available in **French** (Configuration › General).
+> More languages are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every module is described in the
+> [detailed guide](docs/GUIDE.md).
 
 ## Features
 
@@ -144,7 +145,7 @@ browser (vanilla JS + xterm.js) ── HTTP + Server-Sent Events ── server.p
 - Claude Code's session files are an undocumented format: `transcripts.py` reads them defensively, so a format
   change can at worst make the Discussion view incomplete. The terminal itself never depends on it.
 
-The French guide ([docs/GUIDE.fr.md](docs/GUIDE.fr.md)) describes every module and behaviour in detail.
+The [detailed guide](docs/GUIDE.md) describes every module and behaviour.
 
 ## Development
 

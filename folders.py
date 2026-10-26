@@ -1,32 +1,34 @@
-"""Choix du dossier d'un nouvel agent : sous-dossiers d'un dossier, dossiers récemment utilisés,
-création d'un sous-dossier.
+"""Choosing the folder of a new agent: subfolders of a folder, recently used folders, creating a
+subfolder.
 
-Seuls des noms de dossiers sont renvoyés, jamais le contenu des fichiers. Les dossiers cachés
-(qui commencent par « . ») ne sont pas proposés, ni créés.
+Only folder names are returned, never file contents. Hidden folders (starting with ".") are neither
+offered nor created.
 """
 
 import os
 from pathlib import Path
+
+from i18n import tr
 
 MAX_ENTRIES = 500
 MAX_NAME = 255
 
 
 def resolve_dir(path):
-    """Chemin absolu normalisé d'un dossier existant ; ValueError sinon."""
+    """Normalized absolute path of an existing folder; ValueError otherwise."""
     if not isinstance(path, str) or not path.strip():
-        raise ValueError("chemin vide")
+        raise ValueError(tr("Empty path"))
     candidate = Path(path.strip()).expanduser()
     if not candidate.is_absolute():
-        raise ValueError("chemin absolu attendu (il commence par /)")
+        raise ValueError(tr("Expected an absolute path (starting with /)"))
     candidate = candidate.resolve()
     if not candidate.is_dir():
-        raise ValueError("ce dossier n'existe pas")
+        raise ValueError(tr("This folder does not exist"))
     return candidate
 
 
 def list_subfolders(path):
-    """Sous-dossiers visibles d'un dossier, triés par nom."""
+    """Visible subfolders of a folder, sorted by name."""
     folder = resolve_dir(path)
     names = []
     try:
@@ -40,7 +42,7 @@ def list_subfolders(path):
                 except OSError:
                     continue
     except PermissionError:
-        raise ValueError("accès refusé à ce dossier") from None
+        raise ValueError(tr("Access to this folder denied")) from None
     names.sort(key=str.lower)
     return {
         "path": str(folder),
@@ -52,36 +54,36 @@ def list_subfolders(path):
 
 
 def create_subfolder(parent, name):
-    """Crée le dossier `name` dans `parent` (existant) et retourne son chemin ; ValueError sinon.
+    """Creates the folder `name` in `parent` (existing) and returns its path; ValueError otherwise.
 
-    Un seul niveau : le nom ne contient pas de « / » et ne commence pas par « . ».
+    A single level: the name contains no "/" and does not start with ".".
     """
     folder = resolve_dir(parent)
     name = name.strip() if isinstance(name, str) else ""
     if not name:
-        raise ValueError("nom de dossier vide")
+        raise ValueError(tr("Empty folder name"))
     if "/" in name or "\0" in name:
-        raise ValueError("le nom ne peut pas contenir « / »")
+        raise ValueError(tr("The name cannot contain \"/\""))
     if name.startswith("."):
-        raise ValueError("le nom ne peut pas commencer par « . »")
+        raise ValueError(tr("The name cannot start with \".\""))
     if len(name.encode()) > MAX_NAME:
-        raise ValueError("nom de dossier trop long")
+        raise ValueError(tr("Folder name too long"))
     target = folder / name
     try:
         target.mkdir(mode=0o755)
     except FileExistsError:
-        raise ValueError("ce dossier existe déjà") from None
+        raise ValueError(tr("This folder already exists")) from None
     except PermissionError:
-        raise ValueError("pas le droit de créer un dossier ici") from None
+        raise ValueError(tr("Not allowed to create a folder here")) from None
     except OSError as exc:
-        raise ValueError(f"création impossible : {exc.strerror or exc}") from None
+        raise ValueError(tr("Could not create the folder: {error}", error=exc.strerror or exc)) from None
     return target
 
 
 def in_git_repo(path):
-    """Le dossier est-il dans un dépôt git (lui-même ou l'un de ses parents contient un .git) ?
+    """Is the folder in a git repository (itself or one of its parents contains a .git)?
 
-    `.git` peut être un dossier (dépôt) ou un fichier (worktree, sous-module).
+    `.git` can be a folder (repository) or a file (worktree, submodule).
     """
     if not isinstance(path, str) or not path:
         return False
@@ -93,9 +95,9 @@ def in_git_repo(path):
 
 
 def recent_folders(entries, limit=5):
-    """Dossiers les plus récemment utilisés par des agents, encore existants.
+    """Folders most recently used by agents, that still exist.
 
-    `entries` : des {"cwd", "updatedAt"} (sessions, discussions), dans n'importe quel ordre.
+    `entries`: {"cwd", "updatedAt"} items (sessions, conversations), in any order.
     """
     folders = {}
     for entry in entries:

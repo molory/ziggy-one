@@ -11,8 +11,11 @@ Thanks for your interest! Bug reports, ideas, translations and pull requests are
 - **Security first.** Never insert untrusted content with `innerHTML`; keep the strict CSP working; every new HTTP
   route must keep the `Host`/`Origin`/token checks; files written by the server are `0600` in `0700` directories.
 - **Small, focused changes.** One feature or fix per pull request, with tests.
-- **Read like the code around it.** Match the existing style, naming and comment density. The UI and comments are
-  currently in French; English contributions are fine, and so are translations.
+- **Read like the code around it.** Match the existing style, naming and comment density. Code, comments and
+  documentation are in English.
+- **Every visible text is translatable.** Write UI texts in English inside `t("…")` / `tn(n, "…", "…")`
+  (`web/i18n.js`), and server messages shown in the UI inside `tr("…")` (`i18n.py`), then add the French
+  translation (see below). Texts written for the agents (hooks, MCP tools) stay in plain English.
 
 ## Getting started
 
@@ -35,12 +38,25 @@ Put pure logic in modules without DOM access (for example `web/*-logic.js`) so i
 Server features get tests in `tests/test_*.py`; HTTP routes are tested end to end against a real server on a random
 port.
 
+## Translations
+
+English is the source language: the English text is the key, and each other language is a dictionary from that
+text to its translation, `web/locales/<code>.js` for the interface and `locales/<code>.json` for the server.
+A missing entry falls back to English. Keep `{placeholders}` identical to the English key; the tests check it.
+
+To add a language:
+
+1. Copy `web/locales/fr.js` and `locales/fr.json` to `<code>.js` / `<code>.json` and translate the values.
+2. Register the code in `LANGUAGES` and `CATALOGS` in `web/i18n.js`, in `LANGUAGES` in `i18n.py`, and give it its
+   date locale in `locale()` and its plural rule in `tn()` if it differs from English.
+3. Run both test suites, then switch the language in Configuration › General and check every screen.
+
 ## Pull requests
 
 1. Open an issue first for anything bigger than a small fix, so we can agree on the approach.
 2. Create a branch, make your change, and add or update tests.
 3. Make sure both test suites pass and that the app still works in a browser.
-4. Update the documentation (README or `docs/GUIDE.fr.md`) and `CHANGELOG.md` (section "Unreleased").
+4. Update the documentation (README or `docs/GUIDE.md`, in English) and `CHANGELOG.md` (section "Unreleased").
 5. Describe what you changed, why, and how you tested it.
 
 ## Reporting bugs
