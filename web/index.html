@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ziggy One</title>
+  <script src="/theme.js"></script>
+  <meta name="csp-nonce" content="__CSP_NONCE__">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/vendor/xterm/xterm.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <p id="auth-error" class="banner" hidden>
+    Session non authentifiée. Ouvre l'URL avec <code>?token=…</code> affichée dans le terminal au lancement du serveur.
+  </p>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <!-- En tête de la barre latérale : logo, compte et usage du forfait (actualiser sur place,
+           ou un clic sur les jauges 5 h et 7 j ouvre le détail). -->
+      <div class="sidebar-top">
+        <h1 class="logo" title="Ziggy One"><span aria-hidden="true">Z</span><span class="visually-hidden">Ziggy One</span></h1>
+        <div class="usage">
+          <button id="usage" type="button" class="usage-open" aria-haspopup="dialog" aria-controls="account-dialog">
+            <span id="avatar" class="avatar" aria-hidden="true">?</span>
+            <span id="usage-windows" class="usage-windows"></span>
+          </button>
+          <button id="usage-refresh" type="button" class="usage-refresh" title="Actualiser l'usage" aria-label="Actualiser l'usage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg></button>
+        </div>
+        <!-- Replier la barre en rail d'avatars (Ctrl+B) ; repliée et survolée, elle s'ouvre par-dessus le contenu. -->
+        <button id="sidebar-toggle" type="button" class="icon-button sidebar-toggle" aria-expanded="true" aria-keyshortcuts="Control+B">
+          <svg class="icon-collapse" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg>
+          <svg class="icon-expand" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l2 2-2 2"/></svg>
+        </button>
+      </div>
+      <section class="card sessions-card">
+        <div class="card-head sessions-head">
+          <!-- Mode : la liste des agents, ou les tableaux Kanban (mode Tâches). -->
+          <div class="segmented two mode-switch" role="radiogroup" aria-label="Mode">
+            <label><input type="radio" name="mode" value="agents"><span>Agents</span></label>
+            <label><input type="radio" name="mode" value="tasks"><span>Tâches</span></label>
+          </div>
+          <div class="head-controls agents-only">
+            <div class="segmented two" role="radiogroup" aria-label="Filtrer les agents">
+              <label><input type="radio" name="session-filter" value="open"><span id="filter-open">Actifs</span></label>
+              <label><input type="radio" name="session-filter" value="all"><span id="filter-all">Tous</span></label>
+            </div>
+            <!-- Épinglés seulement : cache les agents non épinglés, dans la liste comme dans les workspaces. -->
+            <button id="pinned-only" type="button" class="icon-button toggle-button" aria-pressed="false" title="Afficher seulement les agents épinglés" aria-label="Afficher seulement les agents épinglés"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
+            <button id="new-conversation" type="button" class="icon-button" title="Créer un agent ou un workspace" aria-label="Créer un agent ou un workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button id="refresh-sessions" type="button" class="icon-button" title="Actualiser" aria-label="Actualiser les agents"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg></button>
+          </div>
+          <div class="head-controls tasks-only">
+            <button id="new-board" type="button" class="icon-button" title="Créer un tableau ou un workspace" aria-label="Créer un tableau ou un workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+        </div>
+        <ul id="session-list" class="sessions agents-only"></ul>
+        <ul id="board-list" class="sessions tasks-only" aria-label="Tableaux"></ul>
+      </section>
+      <!-- Barre repliée : l'usage du forfait, en colonne, collé en bas du rail. -->
+      <button id="rail-usage" type="button" class="rail-usage" aria-haspopup="dialog" aria-controls="account-dialog"></button>
+    </aside>
+
+    <div id="sidebar-resizer" class="resizer" role="separator" tabindex="0" aria-orientation="vertical"
+         aria-label="Redimensionner la barre latérale" title="Glisser pour redimensionner · double-clic pour réinitialiser"></div>
+
+    <main class="main">
+      <!-- Redémarrage du serveur : en attente des agents, en cours, puis confirmé (version, terminaux rouverts). -->
+      <div id="server-banner" class="server-banner" role="status" aria-live="polite" hidden></div>
+      <section id="chat" class="card chat">
+        <div class="card-head">
+          <div class="chat-heading">
+            <span id="chat-avatar" class="agent-avatar header-avatar" aria-hidden="true" hidden></span>
+            <h2 id="chat-title" class="chat-title">Conversation</h2>
+          </div>
+          <div class="actions">
+            <button id="chat-close" type="button" class="icon-button" title="Fermer l'agent" aria-label="Fermer l'agent">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- Onglets : Claude Code dans un terminal, sa discussion mise en forme, Git si le dossier de l'agent est dans un dépôt, et ses fichiers. -->
+        <div id="chat-tabs" class="chat-tabs" role="tablist" aria-label="Vue de l'agent" hidden>
+          <button id="tab-terminal" type="button" role="tab" aria-selected="true" aria-controls="terminal-view">Terminal</button>
+          <button id="tab-discussion" type="button" role="tab" aria-selected="false" aria-controls="discussion-view">Discussion</button>
+          <button id="tab-git" type="button" role="tab" aria-selected="false" aria-controls="git-view">Git</button>
+          <button id="tab-files" type="button" role="tab" aria-selected="false" aria-controls="files-view">Fichiers</button>
+          <button id="tab-shortcuts" type="button" role="tab" aria-selected="false" aria-controls="shortcuts-view">Raccourcis</button>
+          <button id="tab-config" type="button" role="tab" aria-selected="false" aria-controls="config-view">Configuration</button>
+        </div>
+        <div id="git-view" class="chat-view git-view" role="tabpanel" aria-labelledby="tab-git" hidden></div>
+        <div id="files-view" class="chat-view files-view" role="tabpanel" aria-labelledby="tab-files" hidden></div>
+        <!-- Configuration de l'agent : nom, avatar, workspace, réglages de Claude, informations, suppression. -->
+        <div id="config-view" class="chat-view config-view" role="tabpanel" aria-labelledby="tab-config" hidden></div>
+        <!-- Raccourcis : les prompts tout prêts de l'agent (et ceux de son workspace), envoyés au Terminal par Ctrl+Maj+chiffre. -->
+        <div id="shortcuts-view" class="chat-view shortcuts-view" role="tabpanel" aria-labelledby="tab-shortcuts" hidden></div>
+        <div id="terminal-view" class="chat-view terminal-view" role="tabpanel" aria-labelledby="tab-terminal"></div>
+        <!-- Discussion : la conversation de l'agent mise en forme, en lecture seule (on écrit dans le Terminal). -->
+        <div id="discussion-view" class="chat-view discussion-view" role="tabpanel" aria-labelledby="tab-discussion" hidden></div>
+      </section>
+      <!-- Mode Tâches : le tableau Kanban choisi, ou sa création, ou ses réglages. -->
+      <section id="board-card" class="card chat board-card tasks-only" aria-labelledby="board-title">
+        <div class="card-head">
+          <h2 id="board-title" class="chat-title">Tâches</h2>
+          <div class="actions">
+            <button id="board-settings" type="button" class="icon-button" title="Configurer le tableau" aria-label="Configurer le tableau" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+            </button>
+            <button id="board-close" type="button" class="icon-button" title="Fermer" aria-label="Fermer" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="board-body" class="panel-body board-body"></div>
+      </section>
+      <!-- Zone de création et de gestion (agent, workspace) : remplace la discussion le temps de l'action. -->
+      <section id="panel" class="card chat panel" hidden aria-labelledby="panel-title">
+        <div class="card-head">
+          <h2 id="panel-title"></h2>
+          <div class="actions">
+            <button id="panel-close" type="button" class="icon-button" title="Fermer" aria-label="Fermer">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="panel-body" class="panel-body"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Compte, usage du forfait et préférences (comme /usage dans Claude Code). -->
+  <dialog id="account-dialog" class="modal account-dialog" aria-labelledby="account-email">
+    <div class="account-head">
+      <span id="account-avatar" class="avatar big-avatar" aria-hidden="true">?</span>
+      <div class="account-who">
+        <h2 id="account-email">—</h2>
+        <p id="account-sub" class="muted small"></p>
+      </div>
+      <button id="account-close" type="button" class="icon-button" title="Fermer" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <section class="account-section" aria-labelledby="usage-heading">
+      <div class="account-section-head">
+        <h3 id="usage-heading">Usage du forfait</h3>
+        <span id="usage-updated" class="muted small"></span>
+        <button id="refresh-usage" type="button" class="icon-button" title="Actualiser l'usage" aria-label="Actualiser l'usage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg></button>
+      </div>
+      <div id="usage-bars" class="usage-bars"></div>
+      <dl id="usage-facts" class="account-details"></dl>
+    </section>
+    <section class="account-section" aria-labelledby="ziggy-heading">
+      <h3 id="ziggy-heading">Ziggy One</h3>
+      <dl id="ziggy-facts" class="account-details"></dl>
+    </section>
+    <section class="account-section" aria-labelledby="prefs-heading">
+      <h3 id="prefs-heading">Préférences</h3>
+      <div class="prefs-row">
+        <span class="muted small">Thème</span>
+        <div class="segmented" role="radiogroup" aria-label="Thème">
+          <label><input type="radio" name="theme" value="system"><span>Système</span></label>
+          <label><input type="radio" name="theme" value="light"><span>Clair</span></label>
+          <label><input type="radio" name="theme" value="dark"><span>Sombre</span></label>
+        </div>
+      </div>
+      <label class="toggle">
+        <input id="notify-toggle" type="checkbox">
+        <span>Me prévenir quand un agent termine ou demande une autorisation</span>
+      </label>
+      <p id="notify-hint" class="muted small notify-hint" hidden></p>
+    </section>
+    <!-- Configuration : un écran au centre (terminaux Claude Code ouverts…). -->
+    <div class="account-footer">
+      <button id="open-settings" type="button" class="settings-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+        <span>Configuration</span>
+        <span class="muted small">terminaux Claude ouverts</span>
+      </button>
+    </div>
+  </dialog>
+
+  <dialog id="modal" class="modal" aria-labelledby="modal-title" aria-describedby="modal-message">
+    <form method="dialog" class="modal-body">
+      <h2 id="modal-title"></h2>
+      <p id="modal-message"></p>
+      <div id="modal-extra" class="modal-extra" hidden></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" type="submit" value="cancel">Annuler</button>
+        <button id="modal-confirm" type="submit" value="confirm" class="primary">Confirmer</button>
+      </div>
+    </form>
+  </dialog>
+  <!-- Erreur passagère (action refusée, réseau…), en bas de l'écran. -->
+  <div id="toast" class="toast" role="alert" hidden></div>
+</body>
+</html>
