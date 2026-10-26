@@ -45,7 +45,8 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 
 ## Requirements
 
-- **Linux.** Terminals rely on `pty` and util-linux `setsid --ctty`. macOS and Windows are not supported yet.
+- **Linux.** Terminals rely on `pty`, util-linux `setsid --ctty` and `/proc`. macOS and Windows are not supported
+  yet: there, `ziggy` only says so and exits.
 - **Python 3.10+.** Nothing to install: standard library only.
 - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed and logged in (`claude` on your
   `PATH`). Ziggy One uses your existing Claude Code account and never sees your credentials.
@@ -57,10 +58,39 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 ```bash
 git clone https://github.com/molory/ziggy-one.git
 cd ziggy-one
-python3 server.py
+ln -s "$PWD/ziggy" ~/.local/bin/ziggy   # once: the `ziggy` command, from any folder
 ```
 
-Open the URL printed in the terminal (`http://127.0.0.1:6767/?token=…`), then click **New agent**.
+`~/.local/bin` must be on your `PATH` (it usually is on Linux; otherwise add it to your shell profile). On
+Windows, the repository folder goes on the `PATH` instead, and `ziggy.cmd` runs the same launcher.
+
+Then, in the folder you want your agents to work in:
+
+```bash
+ziggy                            # or: ziggy --permission-mode auto, any option below
+```
+
+- Ziggy One starts with that folder as the default for new agents and opens in your browser, **already logged in**.
+- If it is **already running**, `ziggy` does not start a second one: it just opens the interface (from any folder).
+- If the port is taken by another program, `ziggy` says so: choose another one with `--port`.
+
+Then click **New agent**. Stop Ziggy One with <kbd>Ctrl</kbd>+<kbd>C</kbd> in its terminal; agents' terminals are
+closed cleanly.
+
+### Logging in without exposing the token
+
+The access token never shows up: not in the terminal, not in the browser's address bar or history, not on a
+command line. `ziggy` opens the browser on a **single-use login link** (`/?login=…`), signed with the token, that
+expires after 5 minutes and is exchanged for a session cookie. Once used, the link is worthless wherever it was
+copied: shell scrollback, `ps`, browser history, a log file.
+
+- **No browser at hand?** Started as `python3 server.py` (no `--open`), or when no browser can be opened, the server
+  prints the login link instead. Run `ziggy` again for a fresh one.
+- **Bookmark** `http://127.0.0.1:6767/`, never a login link. If the browser lost the cookie (it lasts until the
+  browser is closed), run `ziggy` again.
+- **Token leaked anyway?** Restart once with `--new-token`: open tabs, ticket links and agent keys are invalidated.
+- `/?token=<token>` still logs in, for scripts that already use it; the token is in
+  `~/.local/share/ziggy-one/token` (`0600`).
 
 | Option | Meaning |
 |---|---|
@@ -70,6 +100,7 @@ Open the URL printed in the terminal (`http://127.0.0.1:6767/?token=…`), then 
 | `--permission-mode MODE` | Default permission mode: `default`, `acceptEdits`, `plan`, `auto` or `dontAsk`. |
 | `--allowed-tools "Bash(git status)" Edit …` | Tools allowed without asking. |
 | `--chrome` | Enable Claude in Chrome for the agents. |
+| `--open` | Open the interface in the browser with a login link (`ziggy` always passes it). |
 | `--new-token` | Generate a new access token (invalidates open tabs, ticket links and agent keys). |
 
 Every agent can override the model, permission mode and Chrome setting in its **Configuration** tab.
@@ -88,6 +119,8 @@ Ziggy One is a single-user tool for your own machine.
 - Listens on `127.0.0.1` only and checks the `Host` header (DNS rebinding protection).
 - Access requires a random token, exchanged for an `HttpOnly; SameSite=Strict` cookie; every `POST` must carry a
   local `Origin` (CSRF protection).
+- The token itself is never printed: logging in goes through single-use login links (HMAC of the token, 5-minute
+  expiry, rejected once used), so a link found in a log or a browser history cannot be replayed.
 - Strict Content Security Policy: no inline scripts, no CDN, no `innerHTML` with untrusted content.
 - Claude Code hooks and the agents' MCP server use their own secrets, stored in `0600` files and never passed on a
   command line.

@@ -17,7 +17,10 @@ python3 server.py --cwd ~/Developer/mon-projet --permission-mode acceptEdits
 python3 server.py --chrome            # active Claude in Chrome pour les agents
 ```
 
-Ouvre ensuite l'URL affichée dans le terminal (`http://127.0.0.1:6767/?token=…`).
+Ou, plus simple, `ziggy` dans le dossier de travail (une fois : `ln -s "$PWD/ziggy" ~/.local/bin/ziggy`) :
+le serveur démarre avec ce dossier par défaut et ouvre l'interface dans le navigateur, déjà connectée ; s'il
+tourne déjà, `ziggy` ouvre seulement l'interface. Le token ne s'affiche jamais : le navigateur reçoit un lien
+de connexion à usage unique, valable 5 minutes. Sans navigateur, ce lien s'affiche dans le terminal.
 Le token est gardé d'un démarrage à l'autre (`~/.local/share/ziggy-one/token`, 0600) : les onglets ouverts
 restent connectés après une relance. `--new-token` en génère un nouveau.
 

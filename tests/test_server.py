@@ -538,6 +538,12 @@ class HttpTest(unittest.TestCase):
         self.assertIn("HttpOnly", cookie)
         self.assertIn("SameSite=Strict", cookie)
 
+    def test_login_link_works_once(self):
+        link = self.httpd.logins.make()
+        self.assertEqual(self.request("GET", f"/?login={link}").status, 303)
+        self.assertEqual(self.request("GET", f"/?login={link}").status, 403, "un lien ne sert qu'une fois")
+        self.assertEqual(self.request("GET", "/?login=faux").status, 403)
+
     def test_api_requires_cookie(self):
         self.assertEqual(self.request("GET", "/api/state").status, 401)
         self.assertEqual(self.request("GET", "/api/sessions", {"Cookie": self.cookie}).status, 200)

@@ -8,6 +8,7 @@ Le serveur n'écoute que sur 127.0.0.1 et exige un token généré au démarrage
 import argparse
 import base64
 import binascii
+import errno
 import hmac
 import json
 import os
@@ -25,7 +26,10 @@ import time
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlsplit
+from urllib.request import urlopen
+import webbrowser
 
 import media
 import transcripts
@@ -40,6 +44,7 @@ import gitops
 import pdf
 from terminal import Terminals
 import kanban
+import login_links
 import ticket_links
 from restart import Restart
 from shell import ShellRuns
@@ -341,6 +346,7 @@ class ZiggyServer(ThreadingHTTPServer):
         self.account = account
         # Token gardé d'un démarrage à l'autre : les onglets ouverts restent connectés après une relance.
         self.token = persistent_token(data_dir / "token", renew=renew_token)
+        self.logins = login_links.LoginLinks(self.token)
         # Hooks des terminaux : un token propre (fichier 0600, renouvelé à chaque démarrage), distinct de
         # celui du navigateur, et un fichier de réglages Claude Code par terminal.
         self.port = port
@@ -673,8 +679,11 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/mcp":
             return self._json(405, {"error": "le serveur MCP ne répond qu'en POST"})
         if url.path == "/" and url.query:
-            token = parse_qs(url.query).get("token", [""])[0]
-            if not same_secret(token, self.server.token):
+            query = parse_qs(url.query)
+            if "login" in query:  # lien à usage unique de `ziggy`
+                if not self.server.logins.redeem(query["login"][0]):
+                    return self._json(403, {"error": "lien de connexion invalide, expiré ou déjà utilisé"})
+            elif not same_secret(query.get("token", [""])[0], self.server.token):
                 return self._json(403, {"error": "token invalide"})
             cookie = f"{self.server.cookie_name}={self.server.token}; HttpOnly; SameSite=Strict; Path=/"
             return self._send(303, headers={"Location": "/", "Set-Cookie": cookie})
@@ -1323,6 +1332,31 @@ def git_version():
     return result.stdout.strip() or None
 
 
+def ziggy_listens(port):
+    """Vrai si c'est un serveur ziggy-one qui répond sur ce port (en-tête Server)."""
+    try:
+        with urlopen(f"http://127.0.0.1:{port}/api/state", timeout=3) as response:
+            server_header = response.headers.get("Server", "")
+    except HTTPError as error:  # 401 sans cookie : la réponse dit quand même qui répond
+        server_header = error.headers.get("Server", "")
+    except (URLError, OSError):
+        return False
+    return server_header.startswith("ziggy-one")
+
+
+def show_login(port, token, open_browser):
+    """Adresse à garder en favori, et lien de connexion à usage unique : ouvert dans le navigateur ou affiché."""
+    address = f"http://127.0.0.1:{port}/"
+    link = f"{address}?login={login_links.make(token)}"
+    print(f"ziggy-one → {address}", flush=True)
+    if open_browser and webbrowser.open(link):
+        print("interface ouverte dans le navigateur", flush=True)
+    else:
+        minutes = login_links.LIFETIME // 60
+        print(f"connexion (lien à usage unique, valable {minutes} min) : {link}", flush=True)
+        print("relancer `ziggy` en donne un nouveau", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Pilote une session Claude Code locale.")
     parser.add_argument("--port", type=int, default=6767)
@@ -1338,16 +1372,28 @@ def main():
                         help="active Claude in Chrome et autorise ses outils")
     parser.add_argument("--new-token", action="store_true",
                         help="génère un nouveau token d'accès (les onglets ouverts devront utiliser la nouvelle adresse)")
+    parser.add_argument("--open", action="store_true",
+                        help="ouvre l'interface dans le navigateur, déjà connectée (lien à usage unique)")
     args = parser.parse_args()
 
-    server = ZiggyServer(
-        port=args.port,
-        conversation_cwd=str(Path(args.cwd).resolve()),
-        defaults={"model": args.model, "permissionMode": args.permission_mode,
-                  "allowedTools": args.allowed_tools, "chrome": args.chrome},
-        account=read_account(),
-        renew_token=args.new_token,
-    )
+    try:
+        server = ZiggyServer(
+            port=args.port,
+            conversation_cwd=str(Path(args.cwd).resolve()),
+            defaults={"model": args.model, "permissionMode": args.permission_mode,
+                      "allowedTools": args.allowed_tools, "chrome": args.chrome},
+            account=read_account(),
+            renew_token=args.new_token,
+        )
+    except OSError as error:
+        if error.errno != errno.EADDRINUSE:
+            raise
+        if not ziggy_listens(args.port):
+            sys.exit(f"ziggy-one : le port {args.port} est déjà pris par un autre programme (essayer --port)")
+        # Déjà lancé : on ouvre seulement l'interface, avec le token du serveur qui tourne.
+        print(f"ziggy-one tourne déjà sur le port {args.port}", flush=True)
+        show_login(args.port, persistent_token(default_data_dir() / "token"), args.open)
+        return
     threading.Thread(target=server.usage.probe, daemon=True).start()
 
     # `kill` (SIGTERM) arrête le serveur aussi proprement que Ctrl+C : les terminaux Claude Code sont fermés.
@@ -1356,7 +1402,8 @@ def main():
 
     signal.signal(signal.SIGTERM, interrupt)
 
-    print(f"ziggy-one → http://127.0.0.1:{server.server_address[1]}/?token={server.token}", flush=True)
+    # Jamais le token lui-même à l'écran ni dans un journal : un lien qui ne sert qu'une fois.
+    show_login(server.server_address[1], server.token, args.open)
     # Après un redémarrage demandé depuis l'interface : rouvre les terminaux et fait reprendre les agents.
     threading.Thread(target=server.restart.resume_after_restart, daemon=True).start()
     try:
@@ -1367,7 +1414,8 @@ def main():
         server.server_close()
     if server.restart.requested:
         # Même commande, même processus (journal et terminal conservés) ; --new-token ne doit pas se rejouer.
-        argv = [arg for arg in sys.argv[1:] if arg != "--new-token"]
+        # --open non plus : les onglets ouverts se reconnectent seuls.
+        argv = [arg for arg in sys.argv[1:] if arg not in ("--new-token", "--open")]
         print("ziggy-one : redémarrage demandé depuis l'interface", flush=True)
         os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), *argv])
 

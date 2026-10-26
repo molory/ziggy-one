@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Vendored the xterm.js source map (`web/vendor/xterm/xterm.js.map`): the full original TypeScript source is in
   the repository and shown by the browser developer tools.
+- `ziggy` command: starts Ziggy One for the current folder and opens it in the browser, already logged in, or
+  just opens it when it is already running (`ziggy.cmd` on Windows, where it only reports that Linux is needed).
+- Single-use login links (`/?login=…`, 5 minutes) replace the access token in the startup output: the token is
+  no longer printed. `--open` opens the interface in the browser. `/?token=…` still works.
 - Fixed: starting the server on a port already in use now reports "Address already in use" instead of an
   `AttributeError` raised while closing the half-built server.
 
