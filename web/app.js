@@ -16,9 +16,15 @@ import { mountShortcutsPanel } from "./shortcuts-panel.js";
 import { SHORTCUT_ICONS, createShortcutsEditor, mountShortcutsView } from "./shortcuts-view.js";
 import { mountGitView } from "./git-view.js";
 import { renderMarkdown } from "./markdown.js";
+import { currentLanguage, translateStatic } from "./i18n.js";
 import { confirmDialog, dismissDialog, isDialogOpen, onDialogClose } from "./modal.js";
 import { migratePins, orderRows, pinIndex, pinnedFirst, rowKeys, togglePin } from "./pins.js";
 import { memberKey, pinnedHead, splitByWorkspace, workspacePinKey, workspaceState } from "./workspaces.js";
+
+// Static markup of index.html, written in English: translated once, before anything else is drawn.
+translateStatic(document.documentElement);
+/** Global settings (Configuration › General). @type {{language: string}} */
+let globalSettings = { language: currentLanguage() };
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 
@@ -3024,6 +3030,11 @@ function connect() {
   });
   on("agents", setAgentSettings);
   on("shortcuts", setShortcuts);
+  // Language changed (here or in another tab): the page reloads in the new language.
+  on("settings", (/** @type {{language: string}} */ settings) => {
+    globalSettings = settings;
+    if (settings.language !== currentLanguage()) location.reload();
+  });
 }
 
 // --- modes : Agents ou Tâches (tableaux Kanban) ----------------------------------
@@ -3108,6 +3119,7 @@ async function init() {
     workspaces = state.workspaces ?? []; // absents si le serveur est d'une version antérieure
     loadPins(state.pins ?? []);
     shortcutsData = { ...emptyShortcuts(), ...(state.shortcuts ?? {}) };
+    globalSettings = state.settings ?? globalSettings;
     agentSettings = state.agents ?? {};
     claudeDefaults = state.defaults ?? claudeDefaults;
     renderSessions(state.sessions);

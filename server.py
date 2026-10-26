@@ -43,6 +43,7 @@ import files as agent_files  # « files » sert déjà de nom de variable
 import gitops
 import pdf
 from terminal import Terminals
+import i18n
 import kanban
 import login_links
 import ticket_links
@@ -51,6 +52,7 @@ from shell import ShellRuns
 import agent_mcp
 from storage import default_data_dir, is_agent_key, persistent_token, write_private
 from pins import Pins
+from settings import Settings
 from shortcuts import Shortcuts
 from workspaces import Workspaces
 
@@ -323,6 +325,8 @@ class ZiggyServer(ThreadingHTTPServer):
         self.terminals = Terminals(self.bus, on_exit=self._terminal_closed)
         data_dir = Path(data_dir) if data_dir else default_data_dir()
         self.data_dir = data_dir
+        # Global settings first: the interface language applies to every message of the server.
+        self.settings = Settings(self.bus, data_dir / "settings.json")
         self.defaults = {**DEFAULT_OPTIONS, **(defaults or {})}
         self.workspaces = Workspaces(self.bus, data_dir / "workspaces.json")
         self.pins = Pins(self.bus, data_dir / "pins.json")
@@ -713,6 +717,7 @@ class Handler(BaseHTTPRequestHandler):
                     "pins": self.server.pins.list(),
                     "server": self.server.info(),
                     "shortcuts": self.server.shortcuts.snapshot(),
+                    "settings": self.server.settings.snapshot(),
                     "agents": self.server.agents.snapshot(),
                     "sessions": sessions,
                 })
@@ -828,6 +833,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/pins":
                 try:
                     return self._json(200, {"pins": self.server.pins.set(body.get("pins"))})
+                except ValueError as exc:
+                    return self._json(400, {"error": str(exc)})
+            if path == "/api/settings":
+                try:
+                    return self._json(200, {"settings": self.server.settings.update(body.get("settings"))})
                 except ValueError as exc:
                     return self._json(400, {"error": str(exc)})
             if path == "/api/shortcuts":
@@ -1277,6 +1287,8 @@ class Handler(BaseHTTPRequestHandler):
             # sans ses couleurs. Un attribut style ne peut ni charger ni exécuter quoi que ce soit.
             nonce = secrets.token_urlsafe(16)
             body = body.replace(b"__CSP_NONCE__", nonce.encode())
+            # Interface language (Configuration › General), known before any script runs: see web/i18n.js.
+            body = body.replace(b"__LANG__", i18n.language().encode())
             csp = SECURITY_HEADERS["Content-Security-Policy"].replace(
                 "style-src 'self'", f"style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'")
             headers = {"Content-Security-Policy": csp}
