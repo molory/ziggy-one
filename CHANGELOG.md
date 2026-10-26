@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **macOS support.** Terminals no longer need util-linux `setsid --ctty` or `/proc`: `claude` starts in its own
+  session and takes the pseudo-terminal through `TIOCSCTTY`, and terminal memory is read with `ps` where `/proc`
+  is missing. `ziggy` now runs on Linux and macOS.
 - **English by default, French available.** Every text of the interface and every server message shown in it is
   translatable (`web/i18n.js`, `i18n.py`, dictionaries in `web/locales/` and `locales/`). The language is a global
   setting in Configuration › General, saved by the server (`settings.json`); changing it reloads the page.
@@ -18,7 +21,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Vendored the xterm.js source map (`web/vendor/xterm/xterm.js.map`): the full original TypeScript source is in
   the repository and shown by the browser developer tools.
 - `ziggy` command: starts Ziggy One for the current folder and opens it in the browser, already logged in, or
-  just opens it when it is already running (`ziggy.cmd` on Windows, where it only reports that Linux is needed).
+  just opens it when it is already running (`ziggy.cmd` on Windows, where it only reports that Linux or macOS is needed).
 - Single-use login links (`/?login=…`, 5 minutes) replace the access token in the startup output: the token is
   no longer printed. `--open` opens the interface in the browser. `/?token=…` still works.
 - Fixed: starting the server on a port already in use now reports "Address already in use" instead of an

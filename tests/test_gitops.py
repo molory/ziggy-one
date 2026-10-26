@@ -54,7 +54,7 @@ class GitOpsTest(unittest.TestCase):
         (self.repo / "sub").mkdir()
         (self.repo / "sub" / "b c.txt").write_text("space\n")
         state = gitops.state(str(self.repo / "sub"))  # from a subfolder
-        self.assertEqual((state["root"], state["branch"], state["upstream"]), (str(self.repo), "main", "origin/main"))
+        self.assertEqual((state["root"], state["branch"], state["upstream"]), (str(self.repo.resolve()), "main", "origin/main"))
         self.assertEqual([f["path"] for f in state["files"]["unstaged"]], ["a.txt"])
         self.assertEqual(sorted(f["path"] for f in state["files"]["untracked"]), ["new.txt", "sub/b c.txt"])
         self.assertEqual([b["name"] for b in state["branches"]["local"]], ["main"])

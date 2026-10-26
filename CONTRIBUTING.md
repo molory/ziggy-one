@@ -25,7 +25,7 @@ cd ziggy-one
 python3 server.py --port 6768        # a second instance next to your daily one
 ```
 
-Requirements: Linux, Python 3.10+, Claude Code (`claude`) for real use, Node.js 22+ for the front-end tests.
+Requirements: Linux or macOS, Python 3.10+, Claude Code (`claude`) for real use, Node.js 22+ for the front-end tests.
 
 ## Tests
 

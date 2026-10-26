@@ -9,8 +9,8 @@ The token is never shown: the browser gets a single-use sign-in link.
 import sys
 from pathlib import Path
 
-if not sys.platform.startswith("linux"):
-    sys.exit("ziggy: Ziggy One only runs on Linux for now (pty terminals and setsid).")
+if not sys.platform.startswith(("linux", "darwin")):
+    sys.exit("ziggy: Ziggy One only runs on Linux and macOS for now (pty terminals).")
 if sys.version_info < (3, 10):
     sys.exit("ziggy: Python 3.10 or newer is required.")
 

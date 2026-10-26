@@ -126,8 +126,8 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
 
 - **Terminal** (`terminal.py`, `web/terminal-view.js`): the default tab of an agent. It opens the real Claude Code
   (interactive) in the agent's folder, on its session (`--resume`), with its settings (model, permissions, Chrome).
-  The server launches `claude` itself, never a shell, in a pseudo-terminal (`setsid --ctty`: real controlling
-  terminal, resizing, Ctrl+C); the screen goes out on the SSE stream (numbered bytes), keystrokes come in by POST,
+  The server launches `claude` itself, never a shell, in a pseudo-terminal (its own session with the terminal as controlling
+  terminal: resizing, Ctrl+C); the screen goes out on the SSE stream (numbered bytes), keystrokes come in by POST,
   and the last 512 KB are kept to redraw the screen of a tab that opens. Every Claude Code command works there and
   depends on no internal format: it is a terminal. If Claude Code switches session (new, `/clear`, `/resume`), the
   agent follows it thanks to the session registry, which also tells whether it is working.

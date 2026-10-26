@@ -46,8 +46,8 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 
 ## Requirements
 
-- **Linux.** Terminals rely on `pty`, util-linux `setsid --ctty` and `/proc`. macOS and Windows are not supported
-  yet: there, `ziggy` only says so and exits.
+- **Linux or macOS.** Terminals rely on `pty` and a controlling terminal per agent. Windows is not supported yet:
+  there, `ziggy` only says so and exits.
 - **Python 3.10+.** Nothing to install: standard library only.
 - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed and logged in (`claude` on your
   `PATH`). Ziggy One uses your existing Claude Code account and never sees your credentials.
@@ -62,7 +62,7 @@ cd ziggy-one
 ln -s "$PWD/ziggy" ~/.local/bin/ziggy   # once: the `ziggy` command, from any folder
 ```
 
-`~/.local/bin` must be on your `PATH` (it usually is on Linux; otherwise add it to your shell profile). On
+`~/.local/bin` must be on your `PATH` (it usually is on Linux; on macOS, create it and add it to your shell profile if needed). On
 Windows, the repository folder goes on the `PATH` instead, and `ziggy.cmd` runs the same launcher.
 
 Then, in the folder you want your agents to work in:
@@ -135,7 +135,7 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 ```
 browser (vanilla JS + xterm.js) ── HTTP + Server-Sent Events ── server.py (Python stdlib, 127.0.0.1)
                                                                    │
-                                     pty + setsid ─────────────────┼──> claude  (one per agent)
+                                     pty (own session) ────────────┼──> claude  (one per agent)
                                      hooks (ziggy_hook.py) <───────┤      ├─ SessionStart / UserPromptSubmit / Stop …
                                      MCP over HTTP (/mcp)  <───────┘      └─ kanban_* tools
 ```

@@ -4,8 +4,10 @@ The server launches `claude` itself (never a shell) in the agent's folder, resum
 session. The screen (raw terminal bytes, in base64) goes out on the SSE stream, numbered; keys
 come in by POST. Recent output is kept to redraw the screen when the tab opens.
 
-`setsid --ctty --wait` gives Claude Code a controlling terminal (resizing, Ctrl+C) without
-forking in this multi-threaded Python process.
+Claude Code needs the terminal as its controlling terminal (resizing, Ctrl+C). Popen starts it
+in a new session, then a tiny Python launcher takes the terminal (TIOCSCTTY) and becomes `claude`
+(exec): no code runs between fork and exec in this multi-threaded process, and it works on Linux
+and macOS alike.
 """
 
 import base64
@@ -15,6 +17,7 @@ import os
 import signal
 import struct
 import subprocess
+import sys
 import termios
 import threading
 import time
@@ -30,6 +33,15 @@ PARENT_SESSION_VARS = (
     "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION",
     "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
     "CLAUDE_CODE_EXECPATH", "CLAUDE_PID", "CLAUDE_EFFORT",
+)
+# Run in the new session: takes the terminal (stdin) as controlling terminal, then becomes the command.
+CTTY_EXEC = (
+    "import fcntl, os, sys, termios\n"
+    "fcntl.ioctl(0, termios.TIOCSCTTY, 0)\n"
+    "try:\n"
+    "    os.execvp(sys.argv[1], sys.argv[1:])\n"
+    "except OSError as error:\n"
+    "    sys.exit(f'ziggy: cannot run {sys.argv[1]}: {error.strerror}')\n"
 )
 
 
@@ -77,20 +89,10 @@ class Terminals:
             return sorted(self._terminals)
 
     def claude_pid(self, conversation):
-        """Pid of the `claude` process (child of setsid), to find it in the session registry."""
+        """Pid of the `claude` process (the launcher becomes it), to find it in the session registry."""
         with self._lock:
             terminal = self._terminals.get(conversation)
-        if terminal is None:
-            return None
-        pid = terminal.proc.pid
-        try:
-            # setsid only forks if it already leads a group; otherwise it becomes `claude` itself.
-            if open(f"/proc/{pid}/comm").read().strip() != "setsid":
-                return pid
-            children = open(f"/proc/{pid}/task/{pid}/children").read().split()
-        except OSError:
-            return None
-        return int(children[0]) if children else None
+        return None if terminal is None else terminal.proc.pid
 
     def start(self, conversation, cwd, args, cols, rows):
         cols, rows = clean_size(cols, rows)
@@ -103,8 +105,8 @@ class Terminals:
             try:
                 _set_size(master, cols, rows)
                 proc = subprocess.Popen(
-                    ["setsid", "--ctty", "--wait", "claude", *args], cwd=cwd, env=_env(),
-                    stdin=slave, stdout=slave, stderr=slave, close_fds=True,
+                    [sys.executable, "-I", "-c", CTTY_EXEC, "claude", *args], cwd=cwd, env=_env(),
+                    stdin=slave, stdout=slave, stderr=slave, close_fds=True, start_new_session=True,
                 )
             except OSError:
                 os.close(master)
@@ -155,21 +157,7 @@ class Terminals:
             except OSError:
                 sessions[conversation] = None
         wanted = {sid for sid in sessions.values() if sid}
-        page = os.sysconf("SC_PAGE_SIZE")
-        memory = collections.Counter()
-        for entry in os.scandir("/proc"):
-            if not wanted or not entry.name.isdigit():
-                continue
-            try:
-                with open(f"/proc/{entry.name}/stat") as file:
-                    stat = file.read()
-                # After the name (in parentheses): state, parent, group, session…
-                sid = int(stat[stat.rindex(")") + 2:].split()[3])
-                if sid in wanted:
-                    with open(f"/proc/{entry.name}/statm") as file:
-                        memory[sid] += int(file.read().split()[1]) * page
-            except (OSError, ValueError, IndexError):
-                continue  # process ended in the meantime
+        memory = _session_memory(wanted) if wanted else {}
         return [{"conversation": conversation, "startedAt": started,
                  "memory": memory.get(sessions[conversation]) if sessions[conversation] else None}
                 for conversation, started in items]
@@ -227,8 +215,47 @@ class Terminals:
             self._on_exit(terminal.conversation)
 
 
+def _session_memory(wanted):
+    """RAM (bytes) of the processes of each session of `wanted`: /proc on Linux, `ps` elsewhere (macOS)."""
+    if os.path.isdir("/proc/self"):
+        return _proc_session_memory(wanted)
+    memory = collections.Counter()
+    try:
+        output = subprocess.run(["ps", "-A", "-o", "pid=,rss="], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return memory
+    for line in output.splitlines():
+        try:
+            pid, rss = (int(value) for value in line.split())
+            sid = os.getsid(pid)
+        except (OSError, ValueError):
+            continue  # process ended in the meantime
+        if sid in wanted:
+            memory[sid] += rss * 1024
+    return memory
+
+
+def _proc_session_memory(wanted):
+    page = os.sysconf("SC_PAGE_SIZE")
+    memory = collections.Counter()
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry.name}/stat") as file:
+                stat = file.read()
+            # After the name (in parentheses): state, parent, group, session…
+            sid = int(stat[stat.rindex(")") + 2:].split()[3])
+            if sid in wanted:
+                with open(f"/proc/{entry.name}/statm") as file:
+                    memory[sid] += int(file.read().split()[1]) * page
+        except (OSError, ValueError, IndexError):
+            continue  # process ended in the meantime
+    return memory
+
+
 def _signal_group(proc, sig):
-    """The signal goes to the whole session group (setsid, claude and what it launched)."""
+    """The signal goes to the whole session group (claude and what it launched)."""
     try:
         os.killpg(proc.pid, sig)
     except (ProcessLookupError, PermissionError):
