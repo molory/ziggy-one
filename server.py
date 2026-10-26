@@ -64,6 +64,7 @@ MIME = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".map": "application/json; charset=utf-8",  # source map de xterm.js : son code TypeScript d'origine
 }
 SECURITY_HEADERS = {
     "Content-Security-Policy": (

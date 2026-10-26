@@ -5,7 +5,8 @@ updated automatically. Their exact versions and checksums are listed in their ow
 
 ## xterm.js — `web/vendor/xterm/`
 
-- `@xterm/xterm` 5.5.0 (`xterm.js`, `xterm.css`) and `@xterm/addon-fit` 0.10.0 (`addon-fit.js`).
+- `@xterm/xterm` 5.5.0 (`xterm.js`, `xterm.css`, and `xterm.js.map`, the published source map that contains
+  the original TypeScript sources) and `@xterm/addon-fit` 0.10.0 (`addon-fit.js`).
 - Project: https://github.com/xtermjs/xterm.js
 - License: MIT. The full license text is in [`web/vendor/xterm/LICENSE`](web/vendor/xterm/LICENSE).
 

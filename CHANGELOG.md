@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Vendored the xterm.js source map (`web/vendor/xterm/xterm.js.map`): the full original TypeScript source is in
+  the repository and shown by the browser developer tools.
+
 ## [0.1.0] - 2026-10-26
 
 First public release.

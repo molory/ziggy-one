@@ -11,7 +11,7 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 
 > **Zero third-party dependencies.** The server is the Python standard library; the front end is vanilla
 > HTML/CSS/JS with no npm and no build step. The only vendored code is [xterm.js](https://xtermjs.org/) (MIT), pinned
-> and checksummed, plus 42 [Twemoji](https://github.com/jdecked/twemoji) SVGs (CC-BY 4.0) used as avatars.
+> and checksummed, with its full TypeScript source in the published source map, plus 42 [Twemoji](https://github.com/jdecked/twemoji) SVGs (CC-BY 4.0) used as avatars.
 
 > The user interface and the code comments are in **French**. Translations are welcome (see
 > [CONTRIBUTING.md](CONTRIBUTING.md)). A detailed French guide lives in [docs/GUIDE.fr.md](docs/GUIDE.fr.md).

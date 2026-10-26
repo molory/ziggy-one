@@ -1,6 +1,7 @@
 """Tests de l'onglet Terminal (faux claude dans un vrai pseudo-terminal) : python3 -m unittest discover -s tests"""
 
 import base64
+import json
 import os
 import sys
 import tempfile
@@ -96,6 +97,20 @@ class TerminalHttpTest(unittest.TestCase):
         self.assertNotEqual(first, second, "un nonce par chargement")
         self.assertIn("script-src 'self';", first_headers["Content-Security-Policy"], "les scripts restent stricts")
         self.assertIn("style-src-attr 'unsafe-inline'", first_headers["Content-Security-Policy"], "couleurs 24 bits de xterm.js")
+
+    def test_xterm_source_map_is_served(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        srv = server.ZiggyServer(0, tmp.name, {}, data_dir=Path(tmp.name) / "data")
+        self.addCleanup(srv.server_close)
+        handler = server.Handler.__new__(server.Handler)
+        sent = []
+        handler._send = lambda status, body=b"", content_type=None, headers=None: sent.append((status, content_type, body))
+        handler._json = lambda status, obj: sent.append((status, None, obj))
+        handler._static("/vendor/xterm/xterm.js.map")
+        status, content_type, body = sent[0]
+        self.assertEqual((status, content_type), (200, "application/json; charset=utf-8"))
+        self.assertEqual(len(json.loads(body)["sourcesContent"]), 87, "le code TypeScript d'origine")
 
 
 if __name__ == "__main__":
