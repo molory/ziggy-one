@@ -1,6 +1,6 @@
 # Ziggy One
 
-**A local web cockpit for running many [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents side by side.**
+**Agent cockpit: run many [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents side by side, and stay in control.**
 
 Each agent is the real, interactive Claude Code running in its own terminal, in the browser. Ziggy One keeps them
 organised (workspaces, pins, names, avatars), shows what they are doing (live status, context usage, a readable
