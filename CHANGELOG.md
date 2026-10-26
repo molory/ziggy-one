@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Vendored the xterm.js source map (`web/vendor/xterm/xterm.js.map`): the full original TypeScript source is in
   the repository and shown by the browser developer tools.
+- Fixed: starting the server on a port already in use now reports "Address already in use" instead of an
+  `AttributeError` raised while closing the half-built server.
 
 ## [0.1.0] - 2026-10-26
 

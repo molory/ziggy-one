@@ -563,8 +563,11 @@ class ZiggyServer(ThreadingHTTPServer):
 
     def server_close(self):
         super().server_close()
-        self.shell.stop_all()
-        self.terminals.stop_all()
+        # Appelé aussi par socketserver quand le bind échoue, avant que __init__ ait créé ces attributs.
+        if hasattr(self, "shell"):
+            self.shell.stop_all()
+        if hasattr(self, "terminals"):
+            self.terminals.stop_all()
 
 
 class Handler(BaseHTTPRequestHandler):
