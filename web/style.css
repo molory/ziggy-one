@@ -49,6 +49,9 @@
 :root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
+/* Height of the sidebar header and of the central headers next to it: their bottom rules line up.
+   Fits the plan usage pill (1.75rem button + 0.3rem padding + border) with the bar's padding. */
+:root { --top-bar-height: 2.85rem; }
 /* `hidden` always wins, even on elements whose CSS sets `display`. */
 [hidden] { display: none !important; }
 
@@ -142,7 +145,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  min-height: 2.6rem;
+  min-height: var(--top-bar-height);
   padding: 0.3rem 0.5rem 0.3rem 0.75rem;
   border-bottom: 1px solid var(--border);
 }
@@ -354,6 +357,8 @@ body.resizing { cursor: col-resize; user-select: none; }
   padding: 0.3rem 0.5rem 0.3rem 0.75rem;
   border-bottom: 1px solid var(--border);
 }
+/* Top of the central area: same height as the sidebar header. */
+.main > .card > .card-head { min-height: var(--top-bar-height); }
 .actions { display: flex; gap: 0.4rem; }
 
 .muted { color: var(--muted); margin: 0; }
