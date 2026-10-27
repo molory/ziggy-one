@@ -42,6 +42,15 @@ class PinsTest(unittest.TestCase):
         self.pins.replace_key(A, B)  # already pinned under the other id: a single pin
         self.assertEqual(self.pins.list(), [B])
 
+    def test_add_pins_at_the_end_once(self):
+        self.pins.set([B])
+        drain(self.events)
+        self.pins.add(WORKSPACE)
+        self.pins.add(WORKSPACE)  # already pinned: no change
+        self.pins.add("../x")  # invalid: ignored
+        self.assertEqual(self.pins.list(), [B, WORKSPACE])
+        self.assertEqual(drain(self.events), [("pins", [B, WORKSPACE])])
+
     def test_invalid_input(self):
         with self.assertRaises(ValueError):
             self.pins.set("not a list")

@@ -65,7 +65,8 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   read), the 50 most recent sessions of all folders and the agents open in ziggy-one, from newest to oldest, with an
   Active / All filter. Each agent has an avatar (green dot: active, flickering orange: thinking, grey: inactive) and
   the label of its folder. A pinned agent stays at the top of the list, whatever the filter (pins saved by the
-  server in `pins.json`: they survive a restart and apply to every browser).
+  server in `pins.json`: they survive a restart and apply to every browser). A new agent is pinned by default;
+  unpin it to let it go down the list.
   The pin button, next to the filter, shows only the pinned agents outside workspaces; the others are summarised in
   one line ("12 unpinned agents hidden · show all"). Each workspace shows its pinned agents out of its total
   ("2/5 pinned") and, on the right, its own toggle: off (list icon), all its agents; on (pin icon), only its pinned
@@ -87,7 +88,8 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
 - **Workspaces** (`workspaces.py`): groups of agents, created with the "+" (which offers Agent or Workspace).
   A workspace is shown in the list as a collapsible block with its agents; agents are added or removed there
   (checkboxes, or from the agent's configuration). An agent is in only one workspace at a time.
-  A workspace can be pinned like an agent (pinned agents and workspaces are mixed at the top, in pin order), and
+  A workspace can be pinned like an agent (pinned agents and workspaces are mixed at the top, in pin order; a new
+  workspace is pinned by default), and
   clicking it opens its card on the Configuration tab (after Shortcuts): name, colour (12 hues or automatic),
   agents, deletion; the arrow on the right collapses or expands it. Saved by the server in
   `~/.local/share/ziggy-one/workspaces.json` (0600); the collapsed state is a browser preference.

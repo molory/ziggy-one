@@ -605,6 +605,8 @@ async function openSession(sessionId, label) {
  */
 async function newConversation(cwd, name, workspaceId) {
   const status = storeConversation(await api("/api/conversations", cwd ? { cwd } : {}));
+  // The server pins a new agent by default: same here, before its "pins" event arrives.
+  if (!pins.includes(status.id)) pins = [...pins, status.id];
   if (name?.trim()) setAgentSettings((await api("/api/agents/rename", { agent: status.id, name })).agents);
   if (workspaceId) setWorkspaces((await api(`/api/workspaces/${workspaceId}/add`, { agent: status.id })).workspaces);
   await selectConversation(status.id, { start: true });
@@ -1768,6 +1770,8 @@ function openWorkspaceForm() {
     submit.disabled = true;
     try {
       const created = await api("/api/workspaces", { name: input.value });
+      // Pinned by default by the server: same here, before its "pins" event arrives.
+      if (!pins.includes(`workspace:${created.id}`)) pins = [...pins, `workspace:${created.id}`];
       if (!workspaces.some((w) => w.id === created.id)) setWorkspaces([...workspaces, created]);
       openWorkspacePanel(created.id);
     } catch (err) {

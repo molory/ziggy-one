@@ -63,6 +63,14 @@ class Pins:
                 self._changed()
             return list(self._items)
 
+    def add(self, pin):
+        """Pins at the end (a new agent or workspace is pinned by default); nothing if already pinned."""
+        with self._lock:
+            cleaned = clean_pins([*self._items, pin])
+            if cleaned != self._items:
+                self._items = cleaned
+                self._changed()
+
     def replace_key(self, old, new):
         """A started conversation now has a session: its pin follows it."""
         if not is_agent_key(new):

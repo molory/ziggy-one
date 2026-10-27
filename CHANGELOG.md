@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **New agents and workspaces are pinned by default**, so they stay visible in the left panel; unpin them as usual.
+  Resuming a past session does not pin it.
 - **macOS support.** Terminals no longer need util-linux `setsid --ctty` or `/proc`: `claude` starts in its own
   session and takes the pseudo-terminal through `TIOCSCTTY`, and terminal memory is read with `ps` where `/proc`
   is missing. `ziggy` now runs on Linux and macOS.

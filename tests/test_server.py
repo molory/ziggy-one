@@ -418,6 +418,7 @@ class ConversationsHttpTest(unittest.TestCase):
         folder.mkdir()
         status, created = self.call("POST", "/api/conversations", {"cwd": str(folder)})
         self.assertEqual((status, created["cwd"]), (200, str(folder.resolve())))
+        self.assertEqual(self.httpd.pins.list(), [created["id"]])  # a new agent is pinned by default
         self.assertEqual(self.call("POST", "/api/conversations", {"cwd": "relative"})[0], 400)
         self.assertEqual(self.call("POST", "/api/conversations", {"cwd": str(folder / "absent")})[0], 400)
         status, listing = self.call("GET", f"/api/folders?path={folder.parent}")
@@ -626,6 +627,7 @@ class HttpTest(unittest.TestCase):
         workspace = json.loads(connection.getresponse().read())
         connection.close()
         base = f"/api/workspaces/{workspace['id']}"
+        self.assertIn(f"workspace:{workspace['id']}", self.httpd.pins.list())  # pinned by default
         agent = "11111111-2222-4333-8444-555555555555"
         self.assertEqual(post(f"{base}/add", {"agent": agent}), 200)
         self.assertEqual(post(f"{base}/add", {"agent": "../../etc"}), 400)

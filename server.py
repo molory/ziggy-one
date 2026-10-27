@@ -848,7 +848,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(400, {"error": str(exc)})
                 return self._json(200, {"shortcuts": shortcuts})
             if path == "/api/workspaces":
-                return self._json(200, self.server.workspaces.create(body.get("name")))
+                workspace = self.server.workspaces.create(body.get("name"))
+                self.server.pins.add(f"workspace:{workspace['id']}")  # pinned by default, can be unpinned
+                return self._json(200, workspace)
             if path == "/api/folders/create":
                 # New subfolder for an agent: returns the content of the created folder.
                 try:
@@ -1207,6 +1209,8 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(cwd, str) or not os.path.isdir(cwd):
                 return self._json(400, {"error": tr("The folder of this session no longer exists")})
         conversation = self.server.conversations.open(resume=resume, cwd=cwd, label=label[:200])
+        if resume is None:
+            self.server.pins.add(conversation.id)  # new agent: pinned by default, can be unpinned
         self.server.name_agents()
         return self._json(200, conversation.status())
 
