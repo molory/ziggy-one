@@ -11,6 +11,7 @@ Each ticket has a unique number across all boards (#1, #2…), never reused: it 
 (address /t/<number>, "#42" references between tickets or in conversations).
 """
 
+import datetime
 import json
 import os
 import re
@@ -27,6 +28,20 @@ from storage import read_json, write_json
 ID_RE = re.compile(r"^[0-9a-f]{12}$")  # board, ticket
 COLUMN_RE = re.compile(r"^[0-9a-f]{8}$")
 FILE_RE = re.compile(r"^[0-9a-f]{16}$")
+DUE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")  # delivery date of a ticket, a calendar day (no time, no time zone)
+
+
+def clean_due(value):
+    """Delivery date of a ticket: "YYYY-MM-DD", or None for no date (None or "" removes it). ValueError otherwise."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or not DUE_RE.match(value):
+        raise ValueError(tr("Invalid delivery date (expected YYYY-MM-DD)"))
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        raise ValueError(tr("Invalid delivery date (expected YYYY-MM-DD)")) from None
+    return value
 MAX_BOARDS = 200
 MAX_COLUMNS = 20
 MAX_TICKETS = 2000  # per board
@@ -133,8 +148,12 @@ class Kanban:
             for f in raw.get("files") or [] if isinstance(f, dict) and FILE_RE.match(str(f.get("id")))
         ]
         stamp = raw.get("createdAt") if isinstance(raw.get("createdAt"), (int, float)) else 0
+        try:
+            due = clean_due(raw.get("due"))
+        except ValueError:
+            due = None  # damaged date: dropped, the ticket stays
         return {
-            "id": raw["id"], "board": raw["board"], "column": raw["column"],
+            "id": raw["id"], "board": raw["board"], "column": raw["column"], "due": due,
             "position": raw.get("position") if isinstance(raw.get("position"), int) else 0,
             "title": title, "description": description[:MAX_DESCRIPTION], "files": files[:MAX_FILES],
             "number": raw.get("number") if isinstance(raw.get("number"), int) and raw["number"] > 0 else None,
@@ -328,7 +347,8 @@ class Kanban:
             now = time.time()
             ticket = {"id": secrets.token_hex(6), "number": self._next_number, "board": board_id, "column": column_id,
                       "position": len(self._column_tickets(board_id, column_id)), "title": title,
-                      "description": description, "files": [], "agent": None, "createdAt": now, "updatedAt": now}
+                      "description": description, "files": [], "agent": None, "due": None,
+                      "createdAt": now, "updatedAt": now}
             self._next_number += 1  # never reused, even if the ticket is deleted
             self._tickets.append(ticket)
             self.history.record(ticket["id"], "created", by=by, column=self._column(board, column_id)["name"], title=title)
@@ -336,8 +356,9 @@ class Kanban:
             return dict(ticket)
 
     def update_ticket(self, ticket_id, changes, by=None):
-        """Title and/or description: only the keys present are changed."""
+        """Title, description and/or delivery date (`due`, None to remove it): only the keys present are changed."""
         title = _text(changes["title"], MAX_TITLE, "title") if "title" in changes else None
+        due = clean_due(changes["due"]) if "due" in changes else None
         description = (_text(changes["description"], MAX_DESCRIPTION, "description", required=False)
                        if "description" in changes else None)
         with self._lock:
@@ -351,6 +372,10 @@ class Kanban:
             if "description" in changes and description != ticket["description"]:
                 self.history.record(ticket_id, "description", by=by, before=ticket["description"], after=description)
                 ticket["description"] = description
+                changed = True
+            if "due" in changes and due != ticket.get("due"):
+                self.history.record(ticket_id, "due", by=by, before=ticket.get("due"), after=due)
+                ticket["due"] = due
                 changed = True
             if changed:
                 ticket["updatedAt"] = time.time()

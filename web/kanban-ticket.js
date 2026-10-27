@@ -128,6 +128,37 @@ export function mountTicketDialog(deps) {
   const meta = el("div", "ticket-meta");
   meta.append(el("span", "muted small", t("Column")), columnSelect, dates);
 
+  // Delivery date: saved as soon as it is picked; "Remove" takes it off. Shown as a badge on the card.
+  const dueInput = /** @type {HTMLInputElement} */ (el("input", "text-input ticket-due-input"));
+  dueInput.type = "date";
+  dueInput.id = "ticket-due";
+  const dueLabel = el("label", "muted small", t("Delivery date"));
+  dueLabel.setAttribute("for", "ticket-due");
+  const dueRemove = /** @type {HTMLButtonElement} */ (el("button", "link-button", t("Remove")));
+  dueRemove.type = "button";
+  dueRemove.setAttribute("aria-label", t("Remove the delivery date"));
+  const dueRow = el("div", "ticket-meta ticket-due");
+  dueRow.append(dueLabel, dueInput, dueRemove);
+  /** @param {string | null} due */
+  async function saveDue(due) {
+    if (!ticket || (ticket.due ?? null) === due) return;
+    error.hidden = true;
+    try {
+      await api(`/api/kanbans/tickets/${ticket.id}/update`, { due });
+    } catch (err) {
+      dueInput.value = ticket?.due ?? "";
+      showError(err);
+    }
+  }
+  // "change" fires once a full date is picked (typing it digit by digit does not save half a date).
+  dueInput.addEventListener("change", () => {
+    if (dueInput.value || !dueInput.validity.badInput) saveDue(dueInput.value || null);
+  });
+  dueRemove.addEventListener("click", () => {
+    dueInput.value = "";
+    saveDue(null);
+  });
+
   // Description: Write / Preview.
   const tabs = el("div", "ticket-tabs");
   tabs.setAttribute("role", "tablist");
@@ -195,6 +226,10 @@ export function mountTicketDialog(deps) {
       case "created": return t("Created in \"{column}\"", { column: entry.column });
       case "title": return t("Title: \"{before}\" → \"{after}\"", { before: entry.before, after: entry.after });
       case "description": return entry.before ? t("Description changed") : t("Description added");
+      case "due": return entry.after
+        ? (entry.before ? t("Delivery date: {before} → {after}", { before: entry.before, after: entry.after })
+          : t("Delivery date set: {after}", { after: entry.after }))
+        : t("Delivery date removed");
       case "moved": {
         const params = { from: entry.fromColumn, to: entry.toColumn, reason: t(entry.reason) };
         return entry.reason ? t("Moved from \"{from}\" to \"{to}\" ({reason})", params) : t("Moved from \"{from}\" to \"{to}\"", params);
@@ -251,7 +286,7 @@ export function mountTicketDialog(deps) {
   footer.append(remove, el("span", "spacer"), save);
 
   const body = el("div", "ticket-body");
-  body.append(head, meta, tabs, description, preview, filesSection, history, error, footer);
+  body.append(head, meta, dueRow, tabs, description, preview, filesSection, history, error, footer);
   dialog.append(body);
 
   /** @param {unknown} err */
@@ -277,6 +312,8 @@ export function mountTicketDialog(deps) {
     }));
     const when = (/** @type {number} */ time) => new Date(time * 1000).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
     dates.textContent = t("Created {created} · modified {updated}", { created: when(ticket.createdAt), updated: when(ticket.updatedAt) });
+    if (document.activeElement !== dueInput) dueInput.value = ticket.due ?? "";
+    dueRemove.hidden = !ticket.due;
     files.replaceChildren(...ticket.files.map((file) => {
       const item = el("li", "ticket-file");
       const link = /** @type {HTMLAnchorElement} */ (el("a", "ticket-file-link"));

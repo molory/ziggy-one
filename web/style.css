@@ -2500,3 +2500,22 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 
 /* Role of an agent (settings): free text, read by the other agents. */
 .role-section textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; line-height: 1.4; }
+
+/* Delivery date of a ticket: days left on the card, redder as the date approaches (--urgency 0…1). */
+.kanban-due {
+  --urgency: 0;
+  margin-left: auto;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--bad) calc(var(--urgency) * 70%), var(--border));
+  border-radius: calc(999px * var(--corners));
+  background: color-mix(in srgb, var(--bad) calc(var(--urgency) * 18%), transparent);
+  color: color-mix(in srgb, var(--bad) calc(var(--urgency) * 100%), var(--muted));
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kanban-due.late { border-color: var(--bad); background: var(--bad); color: #fff; }
+.ticket-due { margin-top: -0.25rem; }
+.ticket-due-input { width: auto; }
+.ticket-due .link-button[hidden] { display: none; }

@@ -5,9 +5,9 @@
 // The move shows right away; the server's answer (kanban_board event) is authoritative.
 // No content goes through innerHTML: text nodes only.
 
-import { t, tn } from "./i18n.js";
+import { locale, t, tn } from "./i18n.js";
 import {
-  columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+  columnTickets, daysUntil, descriptionPreview, dropIndex, dueUrgency, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
 } from "./kanban-logic.js";
 
 const TICKET_TYPE = "application/x-ziggy-ticket";
@@ -107,6 +107,23 @@ export function mountBoardView(root, deps) {
     return button;
   }
 
+  /**
+   * Days left before the delivery date, redder as it approaches (--urgency 0…1); solid red when late.
+   *
+   * @param {string} due "YYYY-MM-DD"
+   */
+  function dueBadge(due) {
+    const days = daysUntil(due);
+    const label = days < 0 ? tn(-days, "{n} day late", "{n} days late")
+      : days === 0 ? t("Today") : days === 1 ? t("Tomorrow") : tn(days, "{n} day", "{n} days");
+    const badge = el("span", `kanban-due${days < 0 ? " late" : ""}`, label);
+    badge.style.setProperty("--urgency", String(dueUrgency(days)));
+    const [year, month, day] = due.split("-").map(Number);
+    const date = new Date(year, month - 1, day).toLocaleDateString(locale(), { dateStyle: "medium" });
+    badge.title = t("Delivery on {date}", { date });
+    return badge;
+  }
+
   /** @param {Ticket} ticket */
   function card(ticket) {
     const item = el("li", "kanban-card");
@@ -141,6 +158,7 @@ export function mountBoardView(root, deps) {
       chips.addEventListener("click", () => deps.openTicket(ticket.id));
       head.append(chips);
     }
+    if (ticket.due) head.append(dueBadge(ticket.due));
     item.append(head);
     open.addEventListener("keydown", (event) => {
       if (!event.altKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || !data) return;

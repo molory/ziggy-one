@@ -3,6 +3,18 @@
 
 /** @type {Record<string, string>} */
 export default {
+  "Delivery date removed": "Date de livraison retirée",
+  "Delivery date set: {after}": "Date de livraison fixée : {after}",
+  "Delivery date: {before} → {after}": "Date de livraison : {before} → {after}",
+  "Remove the delivery date": "Retirer la date de livraison",
+  "Delivery date": "Date de livraison",
+  "Delivery on {date}": "Livraison le {date}",
+  "Tomorrow": "Demain",
+  "Today": "Aujourd'hui",
+  "{n} days late": "{n} jours de retard",
+  "{n} day late": "{n} jour de retard",
+  "{n} days": "{n} jours",
+  "{n} day": "{n} jour",
   "column deleted": "colonne supprimée",
   "Corners": "Coins",
   "Move not saved: {error}": "Déplacement non enregistré : {error}",

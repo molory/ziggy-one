@@ -66,6 +66,18 @@ class AgentMcpTest(unittest.TestCase):
         self.assertIn("Done (1)", self.call("kanban_boards")[0])
         self.assertIn("No ticket", self.call("kanban_list_tickets", {"query": "nowhere"})[0])
 
+
+    def test_agents_set_and_read_the_delivery_date(self):
+        ticket = self.kanban.create_ticket(self.board["id"], self.board["columns"][0]["id"], "Ship it")
+        number = ticket["number"]
+        self.assertEqual(self.call("kanban_update_ticket", {"number": number, "due": "2026-11-20"}), (f"Ticket #{number} updated.", False))
+        self.assertIn("- Delivery date: 2026-11-20", self.call("kanban_get_ticket", {"number": number})[0])
+        self.assertIn(f"#{number} [To do] Ship it (due 2026-11-20)", self.call("kanban_list_tickets", {"board": "Atlas"})[0])
+        text, error = self.call("kanban_update_ticket", {"number": number, "due": "next week"})
+        self.assertTrue(error)
+        self.assertIn("Invalid delivery date", text)
+        self.call("kanban_update_ticket", {"number": number, "due": ""})
+        self.assertNotIn("Delivery date", self.call("kanban_get_ticket", {"number": number})[0].split("## History")[0])
     def test_clear_errors_for_the_agent(self):
         self.kanban.create_board("Ziggy")
         for name, arguments, expected in (

@@ -1045,7 +1045,7 @@ class Handler(BaseHTTPRequestHandler):
             if match:
                 ticket_id, action = match.groups()
                 if action == "update":
-                    kb.update_ticket(ticket_id, {k: body[k] for k in ("title", "description") if k in body})
+                    kb.update_ticket(ticket_id, {k: body[k] for k in ("title", "description", "due") if k in body})
                 elif action == "move":
                     kb.move_ticket(ticket_id, body.get("column"), body.get("index"))
                 elif action == "delete":

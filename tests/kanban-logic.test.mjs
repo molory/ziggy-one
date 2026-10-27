@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  boardRow, columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+  boardRow, columnTickets, daysUntil, DUE_HORIZON, dueUrgency, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
 } from "../web/kanban-logic.js";
 import { orderRows } from "../web/pins.js";
 import { splitByWorkspace } from "../web/workspaces.js";
@@ -96,4 +96,22 @@ test("tagHue: the same text always gives the same hue", () => {
   assert.equal(tagHue("SMYNO"), tagHue("SMYNO"));
   assert.notEqual(tagHue("SMYNO"), tagHue("FEATURE"));
   for (const tag of ["A", "SMYNO", "FEATURE", "ÉTÉ"]) assert.ok(tagHue(tag) >= 0 && tagHue(tag) < 360);
+});
+
+test("delivery date: days left in calendar days, whatever the hour", () => {
+  const evening = new Date(2026, 9, 27, 23, 30);
+  assert.equal(daysUntil("2026-10-27", evening), 0);
+  assert.equal(daysUntil("2026-10-28", new Date(2026, 9, 27, 0, 5)), 1);
+  assert.equal(daysUntil("2026-11-10", evening), 14);
+  assert.equal(daysUntil("2026-10-25", evening), -2);
+  assert.equal(daysUntil("2027-01-01", new Date(2026, 11, 31, 12)), 1, "across years");
+  assert.equal(daysUntil("2026-03-30", new Date(2026, 2, 28, 12)), 2, "across a daylight saving change");
+});
+
+test("delivery date: the badge turns red over the last DUE_HORIZON days", () => {
+  assert.equal(dueUrgency(DUE_HORIZON + 10), 0);
+  assert.equal(dueUrgency(DUE_HORIZON), 0);
+  assert.ok(dueUrgency(7) > dueUrgency(10) && dueUrgency(1) > dueUrgency(7));
+  assert.equal(dueUrgency(0), 1);
+  assert.equal(dueUrgency(-3), 1);
 });

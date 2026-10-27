@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Delivery dates on Kanban tickets**: set, change or remove a date in the ticket card; the card shows the days
+  left in a badge that turns redder over the last 14 days, solid red once late. Recorded in the ticket history,
+  readable and settable by agents (`kanban_update_ticket` › `due`).
 - **Search in the sidebar**: above the agent list, and above the boards in Tasks mode. It finds agents hidden by
   the filters (Active, pinned only, collapsed workspaces), boards, and tickets by number or title. Accents and case
   do not count; Esc clears it.

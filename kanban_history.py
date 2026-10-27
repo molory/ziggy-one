@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 ID_RE = re.compile(r"^[0-9a-f]{12}$")
-KINDS = {"created", "title", "description", "moved", "file_added", "file_removed", "deleted"}
+KINDS = {"created", "title", "description", "due", "moved", "file_added", "file_removed", "deleted"}
 MAX_TEXT = 20_000  # like a ticket description
 MAX_AUTHOR = 80  # name of an agent
 MAX_PER_TICKET = 500  # entries returned per ticket (the most recent)

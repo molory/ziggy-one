@@ -85,13 +85,14 @@ TOOLS = [
     {
         "name": "kanban_update_ticket",
         "title": "Edit a ticket",
-        "description": "Changes the title and/or the description of a ticket. `append` adds text at the end of the "
-                       "description (report, note) without rewriting the rest.",
+        "description": "Changes the title, the description and/or the delivery date of a ticket. `append` adds text at "
+                       "the end of the description (report, note) without rewriting the rest.",
         "inputSchema": _schema({
             "number": NUMBER,
             "title": {"type": "string", "description": "New title (optional)."},
             "description": {"type": "string", "description": "New description, replacing the old one (optional)."},
             "append": {"type": "string", "description": "Text added at the end of the description (optional)."},
+            "due": {"type": "string", "description": "Delivery date, YYYY-MM-DD; an empty string removes it (optional)."},
         }, ["number"]),
         "annotations": {"readOnlyHint": False, "destructiveHint": False},
     },
@@ -187,7 +188,8 @@ class KanbanTools:
         if not tickets:
             where = f"\"{board['name']}\" / \"{column['name']}\"" if column else f"\"{board['name']}\""
             return f"No ticket in {where}."
-        lines = [f"- #{t['number']} [{names.get(t['column'], '?')}] {t['title']}" for t in tickets[:MAX_LIST]]
+        lines = [f"- #{t['number']} [{names.get(t['column'], '?')}] {t['title']}" + (f" (due {t['due']})" if t.get("due") else "")
+                 for t in tickets[:MAX_LIST]]
         if len(tickets) > MAX_LIST:
             lines.append(f"… and {len(tickets) - MAX_LIST} more: narrow down with `column` or `query`.")
         return f"Board \"{board['name']}\":\n" + "\n".join(lines)
@@ -215,8 +217,10 @@ class KanbanTools:
         if args.get("append"):
             base = changes.get("description", ticket["description"]).rstrip()
             changes["description"] = f"{base}\n\n{args['append'].strip()}" if base else args["append"].strip()
+        if args.get("due") is not None:
+            changes["due"] = args["due"]
         if not changes:
-            raise ToolError("Nothing to change: give `title`, `description` or `append`.")
+            raise ToolError("Nothing to change: give `title`, `description`, `append` or `due`.")
         try:
             self._kanban.update_ticket(ticket["id"], changes, by=actor)
         except ValueError as exc:

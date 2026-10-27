@@ -22,6 +22,7 @@ HISTORY_LABELS = {
     "created": lambda e: f"Created in \"{e.get('column', '')}\"",
     "title": lambda e: f"Title: \"{e.get('before', '')}\" → \"{e.get('after', '')}\"",
     "description": lambda e: "Description changed" if e.get("before") else "Description added",
+    "due": lambda e: (f"Delivery date: {e.get('before') or 'none'} → {e.get('after') or 'none'}"),
     "moved": lambda e: f"Moved from \"{e.get('fromColumn', '')}\" to \"{e.get('toColumn', '')}\""
                        + (f" ({e['reason']})" if e.get("reason") else ""),
     "file_added": lambda e: f"File attached: {e.get('name', '')}",
@@ -64,6 +65,7 @@ def render(export, token, origin):
         "",
         f"- Board: {export['board']}",
         f"- Column: {export['column']}",
+        *([f"- Delivery date: {ticket['due']}"] if ticket.get("due") else []),
         f"- Created {_when(ticket['createdAt'])} · updated {_when(ticket['updatedAt'])}",
         f"- Link: {origin}{ticket_path(token, number)}",
         "",

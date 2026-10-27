@@ -112,6 +112,11 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   has customisable columns (name, colour, order; "To do, In progress, Done" at first; deleting a non-empty column
   asks where to send its tickets). A ticket has a title, a Markdown description (Write / Preview) and attached files
   (button, drag or paste; 25 MB per file, kept as long as the ticket exists, in `kanban-files/` with 0700/0600).
+  A ticket can have a delivery date (ticket card › "Delivery date", saved as soon as it is picked; "Remove" takes
+  it off; `due`, `YYYY-MM-DD`). The card then shows a badge with the days left ("5 days", "Tomorrow", "Today"),
+  redder over the last 14 days, and solid red with the delay once late ("2 days late"). Days are counted in
+  calendar days of the browser's time zone. Changes are in the ticket history; agents read the date in the
+  ticket and set or remove it with `kanban_update_ticket` (`due`).
   Tags at the start of a title (UPPERCASE words separated by "/", with a leading or trailing "/": `/SMYNO/FEATURE Fix
   login` or `SMYNO/FEATURE/ Fix login`) show as coloured chips on the card; the colour comes from the tag's text, so a
   tag always has the same one. The ticket editor shows the title as typed.

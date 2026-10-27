@@ -141,6 +141,21 @@ class KanbanTest(unittest.TestCase):
         self.assertEqual((forced["fromColumn"], forced["toColumn"], forced["reason"]), ("In progress (renamed)", "Done", "column deleted"))
         self.assertEqual([h["kind"] for h in self.kb.ticket_history(other)], ["created"])
 
+    def test_delivery_date_can_be_set_changed_and_removed(self):
+        ticket = self.kb.create_ticket(self.board["id"], self.todo, "Ship the release")
+        self.assertIsNone(ticket["due"])
+        self.kb.update_ticket(ticket["id"], {"due": "2026-11-05"}, by="Teams")
+        self.kb.update_ticket(ticket["id"], {"due": "2026-11-05"})  # same date: no history entry
+        self.kb.update_ticket(ticket["id"], {"due": "2026-11-12"})
+        self.assertEqual(self.make().get(self.board["id"])["tickets"][0]["due"], "2026-11-12", "saved")
+        self.kb.update_ticket(ticket["id"], {"due": None})
+        self.assertIsNone(self.kb.get(self.board["id"])["tickets"][0]["due"])
+        dues = [(e["before"], e["after"], e["by"]) for e in self.kb.history.of(ticket["id"]) if e["kind"] == "due"]
+        self.assertEqual(dues, [(None, "2026-11-05", "Teams"), ("2026-11-05", "2026-11-12", "user"), ("2026-11-12", None, "user")])
+        for bad in ("2026-02-30", "05/11/2026", "2026-11-5", 20261105, "tomorrow"):
+            with self.assertRaises(ValueError, msg=bad):
+                self.kb.update_ticket(ticket["id"], {"due": bad})
+
     def test_history_is_persisted_append_only(self):
         board = self.board["id"]
         ticket = self.kb.create_ticket(board, self.todo, "Persisted")["id"]
@@ -233,8 +248,11 @@ class KanbanHttpTest(unittest.TestCase):
         found = json.loads(self.get(f"/api/kanbans/tickets/number/{ticket['number']}"))
         self.assertEqual(found["ticket"], ticket["id"])
         self.assertIn(b'<div class="layout', self.get(f"/t/{ticket['number']}"), "a ticket's address serves the page")
+        self.post(f"/api/kanbans/tickets/{ticket['id']}/update", {"due": "2026-12-01"})
+        self.assertEqual(json.loads(self.get(f"/api/kanbans/{board['id']}"))["tickets"][0]["due"], "2026-12-01")
         history = json.loads(self.get(f"/api/kanbans/tickets/{ticket['id']}/history"))["history"]
-        self.assertEqual([(h["kind"], h.get("toColumn")) for h in history], [("created", None), ("moved", "In progress")])
+        self.assertEqual([(h["kind"], h.get("toColumn")) for h in history],
+                         [("created", None), ("moved", "In progress"), ("due", None)])
         data = base64.b64encode(b"%PDF-1.4 fake").decode()
         entry = self.post(f"/api/kanbans/tickets/{ticket['id']}/files", {"name": "spec.pdf", "type": "application/pdf", "data": data})
         self.assertEqual(self.get(f"/api/kanbans/tickets/{ticket['id']}/files/{entry['id']}/spec.pdf"), b"%PDF-1.4 fake")

@@ -6,7 +6,8 @@
  * @typedef {{id: string, name: string, hue: number | null, columns: Column[], ticketCount?: number,
  *   counts?: Record<string, number>, createdAt: number, updatedAt: number}} Board
  * @typedef {{id: string, board: string, column: string, position: number, title: string, description: string,
- *   files: {id: string, name: string, type: string, size: number}[], createdAt: number, updatedAt: number}} Ticket
+ *   files: {id: string, name: string, type: string, size: number}[], due?: string | null, createdAt: number,
+ *   updatedAt: number}} Ticket
  */
 
 /**
@@ -194,4 +195,31 @@ export function tagHue(tag) {
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0) % 360;
+}
+
+/** Days before a delivery date at which its badge starts turning red. */
+export const DUE_HORIZON = 14;
+
+/**
+ * Days from today (the local calendar day of `now`) to a delivery date "YYYY-MM-DD": 0 today, 1 tomorrow,
+ * negative when late. Counted in calendar days, so the hour of the day and daylight saving do not matter.
+ *
+ * @param {string} due
+ * @param {Date} [now]
+ */
+export function daysUntil(due, now = new Date()) {
+  const [year, month, day] = due.split("-").map(Number);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((Date.UTC(year, month - 1, day) - today) / 86_400_000);
+}
+
+/**
+ * How urgent a delivery date is, from 0 (DUE_HORIZON days away or more) to 1 (due today or late): the badge
+ * gets redder as the date approaches.
+ *
+ * @param {number} days result of daysUntil
+ */
+export function dueUrgency(days) {
+  if (days <= 0) return 1;
+  return days >= DUE_HORIZON ? 0 : Math.round((1 - days / DUE_HORIZON) * 100) / 100;
 }
