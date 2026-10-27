@@ -5,6 +5,7 @@
 export default {
   "column deleted": "colonne supprimée",
   "Corners": "Coins",
+  "Move not saved: {error}": "Déplacement non enregistré : {error}",
   "Square": "Carrés",
   "Slightly rounded": "Légèrement arrondis",
   "Rounded (default)": "Arrondis (par défaut)",

@@ -633,6 +633,13 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(post(f"{base}/add", {"agent": "../../etc"}), 400)
         self.assertEqual(post("/api/workspaces/000000000000/add", {"agent": agent}), 404)
         self.assertEqual(self.httpd.workspaces.list()[0]["agents"], [agent])
+        other = "22222222-2222-4333-8444-555555555555"
+        self.assertEqual(post(f"{base}/place", {"agent": other, "before": agent}), 200)
+        self.assertEqual(self.httpd.workspaces.list()[0]["agents"], [other, agent])
+        self.assertEqual(post(f"{base}/place", {"agent": other, "before": "../x"}), 400)
+        self.assertEqual(post(f"{base}/remove", {"agent": other}), 200)
+        self.assertEqual(post(f"{base}/move", {"before": None}), 200)
+        self.assertEqual(post(f"{base}/move", {"before": "nope"}), 400)
         self.assertEqual(post(f"{base}/remove", {"agent": agent}), 200)
         self.assertEqual(post(f"{base}/update", {"name": "Batch", "hue": 200}), 200)
         self.assertEqual(post(f"{base}/update", {"hue": 999}), 400)

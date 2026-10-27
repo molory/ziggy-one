@@ -20,6 +20,8 @@ import { LANGUAGES, currentLanguage, locale, t, tn, translateStatic } from "./i1
 import { confirmDialog, dismissDialog, isDialogOpen, onDialogClose } from "./modal.js";
 import { migratePins, orderRows, pinIndex, pinnedFirst, rowKeys, togglePin } from "./pins.js";
 import { memberKey, pinnedHead, splitByWorkspace, workspacePinKey, workspaceState } from "./workspaces.js";
+import { createSidebarDrag } from "./sidebar-drag.js";
+import { TOP_ZONES, applyToPins, applyToWorkspaces, planDrop, workspaceZones } from "./sidebar-order.js";
 
 // Static markup of index.html, written in English: translated once, before anything else is drawn.
 translateStatic(document.documentElement);
@@ -27,6 +29,16 @@ translateStatic(document.documentElement);
 let globalSettings = { language: currentLanguage() };
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
+
+// Drag and drop in the agent list (sidebar-drag.js). The list is not redrawn during a drag: a
+// redraw asked for meanwhile is done when it ends.
+let sessionsRedrawPending = false;
+const sidebarDrag = createSidebarDrag($("session-list"), {
+  onDrop: (item, zone, before, order) => applyListMove(planDrop(item, zone, before, order)),
+  onEnd: () => {
+    if (sessionsRedrawPending) drawSessions();
+  },
+});
 
 const WINDOW_LABELS = {
   five_hour: t("Current session (5h)"),
@@ -693,6 +705,12 @@ function includeAgents() {
 }
 
 function drawSessions() {
+  if (sidebarDrag.dragging) {
+    sessionsRedrawPending = true;
+    return;
+  }
+  sessionsRedrawPending = false;
+  sidebarDrag.reset();
   const rows = sessionRows();
   savePins(migratePins(pins, rows));
   const isOpen = (/** @type {any} */ row) => Boolean(row.active || row.conversation);
@@ -706,15 +724,18 @@ function drawSessions() {
   const { pinned, others: unpinnedRows } = orderRows(rest, pins, (row) => sessionFilter === "all" || isOpen(row));
   const others = pinnedOnly ? [] : unpinnedRows;
   const { head, unpinned } = pinnedHead(pinned, workspaces, pins);
-  const block = (/** @type {any} */ workspace) => workspaceItem(workspace, members.get(workspace.id) || []);
+  const block = (/** @type {any} */ workspace, /** @type {import("./sidebar-order.js").Zone} */ zone) =>
+    workspaceItem(workspace, members.get(workspace.id) || [], zone);
   if (head.length === 0 && unpinned.length === 0 && others.length === 0) {
     const empty = pinnedOnly ? t("No pinned agents.") : sessionFilter === "open" ? t("No active agents.") : t("No agents.");
     list.append(el("li", "muted", empty));
   } else {
     // At the top, pinned agents and workspaces, in pin order; then the other workspaces and agents.
-    const headItems = head.map((entry) => (entry.kind === "agent" ? sessionItem(entry.row) : block(entry.workspace)));
+    const headItems = head.map((entry) =>
+      (entry.kind === "agent" ? sessionItem(entry.row, TOP_ZONES.pins) : block(entry.workspace, TOP_ZONES.pins)));
     headItems.at(-1)?.classList.toggle("pinned-last", unpinned.length + others.length > 0);
-    list.append(...headItems, ...unpinned.map(block), ...others.map(sessionItem));
+    list.append(...headItems, ...unpinned.map((workspace) => block(workspace, TOP_ZONES.workspaces)),
+      ...others.map((row) => sessionItem(row, TOP_ZONES.loose)));
   }
   if (pinnedOnly && unpinnedRows.length) list.append(hiddenAgentsNote(unpinnedRows.length));
   // Access to deleted agents, to restore them.
@@ -892,8 +913,9 @@ function contextPie(context) {
  * Row of an agent: a click opens it; on the right, the pin and the ⋯ configuration button.
  *
  * @param {any} row
+ * @param {import("./sidebar-order.js").Zone} zone its place in the list, to move it
  */
-function sessionItem(row) {
+function sessionItem(row, zone) {
   const c = row.conversation;
   const label = displayName(row);
   const when = row.updatedAt ? shortDate(row.updatedAt) : "";
@@ -961,6 +983,9 @@ function sessionItem(row) {
   const actions = el("div", "row-actions");
   actions.append(pin);
   item.append(button, actions);
+  const dragItem = agentDragItem(row);
+  const key = zone.kind === "pins" ? dragItem.pinKey : zone.kind === "members" ? dragItem.memberKey : dragItem.id;
+  sidebarDrag.row(item, item, button, { item: dragItem, zone, key: key ?? dragItem.id });
   return item;
 }
 
@@ -1138,8 +1163,9 @@ function toggleCollapsed(id) {
  *
  * @param {{id: string, name: string, hue?: number | null, agents: string[]}} workspace
  * @param {any[]} rows its agents
+ * @param {import("./sidebar-order.js").Zone} zone its place in the list, to move it
  */
-function workspaceItem(workspace, rows) {
+function workspaceItem(workspace, rows, zone) {
   const collapsed = collapsedWorkspaces.has(workspace.id);
   const state = workspaceState(rows.map(agentState));
   const pinKey = workspacePinKey(workspace.id);
@@ -1216,12 +1242,19 @@ function workspaceItem(workspace, rows) {
   actions.append(pin, fold);
   head.append(toggle, sub, actions);
   item.append(head);
+  // Moved by its header; an agent dropped on the block goes into the workspace.
+  sidebarDrag.row(item, head, toggle, {
+    item: { kind: "workspace", id: workspace.id, pinned, pinKey: pinned ? pinKey : undefined },
+    zone, key: pinned ? pinKey : workspace.id,
+  });
+  sidebarDrag.container(item, workspace.id);
+  const zones = workspaceZones(workspace.id);
 
   if (!collapsed) {
     const body = el("ul", "workspace-agents");
     if (rows.length) {
       // Pinned agents keep their place at the top of the workspace.
-      const pinnedItems = pinnedRows.map(sessionItem);
+      const pinnedItems = pinnedRows.map((row) => sessionItem(row, zones.pins));
       if (onlyPinned) {
         // Pinned only: the other agents of the workspace are summed up in one line.
         body.append(...pinnedItems);
@@ -1230,7 +1263,7 @@ function workspaceItem(workspace, rows) {
         }
       } else {
         pinnedItems.at(-1)?.classList.toggle("pinned-last", others.length > 0);
-        body.append(...pinnedItems, ...others.map(sessionItem));
+        body.append(...pinnedItems, ...others.map((row) => sessionItem(row, zones.members)));
       }
     } else {
       const empty = el("li", "workspace-empty");
@@ -1243,6 +1276,44 @@ function workspaceItem(workspace, rows) {
     item.append(body);
   }
   return item;
+}
+
+/**
+ * Applies a move of the agent list (drag and drop, Alt + arrows): on screen right away, then on the
+ * server. Pins are saved whole; the workspace change (at most one) goes through its own route.
+ *
+ * @param {import("./sidebar-order.js").Operation[]} operations
+ */
+function applyListMove(operations) {
+  if (!operations.length) return;
+  const previous = workspaces;
+  savePins(applyToPins(pins, operations));
+  setWorkspaces(applyToWorkspaces(workspaces, operations));
+  for (const op of operations) {
+    const request = op.type === "leave" ? api(`/api/workspaces/${op.workspace}/remove`, { agent: op.agent })
+      : op.type === "place" ? api(`/api/workspaces/${op.workspace}/place`, { agent: op.agent, before: op.before })
+        : op.type === "move" ? api(`/api/workspaces/${op.workspace}/move`, { before: op.before })
+          : null;
+    request?.then((result) => setWorkspaces(result.workspaces)).catch((err) => {
+      setWorkspaces(previous);
+      showToast(t("Move not saved: {error}", { error: err.message }));
+    });
+  }
+}
+
+/**
+ * What a row of the list moves (see sidebar-order.js): the agent, its pin and its workspace.
+ *
+ * @param {any} row
+ * @returns {import("./sidebar-order.js").DragItem}
+ */
+function agentDragItem(row) {
+  const index = pinIndex(pins, row);
+  const workspace = workspaces.find((w) => memberKey(w, row) !== undefined);
+  return {
+    kind: "agent", id: rowKeys(row)[0], pinned: index !== -1, pinKey: index === -1 ? undefined : pins[index],
+    workspace: workspace?.id ?? null, memberKey: workspace ? memberKey(workspace, row) : undefined,
+  };
 }
 
 /**

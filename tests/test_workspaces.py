@@ -15,6 +15,7 @@ from workspaces import MAX_NAME, Workspaces  # noqa: E402
 
 A = "11111111-2222-4333-8444-555555555555"
 B = "22222222-2222-4333-8444-555555555555"
+C = "33333333-2222-4333-8444-555555555555"
 
 
 class WorkspacesTest(unittest.TestCase):
@@ -61,6 +62,35 @@ class WorkspacesTest(unittest.TestCase):
         self.workspaces.add_agent(second["id"], A)  # moved
         agents = {w["name"]: w["agents"] for w in self.workspaces.list()}
         self.assertEqual(agents, {"One": [], "Two": [A]})
+
+    def test_place_an_agent_before_another_or_at_the_end(self):
+        first, second = self.workspaces.create("One")["id"], self.workspaces.create("Two")["id"]
+        for key in (A, B):
+            self.workspaces.add_agent(first, key)
+        self.workspaces.place_agent(first, B, A)  # reorder inside the workspace
+        self.assertEqual(self.workspaces.list()[0]["agents"], [B, A])
+        self.workspaces.place_agent(first, B, None)  # to the end
+        self.assertEqual(self.workspaces.list()[0]["agents"], [A, B])
+        self.workspaces.add_agent(second, C)
+        self.workspaces.place_agent(second, A, C)  # from another workspace, before C
+        self.assertEqual([w["agents"] for w in self.workspaces.list()], [[B], [A, C]])
+        self.workspaces.place_agent(second, B, "44444444-2222-4333-8444-555555555555")  # unknown neighbour: end
+        self.assertEqual([w["agents"] for w in self.workspaces.list()], [[], [A, C, B]])
+        with self.assertRaises(ValueError):
+            self.workspaces.place_agent(second, A, "../x")
+        self.assertFalse(self.workspaces.place_agent("000000000000", A, None))
+
+    def test_move_a_workspace_before_another_or_at_the_end(self):
+        ids = [self.workspaces.create(name)["id"] for name in ("One", "Two", "Three")]
+        order = lambda: [w["id"] for w in self.workspaces.list()]  # noqa: E731
+        self.workspaces.move(ids[2], ids[0])
+        self.assertEqual(order(), [ids[2], ids[0], ids[1]])
+        self.workspaces.move(ids[2], None)
+        self.assertEqual(order(), ids)
+        self.assertEqual(Workspaces(self.bus, self.path).list()[0]["id"], ids[0], "saved")
+        with self.assertRaises(ValueError):
+            self.workspaces.move(ids[0], "../x")
+        self.assertFalse(self.workspaces.move("000000000000", None))
 
     def test_remove_delete_and_unknown_workspace(self):
         item = self.workspaces.create("One")

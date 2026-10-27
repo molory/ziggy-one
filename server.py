@@ -113,7 +113,7 @@ HOOK_SCRIPT = Path(__file__).resolve().parent / "ziggy_hook.py"
 HOOK_TIMEOUT = 15  # seconds given to the hook by Claude Code
 USAGE_REFRESH = 5 * 60  # the plan usage is read again at the end of a turn, at most every 5 minutes
 MAX_TURN_SUMMARY = 300  # characters of the last answer in the end-of-turn notification
-WORKSPACE_ROUTE = re.compile(r"^/api/workspaces/([0-9a-f]{12})/(update|add|remove|delete)$")
+WORKSPACE_ROUTE = re.compile(r"^/api/workspaces/([0-9a-f]{12})/(update|add|place|move|remove|delete)$")
 AGENT_ROUTE = re.compile(r"^/api/agents/(rename|options|role|avatar|delete|restore)$")
 AVATAR_IMAGE_ROUTE = re.compile(r"^/api/agents/avatars/([0-9a-f]{16})$")
 # Default Claude settings (those of the command line), which an agent can override.
@@ -881,6 +881,10 @@ class Handler(BaseHTTPRequestHandler):
                     found = workspaces.update(workspace_id, changes)
                 elif action == "add":
                     found = workspaces.add_agent(workspace_id, body.get("agent"))
+                elif action == "place":  # drag and drop: the agent goes just before `before` (null: at the end)
+                    found = workspaces.place_agent(workspace_id, body.get("agent"), body.get("before"))
+                elif action == "move":  # drag and drop: the workspace goes just before `before` (null: at the end)
+                    found = workspaces.move(workspace_id, body.get("before"))
                 else:
                     found = workspaces.remove_agent(workspace_id, body.get("agent"))
                 if not found:

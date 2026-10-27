@@ -559,6 +559,22 @@ body.resizing { cursor: col-resize; user-select: none; }
 .workspace-empty { padding: 0.2rem 0.6rem 0.3rem; }
 .deleted-entry { margin-top: 0.6rem; padding: 0.3rem 0.6rem 0; border-top: 1px solid var(--border); }
 
+/* Drag and drop in the agent list (sidebar-drag.js): the dragged row fades, an accent line shows
+   where it lands (no height: the rows do not move under the pointer), or the workspace to drop into
+   is outlined. The row actions stay hidden meanwhile. */
+.sessions .dragging { opacity: 0.4; }
+.drop-line { position: relative; height: 0; margin: 0; list-style: none; pointer-events: none; }
+.drop-line::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0.4rem auto;
+  height: 2px;
+  border-radius: calc(2px * var(--corners));
+  background: var(--accent);
+}
+.workspace.drop-into { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sessions.sorting .row-actions, .sessions.sorting .workspace-sub { visibility: hidden; }
+
 .link-button {
   all: unset;
   font-size: 0.82rem;

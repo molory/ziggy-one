@@ -142,6 +142,16 @@ class Workspaces:
 
     def add_agent(self, workspace_id, key):
         """Adds an agent; if it was in another workspace, it is removed from it."""
+        return self._put_agent(workspace_id, key, move=False, before=None)
+
+    def place_agent(self, workspace_id, key, before):
+        """Adds or moves an agent (drag and drop) just before the agent `before`, at the end if None or absent;
+        if it was in another workspace, it is removed from it."""
+        if before is not None and not is_agent_key(before):
+            raise ValueError(tr("Invalid agent id"))
+        return self._put_agent(workspace_id, key, move=True, before=before)
+
+    def _put_agent(self, workspace_id, key, move, before):
         if not is_agent_key(key):
             raise ValueError(tr("Invalid agent id"))
         with self._lock:
@@ -151,10 +161,27 @@ class Workspaces:
             for other in self._items:
                 if other is not item and key in other["agents"]:
                     other["agents"].remove(key)
-            if key not in item["agents"]:
-                if len(item["agents"]) >= MAX_AGENTS:
+            agents = item["agents"]
+            if key in agents and move:
+                agents.remove(key)
+            if key not in agents:
+                if len(agents) >= MAX_AGENTS:
                     raise ValueError(tr("{count} agents at most per workspace", count=MAX_AGENTS))
-                item["agents"].append(key)
+                agents.insert(agents.index(before) if before in agents else len(agents), key)
+            self._changed()
+            return True
+
+    def move(self, workspace_id, before):
+        """Moves a workspace (drag and drop) just before the workspace `before`, at the end if None or absent."""
+        if before is not None and not WORKSPACE_ID_RE.match(str(before)):
+            raise ValueError(tr("Unknown workspace"))
+        with self._lock:
+            item = self._find(workspace_id)
+            if item is None:
+                return False
+            self._items.remove(item)
+            target = self._find(before) if before is not None else None
+            self._items.insert(self._items.index(target) if target else len(self._items), item)
             self._changed()
             return True
 
