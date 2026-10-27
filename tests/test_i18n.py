@@ -41,12 +41,14 @@ class I18nTest(unittest.TestCase):
             bus = server.Bus()
             events = bus.subscribe()
             settings = Settings(bus, Path(tmp) / "settings.json")
-            self.assertEqual(settings.snapshot(), {"language": "en"})
-            self.assertEqual(settings.update({"language": "fr"}), {"language": "fr"})
+            self.assertEqual(settings.snapshot(), {"language": "en", "corners": "default"})
+            self.assertEqual(settings.update({"language": "fr"}), {"language": "fr", "corners": "default"})
             self.assertEqual(i18n.language(), "fr")
-            self.assertEqual(events.get_nowait(), ("settings", {"language": "fr"}))
-            self.assertEqual(Settings(bus, Path(tmp) / "settings.json").snapshot(), {"language": "fr"}, "reloaded")
-            for bad in ({"language": "xx"}, {"theme": "dark"}, {}, "fr"):
+            self.assertEqual(events.get_nowait(), ("settings", {"language": "fr", "corners": "default"}))
+            self.assertEqual(settings.update({"corners": "square"})["corners"], "square")
+            reloaded = Settings(bus, Path(tmp) / "settings.json").snapshot()
+            self.assertEqual(reloaded, {"language": "fr", "corners": "square"}, "reloaded")
+            for bad in ({"language": "xx"}, {"corners": "pointy"}, {"theme": "dark"}, {}, "fr"):
                 with self.assertRaises(ValueError):
                     settings.update(bad)
 
@@ -55,13 +57,17 @@ class I18nTest(unittest.TestCase):
             srv = server.ZiggyServer(0, tmp, {}, data_dir=Path(tmp) / "data")
             self.addCleanup(srv.server_close)
             handler = server.Handler.__new__(server.Handler)
+            handler.server = srv
             sent = []
             handler._send = lambda status, body=b"", content_type=None, headers=None: sent.append(body)
             handler._static("/")
-            self.assertIn(b'<html lang="en">', sent[-1])
+            self.assertIn(b'<html lang="en" data-corners="default">', sent[-1])
             srv.settings.update({"language": "fr"})
             handler._static("/")
-            self.assertIn(b'<html lang="fr">', sent[-1])
+            self.assertIn(b'<html lang="fr" data-corners="default">', sent[-1])
+            srv.settings.update({"corners": "square"})
+            handler._static("/")
+            self.assertIn(b'data-corners="square"', sent[-1])
 
 
 if __name__ == "__main__":

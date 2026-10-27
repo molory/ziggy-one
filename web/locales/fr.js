@@ -4,6 +4,12 @@
 /** @type {Record<string, string>} */
 export default {
   "column deleted": "colonne supprimée",
+  "Corners": "Coins",
+  "Square": "Carrés",
+  "Slightly rounded": "Légèrement arrondis",
+  "Rounded (default)": "Arrondis (par défaut)",
+  "Very rounded": "Très arrondis",
+  "Roundness of the cards, avatars and buttons, for every browser.": "Arrondi des cartes, avatars et boutons, pour tous les navigateurs.",
   "Language of the interface and of the server messages, for every browser. Texts given to the agents stay in English.": "Langue de l'interface et des messages du serveur, pour tous les navigateurs. Les textes donnés aux agents restent en anglais.",
   "\"{name}\" is too large (25 MB max).": "« {name} » est trop gros (25 Mo au maximum).",
   "\"{name}\" will no longer be offered.": "« {name} » ne sera plus proposé.",

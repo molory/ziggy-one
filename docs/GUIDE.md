@@ -60,6 +60,9 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   available. The language is chosen in the global Configuration ("General" tab) and saved by the server in
   `settings.json` (0600): it applies to the interface in every browser and to the server's messages (errors,
   statuses, default Kanban columns). The texts given to the agents (hooks, MCP tools) are always in English.
+- **Corners** (`settings.py`, `--corners` in `web/style.css`): the same "General" tab sets the roundness of every
+  card, avatar and button: square, slightly rounded, rounded (default) or very rounded. Saved in `settings.json`,
+  written on `<html data-corners>` when the page is served, and applied at once in every open browser.
 - **Sessions**: a session = a Claude Code conversation, started from a terminal or from ziggy-one.
   The list merges the open sessions (read-only access to `~/.claude/sessions/*.json`, the `.key` files are never
   read), the 50 most recent sessions of all folders and the agents open in ziggy-one, from newest to oldest, with an

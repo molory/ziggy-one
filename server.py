@@ -1294,6 +1294,8 @@ class Handler(BaseHTTPRequestHandler):
             body = body.replace(b"__CSP_NONCE__", nonce.encode())
             # Interface language (Configuration › General), known before any script runs: see web/i18n.js.
             body = body.replace(b"__LANG__", i18n.language().encode())
+            # Corner style (Configuration › General), applied before the first render.
+            body = body.replace(b"__CORNERS__", self.server.settings.snapshot()["corners"].encode())
             csp = SECURITY_HEADERS["Content-Security-Policy"].replace(
                 "style-src 'self'", f"style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'")
             headers = {"Content-Security-Policy": csp}

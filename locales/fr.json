@@ -154,6 +154,7 @@
   "Unknown diff type": "Type de diff inconnu",
   "Unknown file": "Fichier inconnu",
   "Unknown language: {code}": "Langue inconnue : {code}",
+  "Unknown corner style: {name}": "Style de coins inconnu : {name}",
   "Unknown route": "Route inconnue",
   "Unknown scope: agent or workspace": "Portée inconnue : agent ou workspace",
   "Unknown search mode (name or content)": "Mode de recherche inconnu (name ou content)",

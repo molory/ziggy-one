@@ -85,6 +85,7 @@ class TerminalHttpTest(unittest.TestCase):
         srv = server.ZiggyServer(0, tmp.name, {}, data_dir=Path(tmp.name) / "data")
         self.addCleanup(srv.server_close)
         handler = server.Handler.__new__(server.Handler)
+        handler.server = srv
         sent = []
         handler._send = lambda status, body=b"", content_type=None, headers=None: sent.append((body, headers))
         handler._json = lambda status, obj: sent.append((status, obj))

@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Corner style setting** (Configuration › General): square, slightly rounded, rounded (default) or very rounded,
+  for every card, avatar and button, in every browser.
 - **New agents and workspaces are pinned by default**, so they stay visible in the left panel; unpin them as usual.
   Resuming a past session does not pin it.
 - **macOS support.** Terminals no longer need util-linux `setsid --ctty` or `/proc`: `claude` starts in its own

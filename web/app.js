@@ -23,7 +23,7 @@ import { memberKey, pinnedHead, splitByWorkspace, workspacePinKey, workspaceStat
 
 // Static markup of index.html, written in English: translated once, before anything else is drawn.
 translateStatic(document.documentElement);
-/** Global settings (Configuration › General). @type {{language: string}} */
+/** Global settings (Configuration › General). @type {{language: string, corners?: string}} */
 let globalSettings = { language: currentLanguage() };
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -301,6 +301,15 @@ async function refreshUsage() {
   }
 }
 for (const button of refreshButtons) button.addEventListener("click", refreshUsage);
+
+/**
+ * Corner style of every card, avatar and button (a server setting, already on <html> when the page loads).
+ *
+ * @param {string | undefined} corners square, subtle, default or round
+ */
+function applyCorners(corners) {
+  document.documentElement.dataset.corners = corners ?? "default";
+}
 
 /** @param {string} theme */
 function applyTheme(theme) {
@@ -1566,7 +1575,7 @@ function lastRestartText(last) {
   return last.forced ? t("{text} (forced)", { text }) : text;
 }
 
-/** General tab: settings of Ziggy One for every browser, saved by the server (the interface language). */
+/** General tab: settings of Ziggy One for every browser, saved by the server (language, corner style). */
 function generalPane() {
   const pane = el("div", "panel-pane general-pane");
   const section = el("div", "settings-section");
@@ -1593,8 +1602,39 @@ function generalPane() {
   });
   section.append(label, select, el("p", "muted small",
     t("Language of the interface and of the server messages, for every browser. Texts given to the agents stay in English.")), error);
-  pane.append(section);
+  pane.append(section, cornersSection());
   return pane;
+}
+
+/** Corner style: from square to very rounded, applied at once (no reload). */
+function cornersSection() {
+  const section = el("div", "settings-section");
+  const label = el("label", "settings-title", t("Corners"));
+  label.setAttribute("for", "settings-corners");
+  const select = /** @type {HTMLSelectElement} */ (el("select", "text-input"));
+  select.id = "settings-corners";
+  select.append(...[["square", t("Square")], ["subtle", t("Slightly rounded")], ["default", t("Rounded (default)")],
+    ["round", t("Very rounded")]].map(([value, name]) => new Option(name, value)));
+  select.value = globalSettings.corners ?? "default";
+  const error = el("p", "form-error");
+  error.hidden = true;
+  select.addEventListener("change", async () => {
+    const previous = globalSettings.corners ?? "default";
+    applyCorners(select.value); // preview right away
+    select.disabled = true;
+    try {
+      globalSettings = (await api("/api/settings", { settings: { corners: select.value } })).settings;
+      error.hidden = true;
+    } catch (err) {
+      select.value = previous;
+      applyCorners(previous);
+      showPanelError(error, err);
+    }
+    select.disabled = false;
+  });
+  section.append(label, select, el("p", "muted small",
+    t("Roundness of the cards, avatars and buttons, for every browser.")), error);
+  return section;
 }
 
 function renderSettingsPanel() {
@@ -3116,8 +3156,9 @@ function connect() {
   on("agents", setAgentSettings);
   on("shortcuts", setShortcuts);
   // Language changed (here or in another tab): the page reloads in the new language.
-  on("settings", (/** @type {{language: string}} */ settings) => {
+  on("settings", (/** @type {{language: string, corners?: string}} */ settings) => {
     globalSettings = settings;
+    applyCorners(settings.corners);
     if (settings.language !== currentLanguage()) location.reload();
   });
 }
@@ -3207,6 +3248,7 @@ async function init() {
     loadPins(state.pins ?? []);
     shortcutsData = { ...emptyShortcuts(), ...(state.shortcuts ?? {}) };
     globalSettings = state.settings ?? globalSettings;
+    applyCorners(globalSettings.corners);
     agentSettings = state.agents ?? {};
     claudeDefaults = state.defaults ?? claudeDefaults;
     renderSessions(state.sessions);
