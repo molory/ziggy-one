@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Search in the sidebar**: above the agent list, and above the boards in Tasks mode. It finds agents hidden by
+  the filters (Active, pinned only, collapsed workspaces), boards, and tickets by number or title. Accents and case
+  do not count; Esc clears it.
 - **Tags in Kanban card titles**: a title starting with UPPERCASE words separated by "/" (`/SMYNO/FEATURE Fix login`)
   shows them as coloured chips on the card. The same text always gets the same colour.
 - **Drag and drop in the agent list**: reorder pinned agents and workspaces, reorder unpinned workspaces, move agents

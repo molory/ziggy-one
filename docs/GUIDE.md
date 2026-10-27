@@ -70,6 +70,10 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   the label of its folder. A pinned agent stays at the top of the list, whatever the filter (pins saved by the
   server in `pins.json`: they survive a restart and apply to every browser). A new agent is pinned by default;
   unpin it to let it go down the list.
+  **Search** (`web/sidebar-search.js`): the field above the list looks through all the agents it knows, even those
+  hidden by the Active filter, by "pinned only" or in a collapsed workspace, by name, last message, folder and
+  workspace name. Case and accents do not count; every word must be found, in any order. Esc clears it. In Tasks
+  mode, the same field finds boards (name, workspace) and tickets (number, title, board); a ticket opens its card.
   **Drag and drop** (`web/sidebar-order.js` for the rules, `web/sidebar-drag.js` for the pointer) reorganizes the
   list, keeping each item pinned or not: reorder the pinned agents and workspaces, reorder the unpinned workspaces,
   move an agent into a workspace (between two of its agents, or onto its header), reorder inside a workspace, or

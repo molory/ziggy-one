@@ -21,6 +21,7 @@ import { confirmDialog, dismissDialog, isDialogOpen, onDialogClose } from "./mod
 import { migratePins, orderRows, pinIndex, pinnedFirst, rowKeys, togglePin } from "./pins.js";
 import { memberKey, pinnedHead, splitByWorkspace, workspacePinKey, workspaceState } from "./workspaces.js";
 import { createSidebarDrag } from "./sidebar-drag.js";
+import { matchesTerms, searchTerms } from "./sidebar-search.js";
 import { TOP_ZONES, applyToPins, applyToWorkspaces, planDrop, workspaceZones } from "./sidebar-order.js";
 
 // Static markup of index.html, written in English: translated once, before anything else is drawn.
@@ -39,6 +40,18 @@ const sidebarDrag = createSidebarDrag($("session-list"), {
     if (sessionsRedrawPending) drawSessions();
   },
 });
+
+// Search in the sidebar: the agents here, the boards and tickets in kanban.js. Esc clears it.
+const agentSearch = /** @type {HTMLInputElement} */ ($("agent-search"));
+agentSearch.addEventListener("input", () => drawSessions());
+for (const input of [agentSearch, $("board-search")]) {
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !(/** @type {HTMLInputElement} */ (input)).value) return;
+    event.stopPropagation(); // clears the search, does not close the panel
+    /** @type {HTMLInputElement} */ (input).value = "";
+    input.dispatchEvent(new Event("input"));
+  });
+}
 
 const WINDOW_LABELS = {
   five_hour: t("Current session (5h)"),
@@ -718,6 +731,11 @@ function drawSessions() {
   $("filter-all").replaceChildren(t("All"), el("span", "count", String(rows.length)));
   const list = $("session-list");
   list.replaceChildren();
+  const terms = searchTerms(agentSearch.value);
+  if (terms.length) {
+    list.append(...agentSearchItems(rows, terms));
+    return;
+  }
   // Order: pinned agents, workspaces (with their agents, whatever the filter), then the other
   // agents, from newest to oldest.
   const { members, rest } = splitByWorkspace(rows, workspaces);
@@ -748,6 +766,26 @@ function drawSessions() {
     entry.append(link);
     list.append(entry);
   }
+}
+
+/**
+ * Search results: every agent of the list that matches (name, last message, folder, workspace),
+ * whatever the filters, pinned first, without drag and drop.
+ *
+ * @param {any[]} rows
+ * @param {string[]} terms
+ */
+function agentSearchItems(rows, terms) {
+  const { members, rest } = splitByWorkspace(rows, workspaces);
+  /** @type {Map<any, string>} */
+  const workspaceNames = new Map(rest.map((row) => [row, ""]));
+  for (const workspace of workspaces) for (const row of members.get(workspace.id) || []) workspaceNames.set(row, workspace.name);
+  // In the list's order (copies of a same discussion removed).
+  const found = rows.filter((row) => workspaceNames.has(row) &&
+    matchesTerms(terms, [displayName(row), agentLabel(row), row.cwd, workspaceNames.get(row)]));
+  if (!found.length) return [el("li", "muted search-empty", t("No matching agent."))];
+  const { pinned, others } = orderRows(found, pins, () => true);
+  return [...pinned, ...others].map((row) => sessionItem(row, null, workspaceNames.get(row)));
 }
 
 const AGENT_STATE_LABELS = { waiting: t("waiting for your reply"), busy: t("thinking"), active: t("active"), inactive: t("inactive") };
@@ -913,9 +951,10 @@ function contextPie(context) {
  * Row of an agent: a click opens it; on the right, the pin and the ⋯ configuration button.
  *
  * @param {any} row
- * @param {import("./sidebar-order.js").Zone} zone its place in the list, to move it
+ * @param {import("./sidebar-order.js").Zone | null} zone its place in the list, to move it (null: not movable)
+ * @param {string} [workspaceName] shown in the details (search results)
  */
-function sessionItem(row, zone) {
+function sessionItem(row, zone, workspaceName = "") {
   const c = row.conversation;
   const label = displayName(row);
   const when = row.updatedAt ? shortDate(row.updatedAt) : "";
@@ -960,6 +999,7 @@ function sessionItem(row, zone) {
     meta.append(git);
   }
   if (cost) meta.append(el("span", "", cost));
+  if (workspaceName) meta.append(el("span", "agent-workspace", workspaceName));
   const context = agentContext(row);
   if (context) meta.append(contextPie(context));
   // A named agent: its name as title, then its last message. Otherwise the last message is the title.
@@ -983,6 +1023,7 @@ function sessionItem(row, zone) {
   const actions = el("div", "row-actions");
   actions.append(pin);
   item.append(button, actions);
+  if (!zone) return item; // search result: not moved
   const dragItem = agentDragItem(row);
   const key = zone.kind === "pins" ? dragItem.pinKey : zone.kind === "members" ? dragItem.memberKey : dragItem.id;
   sidebarDrag.row(item, item, button, { item: dragItem, zone, key: key ?? dragItem.id });
@@ -3240,7 +3281,7 @@ function connect() {
 
 const MODE_KEY = "zo-mode";
 const kanban = mountKanban(
-  { list: $("board-list"), title: $("board-title"), body: $("board-body"), settings: $("board-settings"), close: $("board-close"), create: $("new-board") },
+  { list: $("board-list"), search: /** @type {HTMLInputElement} */ ($("board-search")), title: $("board-title"), body: $("board-body"), settings: $("board-settings"), close: $("board-close"), create: $("new-board") },
   {
     api, el, icon, confirmDialog, renderMarkdown, initialOf, shortDate,
     autoHue: agentHue,

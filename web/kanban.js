@@ -6,13 +6,16 @@
 
 import { t, tn } from "./i18n.js";
 import { mountBoardView } from "./kanban-board.js";
-import { boardRow } from "./kanban-logic.js";
+import { boardRow, tagHue, titleTags } from "./kanban-logic.js";
 import { mountTicketDialog } from "./kanban-ticket.js";
 import { orderRows, pinnedFirst } from "./pins.js";
+import { matchesTerms, searchTerms } from "./sidebar-search.js";
 import { memberKey, pinnedHead, splitByWorkspace, workspacePinKey } from "./workspaces.js";
 
 const SELECTED_KEY = "zo-selected-board";
 const COLLAPSED_KEY = "zo-collapsed-board-workspaces";
+/** Tickets shown at most in search results (the rest is counted). */
+const TICKET_RESULTS_MAX = 50;
 
 /**
  * @typedef {import("./kanban-logic.js").Board} Board
@@ -31,7 +34,7 @@ const COLLAPSED_KEY = "zo-collapsed-board-workspaces";
  * @property {(text: string) => string} initialOf
  * @property {(epochSeconds: number) => string} shortDate
  *
- * @typedef {{list: HTMLElement, title: HTMLElement, body: HTMLElement, settings: HTMLElement, close: HTMLElement, create: HTMLElement}} KanbanElements
+ * @typedef {{list: HTMLElement, search: HTMLInputElement, title: HTMLElement, body: HTMLElement, settings: HTMLElement, close: HTMLElement, create: HTMLElement}} KanbanElements
  */
 
 /** @param {string} key @param {any} fallback */
@@ -82,6 +85,7 @@ export function mountKanban(dom, deps) {
     try {
       const data = await api("/api/kanbans/index");
       index = new Map(data.tickets.map((/** @type {any} */ t) => [t.number, t]));
+      if (searchTerms(dom.search.value).length) drawList(); // results with the new titles
     } catch {
       // Index unavailable: "#42" references stay plain text.
     }
@@ -271,7 +275,67 @@ export function mountKanban(dom, deps) {
     return item;
   }
 
+  /**
+   * Row of a ticket found by the search: a click opens its card, on its board.
+   *
+   * @param {{number: number, board: string, boardName: string, title: string}} ticket
+   */
+  function ticketResult(ticket) {
+    const board = boards.find((b) => b.id === ticket.board);
+    const item = el("li", "session ticket-result");
+    if (board) item.style.setProperty("--agent-hue", String(hueOf(board, "board")));
+    const open = el("button", "session-open");
+    open.type = "button";
+    open.title = `#${ticket.number} · ${ticket.title}`;
+    const avatar = el("span", "agent-avatar board-avatar", deps.initialOf(ticket.boardName));
+    avatar.setAttribute("aria-hidden", "true");
+    const text = el("span", "agent-text");
+    const { tags, rest } = titleTags(ticket.title);
+    const title = el("span", "session-name");
+    for (const tag of tags) {
+      const chip = el("span", "kanban-tag", tag);
+      chip.style.setProperty("--tag-hue", String(tagHue(tag)));
+      title.append(chip, " ");
+    }
+    if (rest) title.append(rest);
+    const meta = el("span", "muted small agent-meta");
+    meta.append(el("span", "", `#${ticket.number}`), el("span", "", ticket.boardName));
+    text.append(title, meta);
+    open.append(avatar, text);
+    open.addEventListener("click", () => openNumber(ticket.number));
+    item.append(open);
+    return item;
+  }
+
+  /**
+   * Search results: the boards (name, workspace) and the tickets (number, title, board) that match.
+   *
+   * @param {string[]} terms
+   */
+  function searchItems(terms) {
+    const workspaceName = (/** @type {Board} */ board) =>
+      workspaces.find((w) => memberKey(w, boardRow(board)) !== undefined)?.name;
+    const foundBoards = [...boards].sort((a, b) => b.updatedAt - a.updatedAt)
+      .filter((board) => matchesTerms(terms, [board.name, workspaceName(board)]));
+    const foundTickets = [...index.values()].sort((a, b) => b.number - a.number)
+      .filter((ticket) => matchesTerms(terms, [`#${ticket.number}`, ticket.title, ticket.boardName]));
+    if (!foundBoards.length && !foundTickets.length) return [el("li", "muted search-empty", t("No matching board or ticket."))];
+    const items = foundBoards.map((board) => boardItem(boardRow(board)));
+    if (foundTickets.length) {
+      items.push(el("li", "search-group", tn(foundTickets.length, "{n} ticket", "{n} tickets")));
+      items.push(...foundTickets.slice(0, TICKET_RESULTS_MAX).map(ticketResult));
+      const more = foundTickets.length - TICKET_RESULTS_MAX;
+      if (more > 0) items.push(el("li", "muted small search-empty", tn(more, "{n} more ticket: refine the search", "{n} more tickets: refine the search")));
+    }
+    return items;
+  }
+
   function drawList() {
+    const terms = searchTerms(dom.search.value);
+    if (terms.length) {
+      dom.list.replaceChildren(...searchItems(terms));
+      return;
+    }
     // Most recently changed first, like the agents.
     const rows = [...boards].sort((a, b) => b.updatedAt - a.updatedAt).map(boardRow);
     const { members, rest } = splitByWorkspace(rows, workspaces);
@@ -671,28 +735,31 @@ export function mountKanban(dom, deps) {
     viewRefresh();
   }
 
+  /**
+   * Opens a ticket card by its number (address /t/42, "#42" link, search result), on its board.
+   *
+   * @param {number} number
+   */
+  async function openNumber(number) {
+    try {
+      const found = await api(`/api/kanbans/tickets/number/${number}`);
+      await selectBoard(found.board);
+      const data = boardView.current();
+      const ticket = data?.tickets.find((t) => t.id === found.ticket);
+      if (data && ticket) ticketDialog.open(ticket, data.board);
+    } catch (err) {
+      showError(err);
+      setAddress("/#tasks");
+    }
+  }
+
+  dom.search.addEventListener("input", drawList);
   dom.create.addEventListener("click", openCreate);
   dom.settings.addEventListener("click", () => selected && openSettings(selected));
   dom.close.addEventListener("click", showDefault);
 
   return {
-    /**
-     * Opens a ticket card by its number (address /t/42, "#42" link), on its board.
-     *
-     * @param {number} number
-     */
-    async openNumber(number) {
-      try {
-        const found = await api(`/api/kanbans/tickets/number/${number}`);
-        await selectBoard(found.board);
-        const data = boardView.current();
-        const ticket = data?.tickets.find((t) => t.id === found.ticket);
-        if (data && ticket) ticketDialog.open(ticket, data.board);
-      } catch (err) {
-        showError(err);
-        setAddress("/#tasks");
-      }
-    },
+    openNumber,
     /** Loads boards, workspaces and pins (at startup, and after a reconnection). */
     async load() {
       await loadIndex();
