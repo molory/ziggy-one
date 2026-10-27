@@ -118,6 +118,7 @@ export function mountTerminalView(root, deps) {
       fontSize: 13,
       scrollback: 5000,
       theme: THEME,
+      macOptionClickForcesSelection: true, // macOS: Option + drag selects (see FORCE_SELECTION_KEY)
     });
     const fit = new fitAddon.FitAddon();
     term.loadAddon(fit);
@@ -149,15 +150,15 @@ export function mountTerminalView(root, deps) {
       return key !== "v"; // false: xterm.js does not send ^V, the browser pastes
     });
     // Mouse selection. Claude Code, full screen, captures the mouse: a drag would be sent to it.
-    // xterm.js reserves Shift + drag for selection; we invert it: a plain drag selects, and
-    // Shift + drag goes to Claude Code. Double-click (word) and triple-click (line) follow.
+    // xterm.js reserves Shift + drag (Option + drag on macOS) for selection; we invert it: a plain
+    // drag selects, and Shift + drag goes to Claude Code. Double-click (word) and triple-click (line) follow.
     host.addEventListener("mousedown", (event) => {
       if (!event.isTrusted || event.button !== 0 || event.ctrlKey || event.altKey || event.metaKey) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       term.focus();
-      selecting = !event.shiftKey; // the drag that follows (moves, release) is forwarded with Shift
-      event.target?.dispatchEvent(withShift(event, !event.shiftKey));
+      selecting = !event.shiftKey; // the drag that follows (moves, release) is forwarded as a forced selection
+      event.target?.dispatchEvent(forcingSelection(event, !event.shiftKey));
     }, true);
     // Copy requested by Claude Code itself (OSC 52 sequence, e.g. /copy): to the clipboard.
     // Only writing is supported, never reading the clipboard by the program.
@@ -200,24 +201,29 @@ export function mountTerminalView(root, deps) {
   /** Selection drag in progress (see entryFor): its moves and its release go through with Shift. */
   let selecting = false;
 
+  /** Key that makes xterm.js select even when the program captures the mouse: Option on macOS
+   * (with macOptionClickForcesSelection, same platform test as xterm.js), Shift elsewhere. */
+  const FORCE_SELECTION_KEY = /Mac/.test(navigator.platform) ? "altKey" : "shiftKey";
+
   /**
-   * Copy of a mouse event, with or without Shift (xterm.js selects when Shift is pressed).
+   * Copy of a mouse event, with or without the key that forces a selection in xterm.js.
    *
    * @param {MouseEvent} event
-   * @param {boolean} shiftKey
+   * @param {boolean} force
    */
-  const withShift = (event, shiftKey) => new MouseEvent(event.type, {
+  const forcingSelection = (event, force) => new MouseEvent(event.type, {
     bubbles: true, cancelable: true, view: window, detail: event.detail, button: event.button, buttons: event.buttons,
-    clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY, shiftKey,
+    clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY,
+    [FORCE_SELECTION_KEY]: force,
   });
-  // During a selection drag, xterm.js must only see "with Shift" events: otherwise Claude Code
+  // During a selection drag, xterm.js must only see "forced" events: otherwise Claude Code
   // receives the release, which counts as input and clears the selection.
   for (const type of ["mousemove", "mouseup"]) {
     document.addEventListener(type, (event) => {
       if (!selecting || !event.isTrusted) return;
       if (type === "mouseup") selecting = false;
       event.stopImmediatePropagation();
-      (event.target ?? document).dispatchEvent(withShift(event, true));
+      (event.target ?? document).dispatchEvent(forcingSelection(event, true));
     }, true);
   }
 
