@@ -2,7 +2,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { boardRow, columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink } from "../web/kanban-logic.js";
+import {
+  boardRow, columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+} from "../web/kanban-logic.js";
 import { orderRows } from "../web/pins.js";
 import { splitByWorkspace } from "../web/workspaces.js";
 
@@ -77,4 +79,21 @@ test("shareLink: link with read key, otherwise the plain ticket address", async 
   assert.equal(withKey, "http://127.0.0.1:6767/t/42?key=secret");
   const fallback = await shareLink(async () => { throw new Error("offline"); }, "http://127.0.0.1:6767", ticket);
   assert.equal(fallback, "http://127.0.0.1:6767/t/42");
+});
+
+test("titleTags: UPPERCASE words with a leading or trailing / become tags", () => {
+  assert.deepEqual(titleTags("/SMYNO/FEATURE Fix login"), { tags: ["SMYNO", "FEATURE"], rest: "Fix login" });
+  assert.deepEqual(titleTags("SMYNO/FEATURE/ Fix login"), { tags: ["SMYNO", "FEATURE"], rest: "Fix login" });
+  assert.deepEqual(titleTags("/SMYNO/FEATURE/Fix login"), { tags: ["SMYNO", "FEATURE"], rest: "Fix login" });
+  assert.deepEqual(titleTags("BUG/"), { tags: ["BUG"], rest: "" });
+  assert.deepEqual(titleTags("/V2/ÉTÉ_2 Plan"), { tags: ["V2", "ÉTÉ_2"], rest: "Plan" });
+  for (const title of ["API fix", "A/B testing", "/SMYNOfix", "/Smyno/ Fix", "Fix /BUG/"]) {
+    assert.deepEqual(titleTags(title), { tags: [], rest: title }, title);
+  }
+});
+
+test("tagHue: the same text always gives the same hue", () => {
+  assert.equal(tagHue("SMYNO"), tagHue("SMYNO"));
+  assert.notEqual(tagHue("SMYNO"), tagHue("FEATURE"));
+  for (const tag of ["A", "SMYNO", "FEATURE", "ÉTÉ"]) assert.ok(tagHue(tag) >= 0 && tagHue(tag) < 360);
 });

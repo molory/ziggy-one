@@ -1622,10 +1622,10 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .kanban-card-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: calc(8px * var(--corners)); }
 /* Ticket number, above the title: a click copies the ticket link. */
+.kanban-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem; margin: 0.45rem 0.65rem 0; }
 .kanban-card-number {
   all: unset;
   display: inline-block;
-  margin: 0.45rem 0.65rem 0;
   padding: 0 0.2rem;
   border-radius: calc(4px * var(--corners));
   font-size: 0.72rem;
@@ -1636,8 +1636,25 @@ body.resizing { cursor: col-resize; user-select: none; }
 .kanban-card-number:hover { color: var(--accent); text-decoration: underline; }
 .kanban-card-number:focus-visible { outline: 2px solid var(--accent); }
 .kanban-card-number.copied, .ticket-number.copied { color: var(--ok); text-decoration: none; }
-.kanban-card-number + .kanban-card-open { padding-top: 0.15rem; }
+.kanban-card-head + .kanban-card-open { padding-top: 0.25rem; }
 .kanban-card-title { font-size: 0.88rem; font-weight: 500; overflow-wrap: anywhere; }
+/* Tags at the start of a title ("/SMYNO/FEATURE …"): one chip each, its color derived from its text. */
+.kanban-card-tags { display: contents; cursor: grab; }
+.kanban-tag {
+  --tag-hue: 0;
+  padding: 0.05rem 0.4rem;
+  border-radius: calc(4px * var(--corners));
+  background: hsl(var(--tag-hue) 65% 45% / 0.16);
+  color: hsl(var(--tag-hue) 60% 32%);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  overflow-wrap: anywhere;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .kanban-tag { background: hsl(var(--tag-hue) 55% 50% / 0.22); color: hsl(var(--tag-hue) 70% 75%); }
+}
+:root[data-theme="dark"] .kanban-tag { background: hsl(var(--tag-hue) 55% 50% / 0.22); color: hsl(var(--tag-hue) 70% 75%); }
 .kanban-card-preview { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
 .kanban-card-meta { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--muted); }
 .kanban-card-meta svg { width: 0.85rem; height: 0.85rem; fill: none; stroke: currentColor; stroke-width: 2; }

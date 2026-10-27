@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Tags in Kanban card titles**: a title starting with UPPERCASE words separated by "/" (`/SMYNO/FEATURE Fix login`)
+  shows them as coloured chips on the card. The same text always gets the same colour.
 - **Drag and drop in the agent list**: reorder pinned agents and workspaces, reorder unpinned workspaces, move agents
   into, inside and out of workspaces (Alt + ↑/↓ with the keyboard). Pinned items stay pinned. New workspace routes
   `place` (an agent before another) and `move` (a workspace before another).

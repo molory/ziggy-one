@@ -6,7 +6,9 @@
 // No content goes through innerHTML: text nodes only.
 
 import { t, tn } from "./i18n.js";
-import { columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink } from "./kanban-logic.js";
+import {
+  columnTickets, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+} from "./kanban-logic.js";
 
 const TICKET_TYPE = "application/x-ziggy-ticket";
 
@@ -115,7 +117,8 @@ export function mountBoardView(root, deps) {
     open.dataset.id = ticket.id;
     open.setAttribute("aria-keyshortcuts", "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
     open.title = t("Open the ticket · Alt + arrows to move it");
-    open.append(el("span", "kanban-card-title", ticket.title));
+    const { tags, rest } = titleTags(ticket.title);
+    if (rest) open.append(el("span", "kanban-card-title", rest));
     const preview = descriptionPreview(ticket.description);
     if (preview) open.append(el("span", "kanban-card-preview", preview));
     if (ticket.files.length) {
@@ -125,7 +128,20 @@ export function mountBoardView(root, deps) {
       open.append(files);
     }
     open.addEventListener("click", () => deps.openTicket(ticket.id));
-    item.append(numberButton(ticket));
+    // Ticket number and title tags on the same line, above the title.
+    const head = el("div", "kanban-card-head");
+    head.append(numberButton(ticket));
+    if (tags.length) {
+      const chips = el("span", "kanban-card-tags");
+      for (const tag of tags) {
+        const chip = el("span", "kanban-tag", tag);
+        chip.style.setProperty("--tag-hue", String(tagHue(tag)));
+        chips.append(chip);
+      }
+      chips.addEventListener("click", () => deps.openTicket(ticket.id));
+      head.append(chips);
+    }
+    item.append(head);
     open.addEventListener("keydown", (event) => {
       if (!event.altKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || !data) return;
       event.preventDefault();

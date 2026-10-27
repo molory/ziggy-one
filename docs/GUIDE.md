@@ -108,6 +108,9 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   has customisable columns (name, colour, order; "To do, In progress, Done" at first; deleting a non-empty column
   asks where to send its tickets). A ticket has a title, a Markdown description (Write / Preview) and attached files
   (button, drag or paste; 25 MB per file, kept as long as the ticket exists, in `kanban-files/` with 0700/0600).
+  Tags at the start of a title (UPPERCASE words separated by "/", with a leading or trailing "/": `/SMYNO/FEATURE Fix
+  login` or `SMYNO/FEATURE/ Fix login`) show as coloured chips on the card; the colour comes from the tag's text, so a
+  tag always has the same one. The ticket editor shows the title as typed.
   Tickets are moved by native drag and drop (no library), or with the keyboard: Alt + arrows on a card. Everything is
   saved by the server (`kanbans.json`, `kanban-workspaces.json`, `kanban-pins.json`) and published on the real-time
   stream: several tabs stay in sync. An `agent` field is reserved on tickets to hand them to an agent later.

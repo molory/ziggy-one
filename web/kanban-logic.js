@@ -161,3 +161,37 @@ export function splitReferences(text, known) {
   if (last < text.length) parts.push({ text: text.slice(last) });
   return parts;
 }
+
+// --- tags at the start of a title ---------------------------------------------------------------
+
+/** UPPERCASE words separated by "/", with a leading and/or trailing "/" (e.g. "/SMYNO/FEATURE"). */
+const TAG_WORD = String.raw`\p{Lu}[\p{Lu}\p{N}_-]*(?=\/|\s|$)`;
+const TITLE_TAGS = new RegExp(String.raw`^\s*(\/)?(${TAG_WORD}(?:\/${TAG_WORD})*)(\/)?`, "u");
+
+/**
+ * Tags written at the start of a title, shown as chips on the card, and the rest of the title.
+ * "/SMYNO/FEATURE Fix login" and "SMYNO/FEATURE/ Fix login" give the tags SMYNO and FEATURE.
+ * Without a leading or trailing "/", nothing is a tag ("API fix", "A/B testing").
+ *
+ * @param {string} title
+ * @returns {{tags: string[], rest: string}}
+ */
+export function titleTags(title) {
+  const match = TITLE_TAGS.exec(title);
+  if (!match || (!match[1] && !match[3])) return { tags: [], rest: title };
+  return { tags: match[2].split("/"), rest: title.slice(match[0].length).trim() };
+}
+
+/**
+ * Hue of a tag, derived from its text: the same text always has the same color.
+ *
+ * @param {string} tag
+ */
+export function tagHue(tag) {
+  let hash = 0x811c9dc5; // FNV-1a
+  for (const char of tag) {
+    hash ^= /** @type {number} */ (char.codePointAt(0));
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0) % 360;
+}
