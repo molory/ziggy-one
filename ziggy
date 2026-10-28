@@ -3,7 +3,8 @@
 
 The current folder becomes the default folder of new agents; the options of server.py still apply
 (`ziggy --permission-mode auto`). If Ziggy One is already running, `ziggy` only opens the interface.
-The token is never shown: the browser gets a single-use sign-in link.
+The token is never shown: the browser gets a single-use sign-in link. `ziggy --link` prints that link instead of
+opening the browser, to paste into another one.
 """
 
 import sys

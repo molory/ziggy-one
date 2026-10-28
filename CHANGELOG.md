@@ -5,6 +5,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Signed-in browsers, with sign-out.** The cookie no longer holds the access token: each sign-in creates a
+  session for that browser only (random id, the server keeps its SHA-256 in `browser-sessions.json`, 0600). The
+  account window lists the signed-in browsers with **Sign out** for each one and **Sign out the others**; a session
+  unused for 30 days ends, and `--new-token` signs every browser out. Tabs signed in before this version have to
+  sign in again once (`ziggy`).
+- **Closed terminal**: when Claude Code stops, its last screen fades behind a card with **Reopen Claude Code**
+  (the exit code shows only if it stopped by itself); **See the last output** sets the card aside and leaves **Reopen**
+  in the bar.
+- **Sign in from another browser**: `ziggy --link` prints a single-use login link instead of opening the default
+  browser, and the account window has **Sign in another browser**, which copies one (`POST /api/login-link`).
+  After opening the browser, `ziggy` says to run `ziggy --link` if nothing showed up (with `--port N` when needed).
+- **A real screen when the tab is not signed in**, instead of a red banner: Ziggy One is running, only this browser
+  lacks the sign-in. It shows, animated, how to get back in (`ziggy` in a terminal opens a signed-in tab, nothing
+  restarts), with the command to copy (`ziggy --port N` when not on 6767) and a reload button.
 - **New interface font: Plus Jakarta Sans**, a variable font served by the server itself (`web/vendor/plus-jakarta-sans/`,
   SIL Open Font License). Code and terminals stay monospaced. The server now serves `.woff2` files.
 - **Logo orange as the accent colour** (`#EA580C`, with a new peach `#F6B492` in the logo) in light and dark themes. Welcome screen redone around it: plain

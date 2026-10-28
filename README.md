@@ -81,16 +81,23 @@ closed cleanly.
 ### Logging in without exposing the token
 
 The access token never shows up: not in the terminal, not in the browser's address bar or history, not on a
-command line. `ziggy` opens the browser on a **single-use login link** (`/?login=…`), signed with the token, that
-expires after 5 minutes and is exchanged for a session cookie. Once used, the link is worthless wherever it was
-copied: shell scrollback, `ps`, browser history, a log file.
+command line, not in a cookie. `ziggy` opens the browser on a **single-use login link** (`/?login=…`), signed with
+the token, that expires after 5 minutes and is exchanged for a **session of that browser only**. Once used, the
+link is worthless wherever it was copied: shell scrollback, `ps`, browser history, a log file.
 
+- **Another browser** (Firefox next to Chrome, a private window…): `ziggy --link` prints a fresh single-use link
+  instead of opening the default browser; paste it into the other one. From a browser that is already logged in,
+  the account window (click your avatar) has **Sign in another browser**: it copies such a link, no terminal needed.
 - **No browser at hand?** Started as `python3 server.py` (no `--open`), or when no browser can be opened, the server
-  prints the login link instead. Run `ziggy` again for a fresh one.
-- **Bookmark** `http://127.0.0.1:6767/`, never a login link. If the browser lost the cookie (it lasts until the
-  browser is closed), run `ziggy` again.
-- **Token leaked anyway?** Restart once with `--new-token`: open tabs, ticket links and agent keys are invalidated.
-- `/?token=<token>` still logs in, for scripts that already use it; the token is in
+  prints the login link instead. Run `ziggy --link` for a fresh one.
+- **Signed-in browsers**: the account window lists them (browser, system, sign-in date, last activity), with
+  **Sign out** for each one and **Sign out the others**. A session unused for 30 days ends by itself; sessions
+  survive a restart of Ziggy One.
+- **Bookmark** `http://127.0.0.1:6767/`, never a login link. If the browser is signed out (cookie lost, session
+  ended), the page says so and shows how to get back in: run `ziggy` again.
+- **Token leaked anyway?** Restart once with `--new-token`: every browser is signed out, ticket links and agent
+  keys are invalidated.
+- `/?token=<token>` still logs in (it also opens a session), for scripts that already use it; the token is in
   `~/.local/share/ziggy-one/token` (`0600`).
 
 | Option | Meaning |
@@ -102,6 +109,7 @@ copied: shell scrollback, `ps`, browser history, a log file.
 | `--allowed-tools "Bash(git status)" Edit …` | Tools allowed without asking. |
 | `--chrome` | Enable Claude in Chrome for the agents. |
 | `--open` | Open the interface in the browser with a login link (`ziggy` always passes it). |
+| `--link` | Print a single-use login link instead of opening the browser, to paste into another browser. |
 | `--new-token` | Generate a new access token (invalidates open tabs, ticket links and agent keys). |
 
 Every agent can override the model, permission mode and Chrome setting in its **Configuration** tab.
@@ -118,8 +126,9 @@ attachments, the activity journal and the access token. Ziggy One only **reads**
 Ziggy One is a single-user tool for your own machine.
 
 - Listens on `127.0.0.1` only and checks the `Host` header (DNS rebinding protection).
-- Access requires a random token, exchanged for an `HttpOnly; SameSite=Strict` cookie; every `POST` must carry a
-  local `Origin` (CSRF protection).
+- Access requires a random token, which only signs browsers in: each one gets its own session id in an
+  `HttpOnly; SameSite=Strict` cookie (the server keeps only its SHA-256), which can be signed out alone and ends
+  after 30 days unused. Every `POST` must carry a local `Origin` (CSRF protection).
 - The token itself is never printed: logging in goes through single-use login links (HMAC of the token, 5-minute
   expiry, rejected once used), so a link found in a log or a browser history cannot be replayed.
 - Strict Content Security Policy: no inline scripts, no CDN, no `innerHTML` with untrusted content.

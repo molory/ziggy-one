@@ -47,6 +47,7 @@ import i18n
 from i18n import tr
 import kanban
 import login_links
+from browser_sessions import COOKIE_MAX_AGE, BrowserSessions
 import ticket_links
 from restart import Restart
 from shell import ShellRuns
@@ -356,6 +357,10 @@ class ZiggyServer(ThreadingHTTPServer):
         # Token kept from one start to the next: open tabs stay signed in after a relaunch.
         self.token = persistent_token(data_dir / "token", renew=renew_token)
         self.logins = login_links.LoginLinks(self.token)
+        # Signed-in browsers: each has its own session (the cookie), never the token itself.
+        self.sessions = BrowserSessions(data_dir / "browser-sessions.json")
+        if renew_token:
+            self.sessions.sign_out_all()
         # Terminal hooks: their own token (0600 file, renewed at each start), distinct from
         # the browser's, and one Claude Code settings file per terminal.
         self.port = port
@@ -658,13 +663,17 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host", "") in self.server.allowed_hosts
 
     def _authenticated(self):
+        """True if the cookie holds a valid browser session; its digest is kept in self.session."""
+        self.session = None
         cookie = SimpleCookie()
         try:
             cookie.load(self.headers.get("Cookie", ""))
         except CookieError:
             return False
         morsel = cookie.get(self.server.cookie_name)
-        return morsel is not None and same_secret(morsel.value, self.server.token)
+        if morsel is not None:
+            self.session = self.server.sessions.check(morsel.value)
+        return self.session is not None
 
     def _origin_ok(self):
         return self.headers.get("Origin") in self.server.allowed_origins
@@ -694,7 +703,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(403, {"error": tr("Sign-in link invalid, expired or already used")})
             elif not same_secret(query.get("token", [""])[0], self.server.token):
                 return self._json(403, {"error": tr("Invalid token")})
-            cookie = f"{self.server.cookie_name}={self.server.token}; HttpOnly; SameSite=Strict; Path=/"
+            # The browser gets a session of its own, which can be signed out alone: never the token.
+            session_id = self.server.sessions.create(self.headers.get("User-Agent", ""))
+            cookie = (f"{self.server.cookie_name}={session_id}; HttpOnly; SameSite=Strict; Path=/; "
+                      f"Max-Age={COOKIE_MAX_AGE}")
             return self._send(303, headers={"Location": "/", "Set-Cookie": cookie})
         if url.path.startswith("/api/"):
             if not self._authenticated():
@@ -732,6 +744,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"sessions": sessions})
             if url.path == "/api/server":
                 return self._json(200, self.server.info())
+            if url.path == "/api/browsers":
+                return self._json(200, {"browsers": self.server.sessions.list(current=self.session)})
             if url.path == "/api/terminals":
                 # Configuration screen: the open Claude Code terminals, when they opened and their memory.
                 return self._json(200, {"terminals": self.server.terminals.stats()})
@@ -835,6 +849,21 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     return self._json(400, {"error": tr("Unknown action (start, force or cancel)")})
                 return self._json(200, self.server.info())
+            if path == "/api/login-link":
+                # Single-use sign-in link, to open the interface in another browser (only from a signed-in one).
+                return self._json(200, {"path": f"/?login={self.server.logins.make()}", "lifetime": login_links.LIFETIME})
+            if path == "/api/browsers/sign-out":
+                # One signed-in browser; this one, if it is its own id (its cookie is then cleared).
+                public = body.get("id")
+                if not isinstance(public, str) or not public:
+                    return self._json(400, {"error": tr("Invalid browser id")})
+                if self.server.sessions.sign_out(public, current=self.session):
+                    cookie = f"{self.server.cookie_name}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0"
+                    return self._send(200, b'{"signedOut": "current"}', headers={"Set-Cookie": cookie})
+                return self._json(200, {"browsers": self.server.sessions.list(current=self.session)})
+            if path == "/api/browsers/sign-out-others":
+                self.server.sessions.sign_out_others(self.session)
+                return self._json(200, {"browsers": self.server.sessions.list(current=self.session)})
             if path == "/api/pins":
                 try:
                     return self._json(200, {"pins": self.server.pins.set(body.get("pins"))})
@@ -1324,6 +1353,8 @@ class Handler(BaseHTTPRequestHandler):
                     payload = f"event: {kind}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
                 except queue.Empty:
                     payload = ": ping\n\n"
+                if not self.server.sessions.alive(self.session):
+                    break  # browser signed out: its stream stops too
                 self.wfile.write(payload.encode())
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
@@ -1372,16 +1403,22 @@ def ziggy_listens(port):
 
 
 def show_login(port, token, open_browser):
-    """Address to bookmark, and single-use sign-in link: opened in the browser or printed."""
+    """Address to bookmark, and single-use sign-in link: opened in the browser or printed (`ziggy --link`, to
+    paste into another browser)."""
     address = f"http://127.0.0.1:{port}/"
     link = f"{address}?login={login_links.make(token)}"
+    # The command to give again: on another port, `ziggy` alone would start a second server on 6767.
+    command = "ziggy --link" if port == 6767 else f"ziggy --port {port} --link"
     print(f"ziggy-one → {address}", flush=True)
     if open_browser and webbrowser.open(link):
         print("interface opened in the browser", flush=True)
+        # webbrowser.open can succeed without anything showing up (no default browser, headless session…).
+        print(f"not opening in your browser, or want another one? run `{command}` "
+              "and paste the link it prints into your browser", flush=True)
     else:
         minutes = login_links.LIFETIME // 60
         print(f"sign in (single-use link, valid {minutes} min): {link}", flush=True)
-        print("running `ziggy` again gives a new one", flush=True)
+        print(f"running `{command}` again gives a new one", flush=True)
 
 
 def main():
@@ -1401,6 +1438,8 @@ def main():
                         help="generates a new access token (open tabs will have to use the new address)")
     parser.add_argument("--open", action="store_true",
                         help="opens the interface in the browser, already signed in (single-use link)")
+    parser.add_argument("--link", action="store_true",
+                        help="prints a single-use sign-in link instead of opening the browser (for another browser)")
     args = parser.parse_args()
 
     try:
@@ -1419,7 +1458,7 @@ def main():
             sys.exit(f"ziggy-one: port {args.port} is already used by another program (try --port)")
         # Already running: only open the interface, with the running server's token.
         print(f"ziggy-one is already running on port {args.port}", flush=True)
-        show_login(args.port, persistent_token(default_data_dir() / "token"), args.open)
+        show_login(args.port, persistent_token(default_data_dir() / "token"), args.open and not args.link)
         return
     threading.Thread(target=server.usage.probe, daemon=True).start()
 
@@ -1430,7 +1469,7 @@ def main():
     signal.signal(signal.SIGTERM, interrupt)
 
     # Never the token itself on screen or in a log: a link that works only once.
-    show_login(server.server_address[1], server.token, args.open)
+    show_login(server.server_address[1], server.token, args.open and not args.link)
     # After a restart requested from the interface: reopens the terminals and makes the agents resume.
     threading.Thread(target=server.restart.resume_after_restart, daemon=True).start()
     try:
@@ -1441,8 +1480,8 @@ def main():
         server.server_close()
     if server.restart.requested:
         # Same command, same process (log and terminal kept); --new-token must not be replayed.
-        # Nor --open: the open tabs reconnect by themselves.
-        argv = [arg for arg in sys.argv[1:] if arg not in ("--new-token", "--open")]
+        # Nor --open or --link: the open tabs reconnect by themselves.
+        argv = [arg for arg in sys.argv[1:] if arg not in ("--new-token", "--open", "--link")]
         print("ziggy-one: restart requested from the interface", flush=True)
         os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), *argv])
 

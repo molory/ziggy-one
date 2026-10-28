@@ -20,11 +20,20 @@ python3 server.py --chrome            # enables Claude in Chrome for the agents
 Or, simpler, `ziggy` in the working folder (once: `ln -s "$PWD/ziggy" ~/.local/bin/ziggy`): the server starts with
 this folder as default and opens the interface in the browser, already signed in; if it is already running, `ziggy`
 only opens the interface. The token is never displayed: the browser receives a one-time sign-in link, valid for
-5 minutes. Without a browser, this link is printed in the terminal.
-The token is kept from one start to the next (`~/.local/share/ziggy-one/token`, 0600): open tabs stay signed in
-after a restart. `--new-token` generates a new one.
+5 minutes. Without a browser, this link is printed in the terminal. For another browser, `ziggy --link` prints a fresh
+link instead of opening the default browser; from a signed-in tab, the account window offers **Sign in another
+browser**, which copies one (`POST /api/login-link`, signed-in browsers only). A tab that is not signed in (cookie
+lost, `--new-token`) shows a full screen explaining this, with the `ziggy` command to copy.
+Each sign-in gives the browser its own session (cookie `zo_<port>`, never the token); the server keeps their
+SHA-256 in `browser-sessions.json` (0600), so open tabs stay signed in after a restart. A session unused for 30 days
+ends. The account window lists the **signed-in browsers** (`GET /api/browsers`) with **Sign out** for each one
+(`POST /api/browsers/sign-out`, which also clears the cookie when it is this browser) and **Sign out the others**
+(`POST /api/browsers/sign-out-others`); a signed-out browser's event stream stops too.
+The token is kept from one start to the next (`~/.local/share/ziggy-one/token`, 0600). `--new-token` generates a
+new one and signs every browser out.
 
-Options: `--port`, `--cwd`, `--model`, `--permission-mode`, `--allowed-tools "Bash(git status)" Edit …`, `--chrome`.
+Options: `--port`, `--cwd`, `--model`, `--permission-mode`, `--allowed-tools "Bash(git status)" Edit …`, `--chrome`,
+`--link`.
 
 ## Tests
 

@@ -2,6 +2,8 @@
 
 import http.client
 import base64
+import contextlib
+import io
 import json
 import os
 import socket
@@ -121,7 +123,7 @@ class ConversationsHttpTest(unittest.TestCase):
         self.host = f"127.0.0.1:{port}"
         self.headers = {
             "Host": self.host, "Origin": f"http://{self.host}",
-            "Cookie": f"{self.httpd.cookie_name}={self.httpd.token}", "Content-Type": "application/json",
+            "Cookie": f"{self.httpd.cookie_name}={self.httpd.sessions.create()}", "Content-Type": "application/json",
         }
 
     def call(self, method, path, body=None, headers=None):
@@ -511,7 +513,7 @@ class HttpTest(unittest.TestCase):
         cls.port = cls.httpd.server_address[1]
         cls.host = f"127.0.0.1:{cls.port}"
         cls.origin = f"http://{cls.host}"
-        cls.cookie = f"{cls.httpd.cookie_name}={cls.httpd.token}"
+        cls.cookie = f"{cls.httpd.cookie_name}={cls.httpd.sessions.create()}"
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
 
     @classmethod
@@ -538,12 +540,76 @@ class HttpTest(unittest.TestCase):
         cookie = response.getheader("Set-Cookie")
         self.assertIn("HttpOnly", cookie)
         self.assertIn("SameSite=Strict", cookie)
+        self.assertNotIn(self.httpd.token, cookie, "the browser gets a session, never the token")
+
+    def json_request(self, method, path, cookie, body=None):
+        headers = {"Host": self.host, "Cookie": cookie}
+        if method == "POST":
+            headers |= {"Origin": self.origin, "Content-Type": "application/json"}
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request(method, path, body=json.dumps(body or {}).encode() if method == "POST" else None, headers=headers)
+        response = connection.getresponse()
+        data = json.loads(response.read() or b"null")
+        connection.close()
+        return response, data
+
+    def sign_in(self):
+        """Signs in like a browser (single-use link): the cookie it receives."""
+        response = self.request("GET", f"/?login={self.httpd.logins.make()}", {"User-Agent": "Test browser"})
+        return response.getheader("Set-Cookie").split(";")[0]
+
+    def test_token_is_not_a_cookie(self):
+        self.assertEqual(self.request("GET", "/api/server", {"Cookie": f"{self.httpd.cookie_name}={self.httpd.token}"}).status, 401)
+
+    def test_signed_in_browsers_can_be_signed_out(self):
+        mine, other = self.sign_in(), self.sign_in()
+        response, data = self.json_request("GET", "/api/browsers", mine)
+        self.assertEqual(response.status, 200)
+        current = [b for b in data["browsers"] if b["current"]]
+        self.assertEqual(len(current), 1)
+        self.assertEqual(current[0]["agent"], "Test browser")
+        # Another browser, signed out from this one.
+        _, data = self.json_request("GET", "/api/browsers", other)
+        other_id = next(b["id"] for b in data["browsers"] if b["current"])
+        response, _ = self.json_request("POST", "/api/browsers/sign-out", mine, {"id": other_id})
+        self.assertEqual(response.status, 200)
+        self.assertEqual(self.json_request("GET", "/api/server", other)[0].status, 401)
+        self.assertEqual(self.json_request("GET", "/api/server", mine)[0].status, 200)
+        # This browser: its cookie is cleared.
+        response, data = self.json_request("POST", "/api/browsers/sign-out", mine, {"id": current[0]["id"]})
+        self.assertEqual(data, {"signedOut": "current"})
+        self.assertIn("Max-Age=0", response.getheader("Set-Cookie"))
+        self.assertEqual(self.json_request("GET", "/api/server", mine)[0].status, 401)
+
+    def test_sign_out_other_browsers(self):
+        mine, others = self.sign_in(), [self.sign_in(), self.sign_in()]
+        # The other tests' cookie goes too: it is given back afterwards.
+        self.addCleanup(lambda: setattr(HttpTest, "cookie", f"{self.httpd.cookie_name}={self.httpd.sessions.create()}"))
+        response, data = self.json_request("POST", "/api/browsers/sign-out-others", mine)
+        self.assertEqual(response.status, 200)
+        self.assertEqual([b["current"] for b in data["browsers"]], [True])
+        for cookie in others:
+            self.assertEqual(self.json_request("GET", "/api/server", cookie)[0].status, 401)
+        self.assertEqual(self.json_request("GET", "/api/server", mine)[0].status, 200)
 
     def test_login_link_works_once(self):
         link = self.httpd.logins.make()
         self.assertEqual(self.request("GET", f"/?login={link}").status, 303)
         self.assertEqual(self.request("GET", f"/?login={link}").status, 403, "a link works only once")
         self.assertEqual(self.request("GET", "/?login=fake").status, 403)
+
+    def test_login_link_for_another_browser(self):
+        headers = {"Origin": f"http://{self.host}", "Content-Type": "application/json"}
+        self.assertEqual(self.request("POST", "/api/login-link", headers, b"{}").status, 401, "only from a signed-in browser")
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request("POST", "/api/login-link", body=b"{}", headers={"Host": self.host, "Cookie": self.cookie, **headers})
+        response = connection.getresponse()
+        data = json.loads(response.read())
+        connection.close()
+        self.assertEqual(response.status, 200)
+        self.assertTrue(data["path"].startswith("/?login="))
+        self.assertEqual(self.request("GET", data["path"]).status, 303, "the other browser signs in")
+        self.assertEqual(self.request("GET", data["path"]).status, 403, "once")
 
     def test_api_requires_cookie(self):
         self.assertEqual(self.request("GET", "/api/state").status, 401)
@@ -695,6 +761,35 @@ class HttpTest(unittest.TestCase):
         self.assertIn("default-src 'self'", index.getheader("Content-Security-Policy"))
         self.assertEqual(self.request("GET", "/../server.py").status, 404)
         self.assertEqual(self.request("GET", "/%2e%2e/server.py").status, 404)
+
+
+
+class ShowLoginTest(unittest.TestCase):
+    """`ziggy` opens the browser on a single-use link; `ziggy --link` prints it (for another browser)."""
+
+    def show(self, open_browser):
+        out = io.StringIO()
+        with mock.patch("server.webbrowser.open", return_value=True) as opened, contextlib.redirect_stdout(out):
+            server.show_login(6767, "x" * 32, open_browser)
+        return opened, out.getvalue()
+
+    def test_opened_in_the_browser(self):
+        opened, out = self.show(True)
+        self.assertTrue(opened.call_args.args[0].startswith("http://127.0.0.1:6767/?login="))
+        self.assertNotIn("?login=", out, "the link is not printed")
+        self.assertIn("not opening in your browser", out)
+        self.assertIn("`ziggy --link`", out)
+
+    def test_printed_for_another_browser(self):
+        opened, out = self.show(False)
+        opened.assert_not_called()
+        self.assertIn("http://127.0.0.1:6767/?login=", out)
+
+    def test_command_keeps_the_port(self):
+        out = io.StringIO()
+        with mock.patch("server.webbrowser.open", return_value=True), contextlib.redirect_stdout(out):
+            server.show_login(6799, "x" * 32, True)
+        self.assertIn("`ziggy --port 6799 --link`", out.getvalue())
 
 
 if __name__ == "__main__":

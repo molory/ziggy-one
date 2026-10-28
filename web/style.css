@@ -334,13 +334,6 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .segmented input:checked + span { background: var(--accent); color: #fff; }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.banner {
-  margin: 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--bad);
-  border-radius: var(--radius);
-  color: var(--bad);
-}
 
 .layout {
   flex: 1;
@@ -1556,6 +1549,72 @@ body.resizing { cursor: col-resize; user-select: none; }
 .terminal-screens { flex: 1; min-height: 0; display: flex; padding: 0.4rem; border-radius: calc(8px * var(--corners)); background: #1d1f23; }
 .terminal-screen { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .terminal-screen .xterm { height: 100%; }
+/* Claude Code closed: its last screen fades behind a card that reopens it. */
+.terminal-screen { transition: opacity 0.25s ease, filter 0.25s ease; }
+.terminal-screens.is-closed .terminal-screen { opacity: 0.35; filter: blur(1.5px) saturate(0.3); pointer-events: none; }
+.terminal-closed {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  width: min(24rem, calc(100% - 2rem));
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.75rem 1.5rem 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: calc(14px * var(--corners));
+  background: var(--surface);
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.55);
+  color: var(--text);
+  text-align: center;
+  animation: terminal-closed-in 0.3s ease-out;
+}
+.terminal-closed h3 { margin: 0.25rem 0 0; font-size: 1.05rem; }
+.terminal-closed p { margin: 0; }
+.terminal-closed-detail { overflow-wrap: anywhere; }
+.terminal-closed-icon {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: calc(12px * var(--corners));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.terminal-closed svg, .terminal-reopen-bar svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.terminal-closed-icon svg { width: 1.6rem; height: 1.6rem; }
+.terminal-closed-actions { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; margin-top: 0.5rem; }
+.terminal-reopen { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.55rem 1.1rem; font-weight: 600; }
+.terminal-reopen svg { width: 1rem; height: 1rem; }
+.terminal-reopen:hover:not(:disabled) svg { animation: terminal-reopen-spin 0.6s ease; }
+.terminal-peek { all: unset; padding: 0.25rem 0.5rem; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
+.terminal-peek:hover { color: var(--text); text-decoration: underline; }
+.terminal-peek:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.terminal-reopen-bar {
+  all: unset;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: calc(6px * var(--corners));
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.terminal-reopen-bar svg { width: 0.85rem; height: 0.85rem; }
+.terminal-reopen-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@keyframes terminal-closed-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); } }
+@keyframes terminal-reopen-spin { to { transform: rotate(-360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .terminal-closed, .terminal-reopen:hover svg { animation: none; }
+  .terminal-screen { transition: none; }
+}
 .files-view { gap: 0.5rem; padding: 0.5rem 0.75rem; }
 .files-view [hidden] { display: none !important; }
 .files-view.busy { cursor: progress; }
@@ -2320,6 +2379,31 @@ kbd {
 .settings-button svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--accent); }
 .settings-button .muted { justify-self: end; font-weight: 400; }
 .settings-button:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.settings-button + .settings-button { margin-top: 0.5rem; }
+.share-login { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; }
+.share-login .text-input { width: 100%; padding: 0.4rem 0.6rem; font: 0.78rem var(--mono); }
+/* Signed-in browsers: one line each, this browser marked. */
+.browser-list { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.browser-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: calc(8px * var(--corners));
+}
+.browser-item.current { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.browser-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.browser-name { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; }
+.browser-current {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.browser-sign-out { flex: none; color: var(--bad); }
 
 .settings-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem; }
 .settings-stat {
@@ -2579,3 +2663,90 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .ticket-due { margin-top: -0.25rem; }
 .ticket-due-input { width: auto; }
 .ticket-due .link-button[hidden] { display: none; }
+
+/* --- Not signed in: full screen over the app, the steps to get back in played in a loop --- */
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+  background: var(--bg);
+}
+.auth-card { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; width: min(30rem, 100%); text-align: center; }
+.auth-emblem { position: relative; display: grid; place-items: center; width: 5.5rem; height: 5.5rem; margin-bottom: 0.4rem; }
+.auth-emblem::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 30%, transparent), transparent);
+  animation: auth-breathe 3.2s ease-in-out infinite;
+}
+.auth-emblem img { position: relative; width: 100%; height: 100%; animation: auth-float 4s ease-in-out infinite; }
+@keyframes auth-breathe { 0%, 100% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } }
+@keyframes auth-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+.auth-title { margin: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.auth-text { margin: 0; color: var(--muted); }
+
+/* Terminal: `ziggy` is typed, the server answers, the badge pops; 7 s, then again. */
+.auth-term {
+  position: relative;
+  width: 100%;
+  margin-top: 0.4rem;
+  border-radius: calc(12px * var(--corners));
+  background: #1c1917;
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.45);
+  text-align: left;
+  overflow: hidden;
+}
+.auth-term-bar { display: flex; gap: 0.4rem; padding: 0.6rem 0.75rem; background: #292524; }
+.auth-term-bar span { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: #57534e; }
+.auth-term-body { min-height: 6.4rem; padding: 0.75rem 1rem 1rem; font: 0.85rem/1.7 var(--mono); color: #e7e5e4; }
+.auth-line { margin: 0; white-space: nowrap; }
+.auth-prompt { color: var(--accent); }
+/* The command's length (ziggy, or ziggy --port N) comes from app.js. */
+.auth-screen { --auth-cmd-length: 5; }
+.auth-typed { display: inline-block; overflow: hidden; vertical-align: bottom; width: 0; animation: auth-type 7s steps(var(--auth-cmd-length)) infinite; }
+.auth-caret { display: inline-block; width: 0.55em; height: 1.1em; margin-left: 1px; vertical-align: -0.2em; background: #e7e5e4; animation: auth-caret 0.9s steps(1) infinite; }
+.auth-l2, .auth-l3 { opacity: 0; }
+.auth-l2 { color: #a8a29e; animation: auth-l2 7s infinite; }
+.auth-l3 { color: #4ade80; animation: auth-l3 7s infinite; }
+@keyframes auth-type { 0%, 8% { width: 0; } 22%, 92% { width: calc(var(--auth-cmd-length) * 1ch); } 100% { width: 0; } }
+@keyframes auth-caret { 50% { opacity: 0; } }
+@keyframes auth-l2 { 0%, 30% { opacity: 0; translate: 0 4px; } 34%, 92% { opacity: 1; translate: 0 0; } 100% { opacity: 0; } }
+@keyframes auth-l3 { 0%, 42% { opacity: 0; translate: 0 4px; } 46%, 92% { opacity: 1; translate: 0 0; } 100% { opacity: 0; } }
+.auth-badge {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.5rem;
+  border-radius: calc(999px * var(--corners));
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0;
+  animation: auth-badge 7s cubic-bezier(0.2, 1.4, 0.4, 1) infinite;
+}
+.auth-badge svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes auth-badge { 0%, 54% { opacity: 0; transform: scale(0.6); } 60%, 92% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+
+.auth-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin-top: 0.4rem; }
+.auth-actions button { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.55rem 1rem; font-size: 0.9rem; font-weight: 600; }
+#auth-copy code { font-size: 0.9rem; }
+.auth-copy-label { padding-left: 0.6rem; border-left: 1px solid rgb(255 255 255 / 0.4); font-weight: 500; }
+.auth-hint { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.auth-hint + .auth-hint { margin-top: -0.4rem; }
+
+/* Less motion: the end of the story, without animation. */
+@media (prefers-reduced-motion: reduce) {
+  .auth-screen *, .auth-screen *::before { animation: none !important; }
+  .auth-typed { width: calc(var(--auth-cmd-length) * 1ch); }
+  .auth-l2, .auth-l3, .auth-badge { opacity: 1; }
+}

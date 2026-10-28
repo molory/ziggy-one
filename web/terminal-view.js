@@ -58,8 +58,25 @@ function decode(base64) {
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  *
  * @typedef {{term: any, fit: any, host: HTMLElement, seq: number, ready: boolean, early: {seq: number, data: string}[],
- *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>}} Entry
+ *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>, code?: number, stopping?: boolean}} Entry
  */
+
+/**
+ * @param {string} d SVG path (24×24, stroked)
+ */
+function icon(d) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", d);
+  svg.append(path);
+  return svg;
+}
+
+// Terminal window with a prompt, and the circular arrow of the Reopen button.
+const TERMINAL_ICON = "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM6 9l3 3-3 3M12 15h5";
+const REOPEN_ICON = "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5";
 
 /**
  * @param {HTMLElement} root
@@ -89,7 +106,29 @@ export function mountTerminalView(root, deps) {
   const error = el("p", "form-error");
   error.hidden = true;
   intro.append(el("h3", "", t("Claude Code in a terminal")), introText, start, error);
+  // Claude Code stopped: a card over its last screen, to reopen it (or look at what it printed).
+  const closed = el("div", "terminal-closed");
+  closed.setAttribute("role", "status");
+  const closedIcon = el("div", "terminal-closed-icon");
+  closedIcon.append(icon(TERMINAL_ICON));
+  const closedDetail = el("p", "terminal-closed-detail muted small");
+  const reopen = /** @type {HTMLButtonElement} */ (el("button", "primary terminal-reopen"));
+  reopen.type = "button";
+  reopen.append(icon(REOPEN_ICON), t("Reopen Claude Code"));
+  const peekButton = /** @type {HTMLButtonElement} */ (el("button", "terminal-peek", t("See the last output")));
+  peekButton.type = "button";
+  const closedActions = el("div", "terminal-closed-actions");
+  closedActions.append(reopen, peekButton);
+  closed.append(closedIcon, el("h3", "", t("Claude Code is closed.")), closedDetail, closedActions);
+  // While reading the last output: Reopen moves to the bar.
+  const reopenBar = /** @type {HTMLButtonElement} */ (el("button", "terminal-reopen-bar"));
+  reopenBar.type = "button";
+  reopenBar.append(icon(REOPEN_ICON), t("Reopen"));
+  bar.insertBefore(reopenBar, stop);
+  /** @type {Set<string>} agents whose closed card is set aside to read the last output */
+  const peeking = new Set();
   const screens = el("div", "terminal-screens");
+  screens.append(closed);
   root.append(bar, intro, screens);
 
   /** @param {unknown} err */
@@ -318,9 +357,24 @@ export function mountTerminalView(root, deps) {
     const isRunning = Boolean(id && running.has(id));
     const entry = id ? entries.get(id) : undefined;
     for (const [key, other] of entries) other.host.hidden = key !== id;
+    const isClosed = Boolean(!isRunning && entry);
+    const peek = Boolean(isClosed && id && peeking.has(id));
     bar.hidden = !isRunning && !entry;
-    intro.hidden = isRunning;
+    intro.hidden = isRunning || isClosed;
     stop.hidden = !isRunning;
+    closed.hidden = !isClosed || peek;
+    reopenBar.hidden = !peek;
+    screens.classList.toggle("is-closed", isClosed && !peek);
+    // The error goes under the button that was clicked.
+    (isClosed ? closed : intro).append(error);
+    if (isClosed && entry) {
+      // The exit code only when it stopped by itself (closed from here, the code is the hangup's).
+      const folder = c.cwd.split("/").filter(Boolean).pop() || c.cwd;
+      closedDetail.textContent = typeof entry.code === "number" && entry.code !== 0 && !entry.stopping
+        ? t("It stopped with code {code}, in {folder}.", { code: entry.code, folder })
+        : t("It stopped, in {folder}.", { folder });
+      closedDetail.title = c.cwd;
+    }
     status.textContent = isRunning
       ? `Claude Code · ${c.cwd}`
       : entry ? t("Claude Code is closed.") : "";
@@ -339,27 +393,40 @@ export function mountTerminalView(root, deps) {
   async function startClaude() {
     const c = shown;
     if (!c || running.has(c.id) || start.disabled) return;
-    start.disabled = true;
+    start.disabled = reopen.disabled = reopenBar.disabled = true;
     error.hidden = true;
+    peeking.delete(c.id);
     try {
       const entry = await entryFor(c.id);
       entry.host.hidden = false;
       entry.fit.fit();
       entry.ready = false;
+      entry.stopping = false;
       const snapshot = await api(`/api/conversations/${c.id}/terminal-start`, { cols: entry.term.cols, rows: entry.term.rows });
       running.add(c.id);
       replay(c.id, entry, snapshot);
     } catch (err) {
       showError(err);
     } finally {
-      start.disabled = false;
+      start.disabled = reopen.disabled = reopenBar.disabled = false;
       render(true);
     }
   }
   start.addEventListener("click", startClaude);
+  reopen.addEventListener("click", startClaude);
+  reopenBar.addEventListener("click", startClaude);
+  peekButton.addEventListener("click", () => {
+    if (!shown) return;
+    peeking.add(shown.id);
+    render();
+    entries.get(shown.id)?.term.scrollToBottom();
+  });
 
   stop.addEventListener("click", () => {
-    if (shown) api(`/api/conversations/${shown.id}/terminal-stop`, {}).catch(showError);
+    if (!shown) return;
+    const entry = entries.get(shown.id);
+    if (entry) entry.stopping = true;
+    api(`/api/conversations/${shown.id}/terminal-stop`, {}).catch(showError);
   });
 
   /**
@@ -438,11 +505,13 @@ export function mountTerminalView(root, deps) {
       if (event.running) running.add(event.conversation);
       else {
         running.delete(event.conversation);
+        peeking.delete(event.conversation);
         const entry = entries.get(event.conversation);
         if (entry) {
           entry.ready = false;
-          const closed = typeof event.code === "number" ? t("Claude Code closed · code {code}", { code: event.code }) : t("Claude Code closed");
-          entry.term.write(`\r\n\x1b[2m[${closed}]\x1b[0m\r\n`);
+          entry.code = event.code;
+          const line = typeof event.code === "number" ? t("Claude Code closed · code {code}", { code: event.code }) : t("Claude Code closed");
+          entry.term.write(`\r\n\x1b[2m[${line}]\x1b[0m\r\n`);
         }
       }
       if (shown?.id !== event.conversation) return;

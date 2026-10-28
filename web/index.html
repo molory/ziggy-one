@@ -16,9 +16,29 @@
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <p id="auth-error" class="banner" hidden>
-    Unauthenticated session. Open the URL with <code>?token=…</code> printed in the terminal when the server starts.
-  </p>
+  <!-- Not signed in (an API call answered 401): a full screen that shows, animated, how to get back in. -->
+  <section id="auth-error" class="auth-screen" hidden role="alertdialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-text">
+    <div class="auth-card">
+      <div class="auth-emblem" aria-hidden="true"><img src="/logo.svg" alt=""></div>
+      <h1 id="auth-title" class="auth-title">This tab is not signed in</h1>
+      <p id="auth-text" class="auth-text">Ziggy One is running, but this browser is not signed in yet (new browser, private window, signed out or cleared cookies). Run this command in a terminal: it opens a new tab, already signed in. Nothing restarts, your agents keep running.</p>
+      <div class="auth-term" aria-hidden="true">
+        <div class="auth-term-bar"><span></span><span></span><span></span></div>
+        <div class="auth-term-body">
+          <p class="auth-line auth-l1"><span class="auth-prompt">$</span> <span class="auth-typed auth-cmd">ziggy</span><span class="auth-caret"></span></p>
+          <p class="auth-line auth-l2">ziggy-one is already running on port <span class="auth-port">6767</span></p>
+          <p class="auth-line auth-l3">interface opened in the browser</p>
+        </div>
+        <div class="auth-badge"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Signed in</span></div>
+      </div>
+      <div class="auth-actions">
+        <button id="auth-copy" type="button" class="primary"><code class="auth-cmd">ziggy</code><span class="auth-copy-label">Copy</span></button>
+        <button id="auth-reload" type="button">Reload this page</button>
+      </div>
+      <p class="auth-hint">Not your default browser? Run <code class="auth-cmd-link">ziggy --link</code> and paste the link it prints into this tab.</p>
+      <p class="auth-hint">Or, from a tab that is signed in: account window › “Sign in another browser”.</p>
+    </div>
+  </section>
 
   <div class="layout">
     <aside class="sidebar">
@@ -170,7 +190,25 @@
         <span>Configuration</span>
         <span class="muted small">open Claude terminals</span>
       </button>
+      <!-- Another browser: a single-use sign-in link, copied, to paste there. -->
+      <button id="share-login" type="button" class="settings-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>Sign in another browser</span>
+        <span class="muted small">single-use link</span>
+      </button>
+      <div id="share-login-result" class="share-login" hidden>
+        <input id="share-login-link" class="text-input" type="text" readonly aria-label="Sign-in link">
+        <p id="share-login-note" class="muted small" role="status"></p>
+      </div>
     </div>
+    <!-- Each browser has its own session: sign out one, or all the others. -->
+    <section class="account-section" aria-labelledby="browsers-heading">
+      <div class="account-section-head">
+        <h3 id="browsers-heading">Signed-in browsers</h3>
+        <button id="sign-out-others" type="button" class="link-button small" hidden>Sign out the others</button>
+      </div>
+      <ul id="browser-list" class="browser-list"></ul>
+    </section>
     <section class="account-section" aria-labelledby="usage-heading">
       <div class="account-section-head">
         <h3 id="usage-heading">Plan usage</h3>

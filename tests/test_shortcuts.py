@@ -67,7 +67,7 @@ class ShortcutsTest(unittest.TestCase):
         self.addCleanup(srv.server_close)
         self.addCleanup(srv.shutdown)
         host = f"127.0.0.1:{srv.server_address[1]}"
-        headers = {"Host": host, "Origin": f"http://{host}", "Cookie": f"{srv.cookie_name}={srv.token}",
+        headers = {"Host": host, "Origin": f"http://{host}", "Cookie": f"{srv.cookie_name}={srv.sessions.create()}",
                    "Content-Type": "application/json"}
 
         def call(path, body):

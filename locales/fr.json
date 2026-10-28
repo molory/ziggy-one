@@ -92,6 +92,7 @@
   "Invalid terminal size": "Taille du terminal invalide",
   "Invalid title": "Titre invalide",
   "Invalid token": "Token invalide",
+  "Invalid browser id": "Identifiant de navigateur invalide",
   "Invalid value for {name}: {value}": "Valeur invalide pour {name} : {value}",
   "JSON object expected": "Objet JSON attendu",
   "Local changes would be overwritten: commit or discard them before continuing.": "Des modifications locales seraient écrasées : commite-les ou annule-les avant de continuer.",

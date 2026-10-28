@@ -6,6 +6,7 @@ import { abbrSuggestions, animalOf, avatarLook, fillAvatar } from "./avatars.js"
 import { uniqueName } from "./agent-names.js";
 import { createHero } from "./hero.js";
 import { formatBytes, formatSince, isIdle, sortTerminals } from "./terminals-logic.js";
+import { browserLabel } from "./browsers-logic.js";
 import { mountFilesView } from "./files-view.js";
 import { mountDiscussionView } from "./discussion-view.js";
 import { mountKanban } from "./kanban.js";
@@ -81,6 +82,25 @@ async function api(path, body) {
   if (!res.ok) throw Object.assign(new Error(data.error || res.statusText), { status: res.status });
   return data;
 }
+
+// Not signed in: the screen shows the command for this server's port, copies it, reloads once signed in elsewhere.
+const authPort = location.port || "80";
+const authCommand = authPort === "6767" ? "ziggy" : `ziggy --port ${authPort}`;
+for (const node of $("auth-error").querySelectorAll(".auth-cmd")) node.textContent = authCommand;
+for (const node of $("auth-error").querySelectorAll(".auth-cmd-link")) node.textContent = `${authCommand} --link`;
+$("auth-error").querySelector(".auth-port")?.replaceChildren(authPort);
+$("auth-error").style.setProperty("--auth-cmd-length", String(authCommand.length));
+$("auth-reload").addEventListener("click", () => location.reload());
+$("auth-copy").addEventListener("click", async () => {
+  const label = /** @type {HTMLElement} */ ($("auth-copy").querySelector(".auth-copy-label"));
+  try {
+    await navigator.clipboard.writeText(authCommand);
+    label.textContent = t("Copied");
+  } catch {
+    label.textContent = t("Copy blocked");
+  }
+  window.setTimeout(() => (label.textContent = t("Copy")), 1500);
+});
 
 /** @type {number | undefined} */
 let toastTimer;
@@ -289,6 +309,7 @@ function renderAccountDialog() {
 let accountTimer;
 $("usage").addEventListener("click", () => {
   renderAccountDialog();
+  loadBrowsers();
   accountDialog.showModal();
   accountTimer = window.setInterval(renderAccountDialog, 30_000); // countdowns to the resets
 });
@@ -297,7 +318,91 @@ $("open-settings").addEventListener("click", () => {
   accountDialog.close();
   openSettingsPanel();
 });
-accountDialog.addEventListener("close", () => clearInterval(accountTimer));
+// Another browser: a single-use sign-in link (valid a few minutes), copied, shown to be copied by hand otherwise.
+$("share-login").addEventListener("click", async () => {
+  const field = /** @type {HTMLInputElement} */ ($("share-login-link"));
+  const note = $("share-login-note");
+  try {
+    const { path, lifetime } = await api("/api/login-link", {});
+    field.value = `${location.origin}${path}`;
+    $("share-login-result").hidden = false;
+    const minutes = Math.round(lifetime / 60);
+    try {
+      await navigator.clipboard.writeText(field.value);
+      note.textContent = t("Link copied. Paste it into the other browser within {n} min: it works only once.", { n: minutes });
+    } catch {
+      note.textContent = t("Copy it and paste it into the other browser within {n} min: it works only once.", { n: minutes });
+    }
+    field.select();
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+});
+
+/**
+ * Signed-in browsers, in the account window: this one first in the list's order, each with "Sign out".
+ *
+ * @param {{id: string, created: number, lastSeen: number, agent: string, current: boolean}[]} browsers
+ */
+function renderBrowsers(browsers) {
+  const now = Date.now() / 1000;
+  const items = browsers.map((browser) => {
+    const item = el("li", browser.current ? "browser-item current" : "browser-item");
+    const who = el("div", "browser-who");
+    const name = el("span", "browser-name", browserLabel(browser.agent));
+    name.title = browser.agent;
+    if (browser.current) name.append(el("span", "browser-current", t("this browser")));
+    const since = formatSince(browser.lastSeen, now);
+    who.append(name, el("span", "muted small", t("signed in on {date} · active {since}", {
+      date: new Date(browser.created * 1000).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }),
+      since: since === t("just now") ? t("just now") : t("{since} ago", { since }),
+    })));
+    const signOut = el("button", "link-button small browser-sign-out", t("Sign out"));
+    signOut.setAttribute("type", "button");
+    signOut.addEventListener("click", () => signOutBrowser(browser.id));
+    item.append(who, signOut);
+    return item;
+  });
+  $("browser-list").replaceChildren(...items);
+  $("sign-out-others").hidden = !browsers.some((browser) => !browser.current);
+}
+
+async function loadBrowsers() {
+  try {
+    renderBrowsers((await api("/api/browsers")).browsers);
+  } catch {
+    // Signed out meanwhile: api() already shows the sign-in screen.
+  }
+}
+
+/** @param {string} id */
+async function signOutBrowser(id) {
+  try {
+    const answer = await api("/api/browsers/sign-out", { id });
+    if (answer.signedOut === "current") {
+      accountDialog.close();
+      $("auth-error").hidden = false; // this browser: back to the sign-in screen
+      return;
+    }
+    renderBrowsers(answer.browsers);
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+}
+
+$("sign-out-others").addEventListener("click", async () => {
+  try {
+    renderBrowsers((await api("/api/browsers/sign-out-others", {})).browsers);
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+});
+
+accountDialog.addEventListener("close", () => {
+  clearInterval(accountTimer);
+  $("share-login-result").hidden = true; // the link is not left on screen
+  /** @type {HTMLInputElement} */ ($("share-login-link")).value = "";
+});
 $("account-close").addEventListener("click", () => accountDialog.close());
 // A click on the backdrop (outside the content) closes the dialog.
 accountDialog.addEventListener("click", (event) => {

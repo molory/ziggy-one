@@ -24,8 +24,9 @@ otherwise.
 Ziggy One is a single-user tool for your own machine:
 
 - the server listens on `127.0.0.1` only and checks the `Host` and `Origin` headers;
-- the web UI needs a random token (cookie `HttpOnly; SameSite=Strict`); hooks and the agents' MCP endpoint use
-  separate secrets stored in `0600` files;
+- the web UI needs a random token, exchanged for a per-browser session (cookie `HttpOnly; SameSite=Strict`,
+  revocable, ends after 30 days unused); hooks and the agents' MCP endpoint use separate secrets stored in `0600`
+  files;
 - the page runs under a strict Content Security Policy without inline scripts.
 
 In scope: anything that lets a web page, another local user, or content read by an agent (a file, a ticket, a
