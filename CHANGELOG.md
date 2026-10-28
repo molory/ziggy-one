@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **`/?token=…` no longer signs in**: the token stayed in the browser's history and address bar. Such an address
+  now just goes back to `/` (an old bookmark still works in a browser that is signed in). Scripts sign in with
+  a single-use link from `ziggy --link`.
 - **Security hardening** (from an internal audit):
   - agents' terminals get Claude Code `deny` rules on Ziggy One's data folder (token, sessions, keys);
   - the Files tab refuses Ziggy One's data, `~/.ssh`, `~/.gnupg` and `~/.aws`, even inside an agent's folder;

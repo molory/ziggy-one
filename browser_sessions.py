@@ -1,6 +1,6 @@
 """Signed-in browsers: one random session per sign-in, instead of the access token in the cookie.
 
-The token only proves who may sign in (`?login=` links, `?token=`); the browser receives a session id of its own.
+The token only proves who may sign in (it signs the `?login=` links); the browser receives a session id of its own.
 A session can be signed out alone, from the account window, and ends after IDLE_LIFETIME without use.
 The file (0600) keeps only a SHA-256 of each id: reading it does not give a working cookie.
 """

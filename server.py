@@ -718,11 +718,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(405, {"error": tr("The MCP server only answers POST")})
         if url.path == "/" and url.query:
             query = parse_qs(url.query)
-            if "login" in query:  # single-use link from `ziggy`
-                if not self.server.logins.redeem(query["login"][0]):
-                    return self._json(403, {"error": tr("Sign-in link invalid, expired or already used")})
-            elif not same_secret(query.get("token", [""])[0], self.server.token):
-                return self._json(403, {"error": tr("Invalid token")})
+            if "login" not in query:
+                # Old /?token=… bookmarks: the token no longer signs in (it would sit in the history and the
+                # address bar). Back to /, which works if this browser is already signed in, else says how to.
+                return self._send(303, headers={"Location": "/"})
+            if not self.server.logins.redeem(query["login"][0]):  # single-use link from `ziggy`
+                return self._json(403, {"error": tr("Sign-in link invalid, expired or already used")})
             # The browser gets a session of its own, which can be signed out alone: never the token.
             session_id = self.server.sessions.create(self.headers.get("User-Agent", ""))
             cookie = (f"{self.server.cookie_name}={session_id}; HttpOnly; SameSite=Strict; Path=/; "

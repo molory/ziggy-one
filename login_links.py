@@ -1,6 +1,6 @@
 """Single-use sign-in links: /?login=<expiry>.<nonce>.<signature>.
 
-`ziggy` opens the browser on such a link rather than on /?token=…: the address, which goes through the
+`ziggy` opens the browser on such a link, never on the token (/?token=… no longer signs in): the address, which goes through the
 browser's command line, its history or a log, is worthless once used, and after LIFETIME.
 The signature is an HMAC with the server token: another process that reads the token file (0600) can
 make one, for example `ziggy` started while the server is already running.

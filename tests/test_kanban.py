@@ -230,7 +230,7 @@ class KanbanHttpTest(unittest.TestCase):
         self.addCleanup(self.srv.shutdown)
         self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-        self.opener.open(f"{self.base}/?token={self.srv.token}").read()
+        self.opener.open(f"{self.base}/?login={self.srv.logins.make()}").read()
 
     def post(self, path, body):
         request = urllib.request.Request(self.base + path, json.dumps(body).encode(),

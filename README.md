@@ -97,8 +97,9 @@ link is worthless wherever it was copied: shell scrollback, `ps`, browser histor
   ended), the page says so and shows how to get back in: run `ziggy` again.
 - **Token leaked anyway?** Restart once with `--new-token`: every browser is signed out, ticket links and agent
   keys are invalidated.
-- `/?token=<token>` still logs in (it also opens a session), for scripts that already use it; the token is in
-  `~/.local/share/ziggy-one/token` (`0600`).
+- The token never goes in an address: `/?token=…` no longer signs in (it only goes back to `/`). A script
+  signs in with a single-use link, then uses the cookie jar:
+  `curl -c jar "$(ziggy --link | grep -o 'http[^ ]*login=[^ ]*')"`. The token is in `~/.local/share/ziggy-one/token` (`0600`).
 
 | Option | Meaning |
 |---|---|

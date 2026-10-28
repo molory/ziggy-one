@@ -536,9 +536,15 @@ class HttpTest(unittest.TestCase):
     def test_rejects_unknown_host(self):
         self.assertEqual(self.request("GET", "/", {"Host": "evil.example"}).status, 403)
 
-    def test_token_exchange_sets_strict_cookie(self):
-        self.assertEqual(self.request("GET", "/?token=fake").status, 403)
-        response = self.request("GET", f"/?token={self.httpd.token}")
+    def test_token_in_url_no_longer_signs_in(self):
+        for path in (f"/?token={self.httpd.token}", "/?token=fake", "/?other=1"):
+            response = self.request("GET", path)
+            self.assertEqual(response.status, 303)
+            self.assertEqual(response.getheader("Location"), "/")
+            self.assertIsNone(response.getheader("Set-Cookie"), path)
+
+    def test_login_link_sets_strict_cookie(self):
+        response = self.request("GET", f"/?login={self.httpd.logins.make()}")
         self.assertEqual(response.status, 303)
         cookie = response.getheader("Set-Cookie")
         self.assertIn("HttpOnly", cookie)
