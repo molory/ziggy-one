@@ -811,6 +811,12 @@ body.resizing { cursor: col-resize; user-select: none; }
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
 }
+/* Mode icons of the collapsed bar (shown by the rail rules below); the current mode is orange. */
+.rail-modes { display: none; flex-direction: column; gap: 0.4rem; }
+.rail-mode { border-color: transparent; background: transparent; color: var(--muted); }
+.rail-mode:hover:not(:disabled) { border-color: transparent; background: var(--tool-bg); color: var(--text); }
+.layout:not(.mode-tasks) .rail-mode[data-mode="agents"],
+.layout.mode-tasks .rail-mode[data-mode="tasks"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .head-controls > :first-child:not(:only-child) + * { margin-left: auto; }
 .head-controls > :only-child { margin-left: auto; }
 /* Sidebar at its minimum width: even on its own line, the block only fits by hiding the counters. */
@@ -1427,9 +1433,13 @@ body.resizing { cursor: col-resize; user-select: none; }
   .usage-open .avatar[data-level="ok"] { --level-color: var(--ok); }
   .usage-open .avatar[data-level="warm"] { --level-color: var(--warn); }
   .usage-open .avatar[data-level="hot"] { --level-color: var(--bad); }
-  /* Agents / Tasks header: invisible in the rail, but keeps its space so that the avatars
-     do not move when the bar opens on hover. */
-  .layout.collapsed:not(.peek) :is(.sessions-head, .sidebar-search) { opacity: 0; pointer-events: none; }
+  /* Search and header: invisible in the rail, but they keep their space so that the avatars do not move when the
+     bar opens on hover (and stay reachable with the keyboard, which opens it). Two stacked mode icons are drawn
+     over the header. */
+  .layout.collapsed:not(.peek) .sidebar-search { opacity: 0; pointer-events: none; }
+  .layout.collapsed:not(.peek) .sessions-head { position: relative; }
+  .layout.collapsed:not(.peek) .sessions-head > :not(.rail-modes) { opacity: 0; pointer-events: none; }
+  .layout.collapsed:not(.peek) .rail-modes { display: flex; position: absolute; top: 0.3rem; left: 0.75rem; }
   /* Plan usage: stacked gauges, stuck to the bottom of the rail even when the list scrolls. */
   .layout.collapsed:not(.peek) .sidebar > .rail-usage:not([hidden]) {
     all: unset;

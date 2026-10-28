@@ -3313,6 +3313,15 @@ function setMode(mode) {
   if (`${location.pathname}${location.hash}` !== url) history.replaceState(null, "", url);
 }
 
+// Collapsed bar: the two mode icons (over the Agents / Tasks switch). Acting on the press: the focus would open
+// the bar, which hides the icons before the click.
+for (const button of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".rail-mode"))) {
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    setMode(/** @type {"agents" | "tasks"} */ (button.dataset.mode));
+  });
+}
+
 // The logo, top left: back to the home screen (Agents mode, no agent shown; the agents keep running).
 $("home").addEventListener("click", () => {
   setMode("agents");
