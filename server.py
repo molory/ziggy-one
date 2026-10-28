@@ -75,6 +75,7 @@ MIME = {
     ".png": "image/png",
     ".ico": "image/x-icon",
     ".webmanifest": "application/manifest+json",
+    ".woff2": "font/woff2",
     ".map": "application/json; charset=utf-8",  # xterm.js source map: its original TypeScript code
 }
 SECURITY_HEADERS = {

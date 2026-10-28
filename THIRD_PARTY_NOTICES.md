@@ -1,6 +1,6 @@
 # Third-party notices
 
-Ziggy One has no runtime dependencies. It ships two vendored, pinned components, served locally and never
+Ziggy One has no runtime dependencies. It ships three vendored, pinned components, served locally and never
 updated automatically. Their exact versions and checksums are listed in their own `README.md`.
 
 ## xterm.js — `web/vendor/xterm/`
@@ -16,3 +16,11 @@ updated automatically. Their exact versions and checksums are listed in their ow
 - Project: https://github.com/jdecked/twemoji
 - Graphics: Copyright 2020 Twitter, Inc and other contributors, licensed under
   [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). The files are unmodified.
+
+## Plus Jakarta Sans — `web/vendor/plus-jakarta-sans/`
+
+- 3 WOFF2 files from `@fontsource-variable/plus-jakarta-sans` 5.2.8 (variable weight; Latin, Latin Extended, Latin
+  italic), the font of the interface.
+- Project: https://github.com/tokotype/PlusJakartaSans
+- License: SIL Open Font License 1.1. The full license text is in
+  [`web/vendor/plus-jakarta-sans/LICENSE`](web/vendor/plus-jakarta-sans/LICENSE). The files are unmodified.

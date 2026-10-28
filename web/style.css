@@ -1,3 +1,32 @@
+/* Interface font: Plus Jakarta Sans (web/vendor/plus-jakarta-sans/), a variable font (every weight in one file). */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/plus-jakarta-sans/plus-jakarta-sans-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/plus-jakarta-sans/plus-jakarta-sans-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/plus-jakarta-sans/plus-jakarta-sans-latin-wght-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light dark;
   --bg: #f6f6f4;
@@ -12,6 +41,7 @@
   --user-bg: #fdf0e8;
   --tool-bg: #f1f1ee;
   --radius: calc(10px * var(--corners));
+  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* Corner style (Configuration › General): every radius is multiplied by it. */
   --corners: 1;
@@ -86,7 +116,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 15px/1.5 var(--font);
   /* The page fits in the window: the sidebar and the discussion each scroll on their own. */
   height: 100vh;
   display: flex;
@@ -2408,7 +2438,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 @keyframes hero-breathe { 0%, 100% { transform: scale(0.92); opacity: 0.75; } 50% { transform: scale(1.12); opacity: 1; } }
 
 /* Orbiting agents: their color, their initial; those working or waiting for you pulse. */
-.hero-agent-letter { fill: #fff; font: 700 13px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+.hero-agent-letter { fill: #fff; font: 700 13px/1 var(--font); text-anchor: middle; dominant-baseline: central; }
 .hero-agent-pulse { fill: none; stroke: #f59e0b; stroke-width: 2; transform-origin: 0 0; animation: hero-ping 1.8s ease-out infinite; }
 .hero-agent.state-waiting .hero-agent-pulse { stroke: var(--bad); }
 @keyframes hero-ping { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.1); opacity: 0; } }

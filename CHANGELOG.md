@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **New interface font: Plus Jakarta Sans**, a variable font served by the server itself (`web/vendor/plus-jakarta-sans/`,
+  SIL Open Font License). Code and terminals stay monospaced. The server now serves `.woff2` files.
 - **Logo orange as the accent colour** (`#EA580C`, with a new peach `#F6B492` in the logo) in light and dark themes. Welcome screen redone around it: plain
   white background, solid orange title and buttons, a soft grey haze behind the logo instead of the spinning ring and
   the coloured aurora; agents in orbit without a white border.
