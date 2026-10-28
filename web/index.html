@@ -65,12 +65,15 @@
             <button id="new-board" type="button" class="icon-button" title="Create a board or a workspace" aria-label="Create a board or a workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
         </div>
-        <!-- Search: through everything, even what the filters hide (Esc clears it). -->
+        <!-- Search: through everything, even what the filters hide (Esc clears it). In the collapsed bar, an icon
+             opens the bar on the field. -->
         <div class="sidebar-search agents-only">
+          <button type="button" class="icon-button rail-search" title="Search agents" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35"/></svg></button>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35"/></svg>
           <input id="agent-search" type="search" class="text-input" placeholder="Search agents…" aria-label="Search agents and workspaces" autocomplete="off" spellcheck="false">
         </div>
         <div class="sidebar-search tasks-only">
+          <button type="button" class="icon-button rail-search" title="Search boards and tickets" tabindex="-1" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35"/></svg></button>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35"/></svg>
           <input id="board-search" type="search" class="text-input" placeholder="Search boards and tickets…" aria-label="Search boards and tickets" autocomplete="off" spellcheck="false">
         </div>

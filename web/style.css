@@ -423,6 +423,10 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .sidebar-search .text-input { box-sizing: border-box; width: 100%; padding: 0.35rem 0.6rem 0.35rem 1.9rem; font-size: 0.85rem; }
 .sidebar-search .text-input::-webkit-search-cancel-button { cursor: pointer; }
+/* Magnifier of the collapsed bar (shown by the rail rules), over the field. */
+.rail-search { display: none; position: absolute; z-index: 1; top: 0.35rem; left: 0.75rem; border-color: transparent; background: transparent; color: var(--muted); }
+.rail-search:hover:not(:disabled) { border-color: transparent; background: var(--tool-bg); color: var(--text); }
+.sidebar-search .rail-search svg { position: static; translate: none; width: 1.1rem; height: 1.1rem; }
 .search-empty { padding: 0.5rem 0.75rem; }
 .search-group { padding: 0.6rem 0.75rem 0.2rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .agent-workspace { flex: none; padding: 0 0.3rem; border-radius: calc(4px * var(--corners)); background: var(--tool-bg); }
@@ -1434,9 +1438,10 @@ body.resizing { cursor: col-resize; user-select: none; }
   .usage-open .avatar[data-level="warm"] { --level-color: var(--warn); }
   .usage-open .avatar[data-level="hot"] { --level-color: var(--bad); }
   /* Search and header: invisible in the rail, but they keep their space so that the avatars do not move when the
-     bar opens on hover (and stay reachable with the keyboard, which opens it). Two stacked mode icons are drawn
-     over the header. */
-  .layout.collapsed:not(.peek) .sidebar-search { opacity: 0; pointer-events: none; }
+     bar opens on hover (and stay reachable with the keyboard, which opens it). Icons are drawn over them: the two
+     modes over the header, a magnifier over the search. */
+  .layout.collapsed:not(.peek) .sidebar-search > :not(.rail-search) { opacity: 0; pointer-events: none; }
+  .layout.collapsed:not(.peek) .rail-search { display: grid; }
   .layout.collapsed:not(.peek) .sessions-head { position: relative; }
   .layout.collapsed:not(.peek) .sessions-head > :not(.rail-modes) { opacity: 0; pointer-events: none; }
   .layout.collapsed:not(.peek) .rail-modes { display: flex; position: absolute; top: 0.3rem; left: 0.75rem; }

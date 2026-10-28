@@ -3322,6 +3322,14 @@ for (const button of /** @type {NodeListOf<HTMLElement>} */ (document.querySelec
   });
 }
 
+// Collapsed bar: the magnifier puts the cursor in the search field, which opens the bar (same press as above).
+for (const button of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".rail-search"))) {
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    /** @type {HTMLInputElement | null} */ (button.parentElement?.querySelector("input"))?.focus();
+  });
+}
+
 // The logo, top left: back to the home screen (Agents mode, no agent shown; the agents keep running).
 $("home").addEventListener("click", () => {
   setMode("agents");
