@@ -47,10 +47,6 @@ export function createHero(options) {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   const root = el("div", `hero${reduced ? " reduced" : ""}`);
 
-  // Background: an aurora of drifting colored blobs.
-  const aurora = el("div", "hero-aurora");
-  aurora.setAttribute("aria-hidden", "true");
-  aurora.append(el("span", "blob b1"), el("span", "blob b2"), el("span", "blob b3"));
 
   // Scene: orbits, beams, agents, emblem.
   const stage = el("div", "hero-stage");
@@ -58,9 +54,6 @@ export function createHero(options) {
   const scene = svg("svg", { viewBox: "-300 -150 600 300", class: "hero-scene" });
   const defs = svg("defs");
   defs.innerHTML = `
-    <linearGradient id="hero-z" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="var(--hero-a)"/><stop offset="1" stop-color="var(--hero-b)"/>
-    </linearGradient>
     <radialGradient id="hero-glow"><stop offset="0" stop-color="var(--hero-a)" stop-opacity=".55"/>
       <stop offset="1" stop-color="var(--hero-a)" stop-opacity="0"/></radialGradient>
 `;
@@ -72,12 +65,11 @@ export function createHero(options) {
   const back = svg("g");
   const beams = svg("g", { class: "hero-beams" });
   const front = svg("g");
-  // Emblem: halo, spinning ring, logo.
+  // Emblem: halo, logo. Behind it, a soft dark cloud (.hero-stage::before): the logo's peach would hardly show on white.
   const emblem = svg("g", { class: "hero-emblem" });
   emblem.append(
     svg("circle", { r: 70, fill: "url(#hero-glow)", class: "hero-halo" }),
-    svg("circle", { r: 46, class: "hero-ring" }),
-    svg("image", { href: "/logo.svg", x: -34, y: -34, width: 68, height: 68, class: "hero-logo" }),
+    svg("image", { href: "/logo.svg", x: -27, y: -27, width: 54, height: 54, class: "hero-logo" }),
   );
   // Parallax by planes, as 2D moves in the SVG (the drawing stays vector, so sharp): the orbits
   // and the agents move more than the emblem. Each plane has its group: the CSS animations of the elements
@@ -136,7 +128,7 @@ export function createHero(options) {
     make(t("New workspace"), t("A group to organize your agents"), options.icons.workspace, "ghost-hero", options.onWorkspace),
   );
   copy.append(actions, el("p", "hero-hint", t("or resume an agent from the list on the left")));
-  root.append(aurora, stage, copy);
+  root.append(stage, copy);
 
   // Parallax: the scene tilts slightly towards the mouse.
   let tiltX = 0;

@@ -5,7 +5,7 @@
   --text: #1d1d1b;
   --muted: #6b6b66;
   --border: #e2e1dc;
-  --accent: #c2410c;
+  --accent: #fb7500;
   --ok: #15803d;
   --warn: #b45309;
   --bad: #b91c1c;
@@ -29,7 +29,7 @@
     --text: #ecebe6;
     --muted: #9b9a93;
     --border: #33322f;
-    --accent: #fb923c;
+    --accent: #fb7500;
     --ok: #4ade80;
     --warn: #fbbf24;
     --bad: #f87171;
@@ -44,7 +44,7 @@
   --text: #ecebe6;
   --muted: #9b9a93;
   --border: #33322f;
-  --accent: #fb923c;
+  --accent: #fb7500;
   --ok: #4ade80;
   --warn: #fbbf24;
   --bad: #f87171;
@@ -96,7 +96,10 @@ body {
 h1 { font-size: 1.15rem; margin: 0; }
 /* Logo: a plain Z (the full name is still read by screen readers). */
 .logo { margin: 0; line-height: 0; }
-.logo img { width: 1.6rem; height: 1.6rem; }
+.logo-button { all: unset; display: block; border-radius: calc(6px * var(--corners)); cursor: pointer; }
+.logo-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.logo img { display: block; width: 1.6rem; height: 1.6rem; transition: transform 0.15s ease; }
+.logo-button:hover img { transform: scale(1.08); }
 h2 { font-size: 0.95rem; margin: 0; }
 code { font-family: var(--mono); font-size: 0.9em; }
 
@@ -2132,7 +2135,7 @@ kbd {
   border-radius: calc(14px * var(--corners));
   background: rgb(36 38 43 / 0.94);
   backdrop-filter: blur(10px);
-  box-shadow: 0 18px 50px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(251 146 60 / 0.12);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(251 117 0 / 0.12);
   color: #e4e6eb;
   opacity: 0;
   visibility: hidden;
@@ -2160,14 +2163,14 @@ kbd {
   transition: background 0.12s, opacity 0.2s ease, transform 0.25s ease;
 }
 .shortcut-panel.open .shortcut-panel-item { opacity: 1; transform: none; transition-delay: 0s, calc(var(--i, 0) * 25ms), calc(var(--i, 0) * 25ms); }
-.shortcut-panel-item:hover, .shortcut-panel-item:focus-visible { background: rgb(251 146 60 / 0.14); }
+.shortcut-panel-item:hover, .shortcut-panel-item:focus-visible { background: rgb(251 117 0 / 0.14); }
 .shortcut-panel-item:disabled { cursor: default; color: #8b8f96; }
 .shortcut-panel-item:disabled:hover { background: none; }
-.shortcut-panel-item .shortcut-digit { color: #fb923c; }
+.shortcut-panel-item .shortcut-digit { color: var(--accent); }
 .shortcut-panel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
 .shortcut-panel-tag { flex: none; padding: 0.05rem 0.4rem; border-radius: calc(999px * var(--corners)); background: rgb(255 255 255 / 0.08); color: #a3a7ae; font-size: 0.7rem; }
 .shortcut-panel-foot { display: flex; align-items: center; gap: 0.3rem; padding: 0.55rem 0.25rem 0; color: #a3a7ae; }
-.shortcut-panel-foot .link-button { all: unset; color: #fb923c; cursor: pointer; }
+.shortcut-panel-foot .link-button { all: unset; color: var(--accent); cursor: pointer; }
 .shortcut-panel-foot .link-button:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .shortcut-panel, .shortcut-panel-item { transition: none; }
@@ -2352,9 +2355,8 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 #panel.hero-mode > .card-head { display: none; }
 #panel.hero-mode .panel-body { padding: 0; overflow: hidden; }
 .hero {
+  /* The logo's orange, the accent of the whole app. */
   --hero-a: var(--accent);
-  --hero-b: #7c3aed;
-  --hero-c: #0ea5e9;
   position: relative;
   flex: 1;
   min-height: 100%;
@@ -2367,15 +2369,24 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   overflow: hidden;
   isolation: isolate;
 }
-/* Aurora: three blurred blobs drifting slowly. */
-.hero-aurora { position: absolute; inset: -20%; z-index: -1; pointer-events: none; }
-.hero-aurora .blob { position: absolute; width: 46%; aspect-ratio: 1; border-radius: calc(50% * var(--corners)); filter: blur(70px); opacity: 0.22; }
-.hero-aurora .b1 { left: 18%; top: 14%; background: var(--hero-a); animation: hero-drift 18s ease-in-out infinite alternate; }
-.hero-aurora .b2 { right: 14%; top: 22%; background: var(--hero-b); animation: hero-drift 22s ease-in-out infinite alternate-reverse; }
-.hero-aurora .b3 { left: 34%; bottom: 6%; background: var(--hero-c); opacity: 0.14; animation: hero-drift 26s ease-in-out infinite alternate; }
-@keyframes hero-drift { from { transform: translate(-6%, -4%) scale(1); } to { transform: translate(8%, 6%) scale(1.15); } }
 
-.hero-stage { width: min(760px, 100%); }
+.hero-stage { position: relative; width: min(760px, 100%); }
+/* Soft dark cloud behind the logo, sized on the screen height. */
+.hero-stage::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 50vh;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: rgb(64 64 64 / 0.18);
+  filter: blur(48px);
+  pointer-events: none;
+  animation: hero-rise 0.9s ease-out both;
+}
 .hero-scene { display: block; width: 100%; height: auto; overflow: visible; shape-rendering: geometricPrecision; text-rendering: geometricPrecision; }
 .hero-orbit {
   fill: none;
@@ -2395,20 +2406,8 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 @keyframes hero-pop { from { opacity: 0; transform: scale(0.3) rotate(-25deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 .hero-halo { animation: hero-breathe 3.2s ease-in-out infinite; transform-origin: 0 0; }
 @keyframes hero-breathe { 0%, 100% { transform: scale(0.92); opacity: 0.75; } 50% { transform: scale(1.12); opacity: 1; } }
-.hero-ring {
-  fill: none;
-  stroke: url(#hero-z);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 60 22 14 22 120 51;
-  transform-origin: 0 0;
-  animation: hero-spin 9s linear infinite;
-}
-@keyframes hero-spin { to { transform: rotate(360deg); } }
-.hero-logo { filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--hero-a) 45%, transparent)); }
 
 /* Orbiting agents: their color, their initial; those working or waiting for you pulse. */
-.hero-agent-disc { stroke: var(--surface); stroke-width: 2.5; }
 .hero-agent-letter { fill: #fff; font: 700 13px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
 .hero-agent-pulse { fill: none; stroke: #f59e0b; stroke-width: 2; transform-origin: 0 0; animation: hero-ping 1.8s ease-out infinite; }
 .hero-agent.state-waiting .hero-agent-pulse { stroke: var(--bad); }
@@ -2425,16 +2424,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 }
 .hero-title span {
   display: inline-block;
-  /* The gradient is only painted in the letter's box: we extend it downwards (and a little to the right, for
-     the animation's italics) so that descenders (g, y) are not cut, without shifting the line. */
-  padding: 0 0.04em 0.22em 0;
-  margin: 0 -0.04em -0.22em 0;
-  background: linear-gradient(110deg, var(--hero-a), var(--hero-b) 60%, var(--hero-c));
-  background-size: 300% 100%;
-  background-position: calc(var(--i) * 8%) 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--hero-a);
   animation: hero-letter 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
   animation-delay: calc(0.75s + var(--i) * 0.035s);
 }
@@ -2475,7 +2465,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .hero-button-text span { font-size: 0.78rem; opacity: 0.8; }
 .hero-button.primary-hero {
   color: #fff;
-  background: linear-gradient(120deg, var(--hero-a), color-mix(in srgb, var(--hero-a) 55%, var(--hero-b)));
+  background: var(--hero-a);
   box-shadow: 0 10px 30px -8px color-mix(in srgb, var(--hero-a) 70%, transparent);
 }
 .hero-button.primary-hero .hero-button-icon { background: rgb(255 255 255 / 0.18); }
@@ -2485,10 +2475,10 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   background: color-mix(in srgb, var(--surface) 75%, transparent);
   backdrop-filter: blur(8px);
 }
-.hero-button.ghost-hero .hero-button-icon { background: color-mix(in srgb, var(--hero-b) 14%, transparent); color: var(--hero-b); }
+.hero-button.ghost-hero .hero-button-icon { background: color-mix(in srgb, var(--hero-a) 14%, transparent); color: var(--hero-a); }
 .hero-button:hover { transform: translateY(-3px); }
 .hero-button.primary-hero:hover { box-shadow: 0 16px 38px -8px color-mix(in srgb, var(--hero-a) 80%, transparent); }
-.hero-button.ghost-hero:hover { border-color: var(--hero-b); box-shadow: 0 12px 30px -12px color-mix(in srgb, var(--hero-b) 60%, transparent); }
+.hero-button.ghost-hero:hover { border-color: var(--hero-a); box-shadow: 0 12px 30px -12px color-mix(in srgb, var(--hero-a) 60%, transparent); }
 .hero-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--hero-a) 60%, transparent); outline-offset: 3px; }
 .hero-hint { margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--muted); animation: hero-rise 0.7s ease-out both 1.7s; }
 

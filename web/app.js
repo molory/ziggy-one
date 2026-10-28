@@ -3313,6 +3313,12 @@ function setMode(mode) {
   if (`${location.pathname}${location.hash}` !== url) history.replaceState(null, "", url);
 }
 
+// The logo, top left: back to the home screen (Agents mode, no agent shown; the agents keep running).
+$("home").addEventListener("click", () => {
+  setMode("agents");
+  showIdle();
+});
+
 // Link to a ticket (/t/42), wherever it is (description of a ticket…): opened here, without
 // reloading the page or opening a tab.
 document.addEventListener("click", (event) => {

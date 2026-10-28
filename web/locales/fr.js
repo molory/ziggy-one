@@ -18,6 +18,8 @@ export default {
   "column deleted": "colonne supprimée",
   "Corners": "Coins",
   "Move not saved: {error}": "Déplacement non enregistré : {error}",
+  "Home": "Accueil",
+  "Ziggy One: home": "Ziggy One : accueil",
   "Search agents…": "Rechercher un agent…",
   "Search agents and workspaces": "Rechercher parmi les agents et les workspaces",
   "Search boards and tickets…": "Rechercher un tableau ou un ticket…",

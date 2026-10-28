@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Logo orange as the accent colour** (`#FB7500`) in light and dark themes. Welcome screen redone around it: plain
+  white background, solid orange title and buttons, a soft grey haze behind the logo instead of the spinning ring and
+  the coloured aurora; agents in orbit without a white border.
+- **The logo goes home**: a click on the logo, top left, shows the welcome screen (from Tasks mode too).
 - **New logo and favicon**: the logo (`web/logo.svg`) in the sidebar and the welcome screen; favicon as SVG with a
   32 px `favicon.ico` fallback, an Apple touch icon and a web manifest (192 and 512 px icons).
 - **Delivery dates on Kanban tickets**: set, change or remove a date in the ticket card; the card shows the days

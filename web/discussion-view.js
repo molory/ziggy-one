@@ -655,7 +655,7 @@ export function mountDiscussionView(root, deps) {
     doc.title = title;
     const style = doc.createElement("style");
     style.textContent = "body{font:11pt/1.55 system-ui,sans-serif}pre{white-space:pre-wrap;background:#f1f1ee;padding:8px}"
-      + ".pdf-question{white-space:pre-wrap;background:#f6f1ea;padding:8px}.pdf-section{color:#c2410c}";
+      + ".pdf-question{white-space:pre-wrap;background:#f6f1ea;padding:8px}.pdf-section{color:#fb7500}";
     doc.head.append(style);
     doc.body.append(doc.importNode(content, true));
     frame.contentWindow?.print();
