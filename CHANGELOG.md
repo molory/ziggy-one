@@ -5,7 +5,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- **Logo orange as the accent colour** (`#FB7500`) in light and dark themes. Welcome screen redone around it: plain
+- **Logo orange as the accent colour** (`#EA580C`, with a new peach `#F6B492` in the logo) in light and dark themes. Welcome screen redone around it: plain
   white background, solid orange title and buttons, a soft grey haze behind the logo instead of the spinning ring and
   the coloured aurora; agents in orbit without a white border.
 - **The logo goes home**: a click on the logo, top left, shows the welcome screen (from Tasks mode too).

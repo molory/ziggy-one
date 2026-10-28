@@ -5,7 +5,7 @@
   --text: #1d1d1b;
   --muted: #6b6b66;
   --border: #e2e1dc;
-  --accent: #fb7500;
+  --accent: #ea580c;
   --ok: #15803d;
   --warn: #b45309;
   --bad: #b91c1c;
@@ -29,7 +29,7 @@
     --text: #ecebe6;
     --muted: #9b9a93;
     --border: #33322f;
-    --accent: #fb7500;
+    --accent: #ea580c;
     --ok: #4ade80;
     --warn: #fbbf24;
     --bad: #f87171;
@@ -44,7 +44,7 @@
   --text: #ecebe6;
   --muted: #9b9a93;
   --border: #33322f;
-  --accent: #fb7500;
+  --accent: #ea580c;
   --ok: #4ade80;
   --warn: #fbbf24;
   --bad: #f87171;
@@ -2135,7 +2135,7 @@ kbd {
   border-radius: calc(14px * var(--corners));
   background: rgb(36 38 43 / 0.94);
   backdrop-filter: blur(10px);
-  box-shadow: 0 18px 50px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(251 117 0 / 0.12);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(234 88 12 / 0.12);
   color: #e4e6eb;
   opacity: 0;
   visibility: hidden;
@@ -2163,7 +2163,7 @@ kbd {
   transition: background 0.12s, opacity 0.2s ease, transform 0.25s ease;
 }
 .shortcut-panel.open .shortcut-panel-item { opacity: 1; transform: none; transition-delay: 0s, calc(var(--i, 0) * 25ms), calc(var(--i, 0) * 25ms); }
-.shortcut-panel-item:hover, .shortcut-panel-item:focus-visible { background: rgb(251 117 0 / 0.14); }
+.shortcut-panel-item:hover, .shortcut-panel-item:focus-visible { background: rgb(234 88 12 / 0.14); }
 .shortcut-panel-item:disabled { cursor: default; color: #8b8f96; }
 .shortcut-panel-item:disabled:hover { background: none; }
 .shortcut-panel-item .shortcut-digit { color: var(--accent); }
