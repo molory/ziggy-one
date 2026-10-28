@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ziggy One</title>
+  <!-- Icons: SVG for current browsers, .ico for the others, PNGs for the home screen (iOS, manifest). -->
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <script src="/theme.js"></script>
   <meta name="csp-nonce" content="__CSP_NONCE__">
   <link rel="stylesheet" href="/style.css">
@@ -20,7 +25,7 @@
       <!-- Sidebar header: logo, account and plan usage (refresh in place,
            or a click on the 5 h and 7 d gauges opens the details). -->
       <div class="sidebar-top">
-        <h1 class="logo" title="Ziggy One"><span aria-hidden="true">Z</span><span class="visually-hidden">Ziggy One</span></h1>
+        <h1 class="logo" title="Ziggy One"><img src="/logo.svg" alt="Ziggy One"></h1>
         <div class="usage">
           <button id="usage" type="button" class="usage-open" aria-haspopup="dialog" aria-controls="account-dialog">
             <span id="avatar" class="avatar" aria-hidden="true">?</span>

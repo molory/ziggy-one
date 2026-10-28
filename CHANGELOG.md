@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **New logo and favicon**: the logo (`web/logo.svg`) in the sidebar and the welcome screen; favicon as SVG with a
+  32 px `favicon.ico` fallback, an Apple touch icon and a web manifest (192 and 512 px icons).
 - **Delivery dates on Kanban tickets**: set, change or remove a date in the ticket card; the card shows the days
   left in a badge that turns redder over the last 14 days, solid red once late. Recorded in the ticket history,
   readable and settable by agents (`kanban_update_ticket` › `due`).

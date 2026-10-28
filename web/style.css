@@ -95,7 +95,8 @@ body {
 
 h1 { font-size: 1.15rem; margin: 0; }
 /* Logo: a plain Z (the full name is still read by screen readers). */
-.logo { font-size: 1.35rem; font-weight: 800; line-height: 1; color: var(--accent); }
+.logo { margin: 0; line-height: 0; }
+.logo img { width: 1.6rem; height: 1.6rem; }
 h2 { font-size: 0.95rem; margin: 0; }
 code { font-family: var(--mono); font-size: 0.9em; }
 
@@ -2404,8 +2405,7 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   animation: hero-spin 9s linear infinite;
 }
 @keyframes hero-spin { to { transform: rotate(360deg); } }
-.hero-tile { filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--hero-a) 45%, transparent)); }
-.hero-z { fill: #fff; font: 800 38px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; letter-spacing: -1px; }
+.hero-logo { filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--hero-a) 45%, transparent)); }
 
 /* Orbiting agents: their color, their initial; those working or waiting for you pulse. */
 .hero-agent-disc { stroke: var(--surface); stroke-width: 2.5; }

@@ -72,16 +72,13 @@ export function createHero(options) {
   const back = svg("g");
   const beams = svg("g", { class: "hero-beams" });
   const front = svg("g");
-  // Emblem: halo, spinning ring, gradient square, Z.
+  // Emblem: halo, spinning ring, logo.
   const emblem = svg("g", { class: "hero-emblem" });
   emblem.append(
     svg("circle", { r: 70, fill: "url(#hero-glow)", class: "hero-halo" }),
     svg("circle", { r: 46, class: "hero-ring" }),
-    svg("rect", { x: -32, y: -32, width: 64, height: 64, rx: 16, fill: "url(#hero-z)", class: "hero-tile" }),
+    svg("image", { href: "/logo.svg", x: -34, y: -34, width: 68, height: 68, class: "hero-logo" }),
   );
-  const z = svg("text", { x: 0, y: 1, class: "hero-z" });
-  z.textContent = "Z";
-  emblem.append(z);
   // Parallax by planes, as 2D moves in the SVG (the drawing stays vector, so sharp): the orbits
   // and the agents move more than the emblem. Each plane has its group: the CSS animations of the elements
   // (emblem appearing, orbits opening) do not conflict with this move.
