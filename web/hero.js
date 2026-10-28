@@ -109,7 +109,7 @@ export function createHero(options) {
     span.style.setProperty("--i", String(i));
     title.append(span);
   });
-  copy.append(title, el("p", "hero-tagline", "Agent cockpit"));
+  copy.append(title, el("p", "hero-tagline", "Agentic Collaboration Environment"));
   if (options.stats) copy.append(el("p", "hero-stats", options.stats));
   const actions = el("div", "hero-actions");
   const make = (/** @type {string} */ label, /** @type {string} */ sub, /** @type {string} */ path, /** @type {string} */ kind, /** @type {() => void} */ onClick) => {
