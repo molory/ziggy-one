@@ -1,6 +1,7 @@
 """Tests of the single-use sign-in links."""
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -32,6 +33,14 @@ class LoginLinksTest(unittest.TestCase):
         self.assertTrue(links.redeem(login_links.make(TOKEN, now=1000), now=1000))
         links.redeem(login_links.make(TOKEN, now=5000), now=5000)
         self.assertEqual(len(links._used), 1)
+
+    def test_used_links_survive_a_restart(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "used-login-links.json"
+            link = login_links.make(TOKEN)
+            self.assertTrue(login_links.LoginLinks(TOKEN, path).redeem(link))
+            self.assertFalse(login_links.LoginLinks(TOKEN, path).redeem(link), "used before the restart")
+            self.assertTrue(login_links.LoginLinks(TOKEN, path).redeem(login_links.make(TOKEN)))
 
 
 if __name__ == "__main__":

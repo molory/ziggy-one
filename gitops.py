@@ -84,9 +84,23 @@ def friendly_error(raw, command):
     return raw[-2000:] or tr("git {command} failed", command=command)
 
 
+# Shown diffs: never an external diff program or a textconv filter declared by the repository.
+NO_DIFF_PROGRAMS = ("--no-ext-diff", "--no-textconv")
+
+# Settings forced on every git call (like `git -c`, above the repository's config): a repository's
+# `.git/config` must not run a program in the background (core.fsmonitor runs one on `git status`).
+FORCED_CONFIG = (("core.fsmonitor", "false"),)
+
+
 def _env():
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "C"}
     env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+    count = int(env["GIT_CONFIG_COUNT"]) if env.get("GIT_CONFIG_COUNT", "").isdigit() else 0
+    for key, value in FORCED_CONFIG:  # after those of the environment, if any
+        env[f"GIT_CONFIG_KEY_{count}"] = key
+        env[f"GIT_CONFIG_VALUE_{count}"] = value
+        count += 1
+    env["GIT_CONFIG_COUNT"] = str(count)
     return env
 
 
@@ -275,16 +289,16 @@ def diff(path, file_name, mode, commit_hash=None):
     root = repo_root(path)
     (file_name,) = _safe_files(root, [file_name])
     if mode == "unstaged":
-        result = run(root, "diff", "-M", "--", file_name)
+        result = run(root, "diff", *NO_DIFF_PROGRAMS, "-M", "--", file_name)
     elif mode == "staged":
-        result = run(root, "diff", "--cached", "-M", "--", file_name)
+        result = run(root, "diff", *NO_DIFF_PROGRAMS, "--cached", "-M", "--", file_name)
     elif mode == "untracked":
         # New file: compared to "nothing" (git returns 1 when there is a difference).
-        result = run(root, "diff", "--no-index", "--", os.devnull, file_name, check=False)
+        result = run(root, "diff", *NO_DIFF_PROGRAMS, "--no-index", "--", os.devnull, file_name, check=False)
     elif mode == "commit":
         if not isinstance(commit_hash, str) or not HASH_RE.match(commit_hash):
             raise GitError(tr("Invalid commit id"))
-        result = run(root, "show", "--format=", "-M", "--diff-merges=first-parent", commit_hash, "--", file_name)
+        result = run(root, "show", *NO_DIFF_PROGRAMS, "--format=", "-M", "--diff-merges=first-parent", commit_hash, "--", file_name)
     else:
         raise GitError(tr("Unknown diff type"))
     text = result.stdout

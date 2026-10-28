@@ -15,6 +15,7 @@ import time
 import gitops
 from folders import in_git_repo, resolve_dir
 from i18n import tr
+from storage import default_data_dir
 
 MAX_ENTRIES = 2000
 MAX_TEXT = 1_000_000
@@ -46,11 +47,28 @@ class FileConflict(Exception):
 
 # --- paths -----------------------------------------------------------------------------
 
+PROTECTED_MESSAGE = "This folder holds secrets: the Files tab does not open it"
+
+
+def _protected_dirs():
+    """Folders of secrets never shown, even inside an agent's folder: Ziggy One's data (its token),
+    SSH, GnuPG and AWS keys."""
+    home = os.path.expanduser("~")
+    folders = [default_data_dir(), *(os.path.join(home, name) for name in (".ssh", ".gnupg", ".aws"))]
+    return [os.path.realpath(folder) for folder in folders]
+
+
+def _is_protected(real):
+    return any(real == folder or real.startswith(folder + os.sep) for folder in _protected_dirs())
+
+
 def _root(path):
-    """The agent's folder, resolved; refused if it is inside a `.git`."""
+    """The agent's folder, resolved; refused if it is inside a `.git` or a folder of secrets."""
     root = resolve_dir(path)
     if ".git" in root.parts:
         raise ValueError(tr("The .git folder is not accessible"))
+    if _is_protected(str(root)):
+        raise ValueError(tr(PROTECTED_MESSAGE))
     return str(root)
 
 
@@ -62,6 +80,8 @@ def _inside(root, real):
     parts = [] if rel == "." else rel.split(os.sep)
     if ".git" in parts:
         raise ValueError(tr("The .git folder is not accessible"))
+    if _is_protected(real):
+        raise ValueError(tr(PROTECTED_MESSAGE))
     return parts
 
 
@@ -247,7 +267,8 @@ def _walk_files(root):
     """Files under `root` excluding ignored folders (.git, node_modules…); (list, truncated)."""
     found = []
     for folder, dirs, names in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d not in SKIPPED_DIRS)
+        dirs[:] = sorted(d for d in dirs if d not in SKIPPED_DIRS
+                         and not _is_protected(os.path.realpath(os.path.join(folder, d))))
         rel_folder = os.path.relpath(folder, root)
         for name in sorted(names):
             rel = name if rel_folder == "." else os.path.join(rel_folder, name)

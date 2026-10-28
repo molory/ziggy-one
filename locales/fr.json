@@ -120,6 +120,7 @@
   "shareActivity must be true or false": "shareActivity doit valoir true ou false",
   "Sign-in link invalid, expired or already used": "Lien de connexion invalide, expiré ou déjà utilisé",
   "The .git folder is not accessible": "Le dossier .git n'est pas accessible",
+  "This folder holds secrets: the Files tab does not open it": "Ce dossier contient des secrets : l'onglet Fichiers ne l'ouvre pas",
   "The browser did not produce a PDF": "Le navigateur n'a pas produit de PDF",
   "The claude call failed: {error}": "Échec de l'appel claude : {error}",
   "The column \"{name}\" contains tickets: choose where to move them": "La colonne « {name} » contient des tickets : choisis où les déplacer",

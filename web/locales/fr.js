@@ -201,6 +201,7 @@ export default {
   "copied": "copié",
   "Copied": "Copié",
   "Copied by Claude Code": "Copié par Claude Code",
+  "Copy ignored: not asked from this terminal": "Copie ignorée : pas demandée depuis ce terminal",
   "Copy": "Copier",
   "Copy blocked by the browser. Ticket link: {url}": "Copie refusée par le navigateur. Lien du ticket : {url}",
   "Copy failed": "Copie impossible",

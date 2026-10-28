@@ -5,6 +5,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Security hardening** (from an internal audit):
+  - agents' terminals get Claude Code `deny` rules on Ziggy One's data folder (token, sessions, keys);
+  - the Files tab refuses Ziggy One's data, `~/.ssh`, `~/.gnupg` and `~/.aws`, even inside an agent's folder;
+  - Ziggy One's git calls force `core.fsmonitor=false` and show diffs with `--no-ext-diff --no-textconv`: a
+    repository's config cannot run a program through them;
+  - terminal: Claude Code's clipboard copies (OSC 52) are accepted only within 5 s of your last input in that
+    terminal (no more silent clipboard replacement, also on page reload); output links open only `http(s)`;
+  - used sign-in links are remembered across a restart; the cookie header is parsed by hand (another local site's
+    cookie no longer signs you out); the data folder is forced to `0700` at start-up;
+  - raw files are served with a CSP `sandbox`; the PDF export removes `<meta>`, `<base>`, `<iframe>`… tags;
+  - `--name=<agent name>` in one argument; `/mcp` rejects a negative `Content-Length`; idle connections close
+    after 60 s.
 - **Signed-in browsers, with sign-out.** The cookie no longer holds the access token: each sign-in creates a
   session for that browser only (random id, the server keeps its SHA-256 in `browser-sessions.json`, 0600). The
   account window lists the signed-in browsers with **Sign out** for each one and **Sign out the others**; a session

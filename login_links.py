@@ -12,6 +12,8 @@ import secrets
 import threading
 import time
 
+from storage import read_json, write_json
+
 LIFETIME = 300  # seconds
 
 
@@ -26,11 +28,17 @@ def make(token, now=None):
 
 
 class LoginLinks:
-    """Server side: a valid link opens only one session, used links are forgotten when they expire."""
+    """Server side: a valid link opens only one session, used links are forgotten when they expire.
 
-    def __init__(self, token):
+    `path` (0600 file): the used links survive a restart, so a link used just before cannot be used again after.
+    """
+
+    def __init__(self, token, path=None):
         self.token = token
-        self._used = {}  # nonce → expiry
+        self._path = path
+        raw = read_json(path, {}) if path else {}
+        self._used = {n: e for n, e in (raw.items() if isinstance(raw, dict) else [])
+                      if isinstance(n, str) and isinstance(e, (int, float))}  # nonce → expiry
         self._lock = threading.Lock()
 
     def make(self):
@@ -52,4 +60,6 @@ class LoginLinks:
             if nonce in self._used:
                 return False
             self._used[nonce] = expires
+            if self._path:
+                write_json(self._path, self._used)
         return True

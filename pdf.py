@@ -50,11 +50,15 @@ blockquote { border-left: 3px solid #e2e1dc; margin-left: 0; padding-left: 3mm; 
 img { max-width: 100%; }
 """
 CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+# Tags that can navigate or load despite the CSP (a <meta http-equiv="refresh"> to file:///… would print a
+# local file): removed from the content. The interface never produces them.
+LOADING_TAGS = re.compile(r"</?(meta|base|link|iframe|frame|frameset|object|embed|portal)\b[^>]*>", re.IGNORECASE)
 
 
 def full_page(title, body):
     """Full page around the received content: title, stylesheet, CSP (no script, no loading)."""
     title = html_lib.escape(title if isinstance(title, str) else "", quote=True)[:200]
+    body = LOADING_TAGS.sub("", body)
     return (f'<!doctype html><html lang="{i18n.language()}"><head><meta charset="utf-8">'
             f'<meta http-equiv="Content-Security-Policy" content="{CSP}">'
             f"<title>{title}</title><style>{STYLE}</style></head><body>{body}</body></html>")

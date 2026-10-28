@@ -136,6 +136,15 @@ Ziggy One is a single-user tool for your own machine.
   command line.
 - Agents act with **your** permissions: review Claude Code's permission prompts as you would in a terminal, and
   choose permission modes carefully.
+- Each agent's terminal gets Claude Code `deny` rules on Ziggy One's data folder (token, sessions, keys): its file
+  tools cannot read or change them. This does not stop a shell command you approve, which runs as you.
+- The Files tab never opens Ziggy One's data, `~/.ssh`, `~/.gnupg` or `~/.aws`, even inside an agent's folder.
+- Ziggy One's own git calls (Git and Files tabs, activity) ignore a repository's `core.fsmonitor`, external diff and
+  textconv programs: opening a repository does not run its code.
+- Claude Code can copy to your clipboard (`/copy`) only within 5 seconds of something you did in that terminal;
+  terminal links open only `http(s)` addresses.
+- An agent with **Chrome** enabled drives your real browser, where Ziggy One is signed in: it can use the cockpit
+  as you would. Enable it only for agents you trust with that.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
 

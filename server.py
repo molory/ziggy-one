@@ -23,7 +23,6 @@ import sys
 import tempfile
 import threading
 import time
-from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -65,7 +64,7 @@ MAX_KANBAN_FILE_BODY = 36_000_000  # file attached to a ticket (25 MB, base64-en
 MAX_PDF_BODY = 5_000_000  # HTML page of an exchange of the conversation, to export as PDF
 MAX_FILE_BODY = 2_500_000  # file saved from the Files tab (512 KB, JSON-escaped)
 # Image served from an agent's folder: an SVG must not be able to run a script.
-RAW_FILE_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+RAW_FILE_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
                     "X-Content-Type-Options": "nosniff"}
 
 MIME = {
@@ -129,6 +128,16 @@ ACCOUNT_FIELDS = ("loggedIn", "authMethod", "apiProvider", "email", "orgName", "
 SESSION_FIELDS = (
     "pid", "sessionId", "name", "cwd", "status", "kind", "entrypoint", "version", "startedAt", "updatedAt",
 )
+
+
+def cookie_value(header, name):
+    """Value of one cookie of the Cookie header. Read by hand: SimpleCookie gives up on the whole header
+    when another local site set a cookie it cannot parse (JSON, brackets…), which would sign the user out."""
+    for part in header.split(";"):
+        key, sep, value = part.strip().partition("=")
+        if sep and key == name:
+            return value.strip()
+    return None
 
 
 def same_secret(given, expected):
@@ -331,6 +340,12 @@ class ZiggyServer(ThreadingHTTPServer):
         self.terminals = Terminals(self.bus, on_exit=self._terminal_closed)
         data_dir = Path(data_dir) if data_dir else default_data_dir()
         self.data_dir = data_dir
+        # Private folder (token, sessions, keys), even if it was created before with wider permissions.
+        data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            data_dir.chmod(0o700)
+        except OSError:
+            pass
         # Global settings first: the interface language applies to every message of the server.
         self.settings = Settings(self.bus, data_dir / "settings.json")
         self.defaults = {**DEFAULT_OPTIONS, **(defaults or {})}
@@ -356,7 +371,7 @@ class ZiggyServer(ThreadingHTTPServer):
         self.account = account
         # Token kept from one start to the next: open tabs stay signed in after a relaunch.
         self.token = persistent_token(data_dir / "token", renew=renew_token)
-        self.logins = login_links.LoginLinks(self.token)
+        self.logins = login_links.LoginLinks(self.token, data_dir / "used-login-links.json")
         # Signed-in browsers: each has its own session (the cookie), never the token itself.
         self.sessions = BrowserSessions(data_dir / "browser-sessions.json")
         if renew_token:
@@ -394,7 +409,8 @@ class ZiggyServer(ThreadingHTTPServer):
         return {pid for pid in map(self.terminals.claude_pid, self.terminals.list()) if pid is not None}
 
     def _hook_settings(self, conversation):
-        """Claude Code settings of an agent's terminal (0600 file): our start-of-turn and end-of-turn hooks."""
+        """Claude Code settings of an agent's terminal (0600 file): our start-of-turn and end-of-turn hooks,
+        and Ziggy One's data (token, keys, hook settings) out of reach of the agent's file tools."""
         def hook(event):
             command = (f"python3 -I {shlex.quote(str(HOOK_SCRIPT))} {event} {self.port} {conversation.id} "
                        f"{shlex.quote(str(self.hook_token_file))}")
@@ -408,7 +424,10 @@ class ZiggyServer(ThreadingHTTPServer):
             "Notification": hook("notify"),  # permission requested, question asked: the agent is waiting for you
             "PostToolUse": hook("tool"),  # the tool ran: you answered, the agent no longer waits for you
         }
-        write_private(path, json.dumps({"hooks": hooks}))
+        # "//" + absolute path: a path from the root of the disk in Claude Code's permission rules.
+        data = f"/{self.data_dir.resolve()}/**"
+        permissions = {"deny": [f"Read({data})", f"Edit({data})"]}
+        write_private(path, json.dumps({"hooks": hooks, "permissions": permissions}))
         return path
 
     def _mcp_config(self, conversation):
@@ -436,7 +455,7 @@ class ZiggyServer(ThreadingHTTPServer):
         # (Claude Code's ListAgents / SendMessage), instead of "folder-xx".
         name = self.agents.name_for(self.agent_keys(conversation))
         if name:
-            args += ["--name", name]
+            args.append(f"--name={name}")  # one argument: a name starting with "-" stays a name
         args += self._claude_args_for(conversation)  # --allowedTools is variadic: it stays last
         self.terminals.start(conversation.id, conversation.cwd, args, cols, rows)
 
@@ -593,6 +612,9 @@ class ZiggyServer(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     server_version = "ziggy-one"
     sys_version = ""
+    # A connection that sends nothing for a minute is closed (an idle program cannot hold threads forever).
+    # The event stream is not affected: it writes at least every 15 s.
+    timeout = 60
 
     def log_message(self, fmt, *args):
         pass
@@ -644,7 +666,10 @@ class Handler(BaseHTTPRequestHandler):
         if conversation_id is None:
             return self._json(401, {"error": tr("Invalid agent key")})
         try:
-            message = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), MAX_BODY)) or b"null")
+            length = int(self.headers.get("Content-Length") or 0)
+            if length < 0 or length > MAX_BODY:
+                raise ValueError("Invalid Content-Length")
+            message = json.loads(self.rfile.read(length) or b"null")
         except ValueError:
             return self._json(400, {"jsonrpc": "2.0", "id": None, "error": {"code": agent_mcp.PARSE_ERROR, "message": "Invalid JSON"}})
         conversation = self.server.conversations.get(conversation_id)
@@ -665,14 +690,9 @@ class Handler(BaseHTTPRequestHandler):
     def _authenticated(self):
         """True if the cookie holds a valid browser session; its digest is kept in self.session."""
         self.session = None
-        cookie = SimpleCookie()
-        try:
-            cookie.load(self.headers.get("Cookie", ""))
-        except CookieError:
-            return False
-        morsel = cookie.get(self.server.cookie_name)
-        if morsel is not None:
-            self.session = self.server.sessions.check(morsel.value)
+        value = cookie_value(self.headers.get("Cookie", ""), self.server.cookie_name)
+        if value is not None:
+            self.session = self.server.sessions.check(value)
         return self.session is not None
 
     def _origin_ok(self):

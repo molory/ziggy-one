@@ -58,7 +58,7 @@ function decode(base64) {
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  *
  * @typedef {{term: any, fit: any, host: HTMLElement, seq: number, ready: boolean, early: {seq: number, data: string}[],
- *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>, code?: number, stopping?: boolean}} Entry
+ *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>, code?: number, stopping?: boolean, lastInput: number}} Entry
  */
 
 /**
@@ -73,6 +73,9 @@ function icon(d) {
   svg.append(path);
   return svg;
 }
+
+// Time after your last action in a terminal during which Claude Code may copy to the clipboard (OSC 52).
+const COPY_AFTER_INPUT = 5000;
 
 // Terminal window with a prompt, and the circular arrow of the Reopen button.
 const TERMINAL_ICON = "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM6 9l3 3-3 3M12 15h5";
@@ -158,12 +161,19 @@ export function mountTerminalView(root, deps) {
       scrollback: 5000,
       theme: THEME,
       macOptionClickForcesSelection: true, // macOS: Option + drag selects (see FORCE_SELECTION_KEY)
+      // Links of the output (OSC 8): web addresses only, in a new tab without access to this one.
+      // xterm.js would open any scheme (file:, vscode:…) after a simple confirmation.
+      linkHandler: {
+        activate: (/** @type {MouseEvent} */ _event, /** @type {string} */ uri) => {
+          if (/^https?:\/\//i.test(uri)) window.open(uri, "_blank", "noopener,noreferrer");
+        },
+      },
     });
     const fit = new fitAddon.FitAddon();
     term.loadAddon(fit);
     term.open(host);
     /** @type {Entry} */
-    const entry = { term, fit, host, seq: 0, ready: false, early: [], pending: "", sending: false, recolor: createRecolor() };
+    const entry = { term, fit, host, seq: 0, ready: false, early: [], pending: "", sending: false, recolor: createRecolor(), lastInput: 0 };
     entries.set(id, entry);
     term.onData((/** @type {string} */ data) => sendInput(id, entry, data));
     // Copy-paste, as in a terminal. Ctrl+C copies the selection if there is one (without a selection, it
@@ -200,10 +210,16 @@ export function mountTerminalView(root, deps) {
       event.target?.dispatchEvent(forcingSelection(event, !event.shiftKey));
     }, true);
     // Copy requested by Claude Code itself (OSC 52 sequence, e.g. /copy): to the clipboard.
-    // Only writing is supported, never reading the clipboard by the program.
+    // Only writing is supported, never reading the clipboard by the program. And only just after something
+    // you did in this terminal: printed by a file or a command, the sequence would replace your clipboard
+    // without your knowing (a command to paste in a shell, for example).
     term.parser.registerOscHandler(52, (/** @type {string} */ data) => {
       const encoded = data.slice(data.indexOf(";") + 1);
       if (!encoded || encoded === "?") return true;
+      if (Date.now() - entry.lastInput > COPY_AFTER_INPUT) {
+        flash(t("Copy ignored: not asked from this terminal"));
+        return true;
+      }
       try {
         const text = new TextDecoder().decode(Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0)));
         navigator.clipboard.writeText(text).then(() => flash(t("Copied by Claude Code")), () => flash(t("Copy refused by the browser")));
@@ -306,6 +322,7 @@ export function mountTerminalView(root, deps) {
    * @param {string} data
    */
   async function sendInput(id, entry, data) {
+    entry.lastInput = Date.now(); // keys, mouse, shortcuts, Discussion tab: you are acting on this terminal
     entry.pending += data;
     if (entry.sending) return;
     entry.sending = true;

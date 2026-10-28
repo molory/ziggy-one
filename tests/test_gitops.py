@@ -225,5 +225,22 @@ class GitOpsTest(unittest.TestCase):
         self.assertEqual(gitops.friendly_error("unknown error", "x"), "unknown error")  # not recognized: as is
 
 
+    def test_repository_config_runs_no_program(self):
+        """A repository's config (fsmonitor, external diff, textconv) does not run anything in our git calls."""
+        marker = self.base / "ran"
+        script = self.base / "evil.sh"
+        script.write_text(f"#!/bin/sh\ntouch {marker}\n")
+        script.chmod(0o755)
+        git(self.repo, "config", "core.fsmonitor", str(script))
+        git(self.repo, "config", "diff.external", str(script))
+        git(self.repo, "config", "diff.evil.textconv", str(script))
+        (self.repo / ".gitattributes").write_text("*.txt diff=evil\n")
+        (self.repo / "a.txt").write_text("two\n")
+        gitops.state(self.path)
+        diff = gitops.diff(self.path, "a.txt", "unstaged")
+        self.assertIn("+two", diff["diff"])
+        self.assertFalse(marker.exists(), "a program from the repository's config ran")
+
+
 if __name__ == "__main__":
     unittest.main()

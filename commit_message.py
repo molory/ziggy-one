@@ -59,7 +59,7 @@ def generate(path):
     root = gitops.repo_root(path)
     if not gitops.has_staged_changes(root):
         raise gitops.GitError(tr(gitops.NOTHING_STAGED))
-    diff = gitops.run(root, "diff", "--cached", "-M").stdout
+    diff = gitops.run(root, "diff", *gitops.NO_DIFF_PROGRAMS, "--cached", "-M").stdout
     stat = gitops.run(root, "diff", "--cached", "--stat").stdout
     recent = gitops.run(root, "log", "-10", "--format=- %s", check=False).stdout or "(none)"
     if len(diff) > MAX_DIFF:

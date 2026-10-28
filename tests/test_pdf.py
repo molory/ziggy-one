@@ -22,6 +22,14 @@ class PdfTest(unittest.TestCase):
         self.assertIn("<title>Title &lt;b&gt;&quot;</title>", page)
         self.assertTrue(page.startswith("<!doctype html>"))
 
+    def test_content_cannot_navigate_or_load(self):
+        body = ('<META http-equiv="refresh" content="0;url=file:///etc/passwd"><base href="file:///">'
+                '<iframe src="file:///etc/passwd"></iframe><p>kept &lt;meta&gt;</p>')
+        page = pdf.full_page("", body)
+        for tag in ("refresh", "<base", "<iframe", "</iframe"):
+            self.assertNotIn(tag, page.split("</style>", 1)[1])
+        self.assertIn("<p>kept &lt;meta&gt;</p>", page)
+
     def test_invalid_or_unavailable(self):
         for body in ("", "   ", None, 12):
             with self.assertRaises(ValueError):

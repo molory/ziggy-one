@@ -272,8 +272,8 @@ class ConversationsHttpTest(unittest.TestCase):
         self.call("POST", "/api/agents/rename", {"agent": opened["id"], "name": "Teams/Outlook"})
         self.call("POST", f"/api/conversations/{opened['id']}/terminal-start", {"cols": 100, "rows": 30})
         first = self.launch_args(opened["id"])
-        self.assertEqual(first[first.index("--name") + 1], "Teams/Outlook")  # name seen by the other agents
-        self.assertLess(first.index("--name"), first.index("--model"))  # before --allowedTools, variadic
+        self.assertIn("--name=Teams/Outlook", first)  # name seen by the other agents, in one argument
+        self.assertLess(first.index("--name=Teams/Outlook"), first.index("--model"))  # before --allowedTools, variadic
         # Same name: the terminal stays open.
         status, result = self.call("POST", "/api/agents/rename", {"agent": opened["id"], "name": " Teams/Outlook "})
         self.assertEqual((status, result["terminalClosed"]), (200, False))
@@ -296,6 +296,9 @@ class ConversationsHttpTest(unittest.TestCase):
         command = hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
         self.assertIn(f"ziggy_hook.py prompt {self.httpd.port} {opened['id']}", command)
         self.assertNotIn(self.httpd.hook_token, command, "the token goes through a file, not the command line")
+        # Ziggy One's data (token, keys) out of reach of the agent's file tools.
+        data = f"/{self.httpd.data_dir.resolve()}/**"
+        self.assertEqual(json.loads(settings.read_text())["permissions"]["deny"], [f"Read({data})", f"Edit({data})"])
         # Agent settings: applied at the next opening, on the same session.
         session = "11111111-2222-4333-8444-555555555555"
         self.httpd.conversations.get(opened["id"]).adopt_session(session)
@@ -464,7 +467,7 @@ class ConversationsHttpTest(unittest.TestCase):
         connection.request("GET", f"/api/files/raw?path={path}&file=logo.svg", headers=self.headers)
         response = connection.getresponse()
         self.assertEqual((response.status, response.getheader("Content-Type")), (200, "image/svg+xml"))
-        self.assertEqual(response.getheader("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'")
+        self.assertEqual(response.getheader("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'; sandbox")
         self.assertEqual(response.getheader("X-Content-Type-Options"), "nosniff")
         self.assertIn(b"<svg", response.read())
         connection.close()

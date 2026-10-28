@@ -211,6 +211,32 @@ class FilesTest(unittest.TestCase):
         [hit] = files.search(self.path, "needle", "content")["results"]
         self.assertEqual(len(hit["text"]), files.MAX_LINE)
 
+    def test_folders_of_secrets_stay_closed(self):
+        """Ziggy One's data (its token) and ~/.ssh: never read, listed or searched, even inside the agent's folder."""
+        home = self.base / "home"
+        (home / ".ssh").mkdir(parents=True)
+        (home / ".ssh" / "id_ed25519").write_text("PRIVATE KEY hello")
+        data = home / ".local" / "share" / "ziggy-one"
+        data.mkdir(parents=True)
+        (data / "token").write_text("secret token hello")
+        (home / "notes.txt").write_text("hello")
+        with mock.patch.dict(os.environ, {"HOME": str(home), "XDG_DATA_HOME": str(home / ".local" / "share")}):
+            for rel in (".ssh/id_ed25519", ".local/share/ziggy-one/token"):
+                with self.assertRaises(ValueError):
+                    files.read_file(str(home), rel)
+            with self.assertRaises(ValueError):
+                files.list_dir(str(home / ".ssh"))
+            with self.assertRaises(ValueError):
+                files.read_file(str(data), "token")
+            (self.root / "keys").symlink_to(home / ".ssh")  # through a link: same answer
+            with self.assertRaises(ValueError):
+                files.read_file(self.path, "keys/id_ed25519")
+            found = files.search(str(home), "hello", mode="content")["results"]
+            self.assertEqual([r["file"] for r in found], ["notes.txt"])
+            names = [r["file"] for r in files.search(str(home), "id", mode="name")["results"]]
+            self.assertNotIn(".ssh/id_ed25519", names)
+            self.assertEqual(files.read_file(str(home), "notes.txt")["content"], "hello")
+
 
 class GitSearchTest(unittest.TestCase):
     def setUp(self):
