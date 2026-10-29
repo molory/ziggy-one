@@ -816,10 +816,15 @@ body.resizing { cursor: col-resize; user-select: none; }
 .layout.mode-tasks .rail-mode[data-mode="tasks"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .head-controls > :first-child:not(:only-child) + * { margin-left: auto; }
 .head-controls > :only-child { margin-left: auto; }
-/* Sidebar at its minimum width: even on its own line, the block only fits by hiding the counters. */
+/* Narrow sidebar: the filter, the pin and the buttons only fit on their line without the counters, then with tighter
+   spacing (measured with Active 99 / All 999). */
 .sessions-card { container-type: inline-size; }
-@container (max-width: 220px) {
+@container (max-width: 290px) {
   .segmented .count { display: none; }
+}
+@container (max-width: 240px) {
+  .head-controls { gap: 0.25rem; }
+  .head-controls .segmented > label > span { padding: 0 0.45rem; }
 }
 /* Collapse / keep open button, at the end of the line. */
 .sidebar-toggle { flex: none; width: 1.75rem; height: 1.75rem; margin-left: auto; border-color: transparent; background: none; color: var(--muted); }
