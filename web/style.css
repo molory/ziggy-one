@@ -1425,6 +1425,13 @@ body.resizing { cursor: col-resize; user-select: none; }
    Rows keep their size: on hover, the bar opens over the content ("peek")
    and each avatar stays exactly in place. On small screens, the bar does not collapse. */
 @media (min-width: 801px) {
+  /* Fixed head of the bar (logo and usage, mode, buttons, search): only the list below scrolls. */
+  .sidebar { overflow-y: hidden; }
+  .sessions-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .sessions-card > :not(.sessions) { flex: none; }
+  .sessions-card > .sessions { flex: 1; min-height: 0; overflow-y: auto; }
+  .layout:is(.collapsed, .expanding) .sessions { scrollbar-width: none; }
+  .layout:is(.collapsed, .expanding) .sessions::-webkit-scrollbar { display: none; }
   /* Explicit columns (the handle is 1 px) so that collapsing and expanding animate. */
   .layout { position: relative; grid-template-columns: var(--sidebar-width, 340px) 1px minmax(0, 1fr); }
   .layout.collapsed { grid-template-columns: 4rem 0 minmax(0, 1fr); }
