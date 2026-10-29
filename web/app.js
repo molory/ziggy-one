@@ -309,7 +309,6 @@ function renderAccountDialog() {
 let accountTimer;
 $("usage").addEventListener("click", () => {
   renderAccountDialog();
-  loadBrowsers();
   accountDialog.showModal();
   accountTimer = window.setInterval(renderAccountDialog, 30_000); // countdowns to the resets
 });
@@ -339,12 +338,44 @@ $("share-login").addEventListener("click", async () => {
   }
 });
 
+/** @typedef {{id: string, created: number, lastSeen: number, agent: string, current: boolean}} Browser */
+/** Last list received: the Server tab is redrawn often (server info), it shows it at once. @type {Browser[] | null} */
+let knownBrowsers = null;
+/** Elements of the section shown (Configuration › Server), if any. @type {{list: HTMLElement, others: HTMLElement} | null} */
+let browserSection = null;
+
+/** Configuration › Server: signed-in browsers, each with "Sign out", and "Sign out the others". */
+function browsersSection() {
+  const section = el("div", "settings-section browsers-section");
+  const head = el("div", "account-section-head");
+  const others = el("button", "link-button small", t("Sign out the others"));
+  others.setAttribute("type", "button");
+  others.addEventListener("click", async () => {
+    try {
+      renderBrowsers((await api("/api/browsers/sign-out-others", {})).browsers);
+    } catch (err) {
+      showToast(/** @type {Error} */ (err).message);
+    }
+  });
+  head.append(el("h3", "settings-title", t("Signed-in browsers")), others);
+  const list = el("ul", "browser-list");
+  section.append(head, list, el("p", "muted small",
+    t("Each browser has its own session. A session unused for 30 days ends by itself.")));
+  browserSection = { list, others };
+  if (knownBrowsers) renderBrowsers(knownBrowsers);
+  else others.hidden = true;
+  loadBrowsers();
+  return section;
+}
+
 /**
- * Signed-in browsers, in the account window: this one first in the list's order, each with "Sign out".
+ * Signed-in browsers: this one first in the list's order, each with "Sign out".
  *
- * @param {{id: string, created: number, lastSeen: number, agent: string, current: boolean}[]} browsers
+ * @param {Browser[]} browsers
  */
 function renderBrowsers(browsers) {
+  knownBrowsers = browsers;
+  if (!browserSection) return;
   const now = Date.now() / 1000;
   const items = browsers.map((browser) => {
     const item = el("li", browser.current ? "browser-item current" : "browser-item");
@@ -363,8 +394,8 @@ function renderBrowsers(browsers) {
     item.append(who, signOut);
     return item;
   });
-  $("browser-list").replaceChildren(...items);
-  $("sign-out-others").hidden = !browsers.some((browser) => !browser.current);
+  browserSection.list.replaceChildren(...items);
+  browserSection.others.hidden = !browsers.some((browser) => !browser.current);
 }
 
 async function loadBrowsers() {
@@ -380,7 +411,6 @@ async function signOutBrowser(id) {
   try {
     const answer = await api("/api/browsers/sign-out", { id });
     if (answer.signedOut === "current") {
-      accountDialog.close();
       $("auth-error").hidden = false; // this browser: back to the sign-in screen
       return;
     }
@@ -389,14 +419,6 @@ async function signOutBrowser(id) {
     showToast(/** @type {Error} */ (err).message);
   }
 }
-
-$("sign-out-others").addEventListener("click", async () => {
-  try {
-    renderBrowsers((await api("/api/browsers/sign-out-others", {})).browsers);
-  } catch (err) {
-    showToast(/** @type {Error} */ (err).message);
-  }
-});
 
 accountDialog.addEventListener("close", () => {
   clearInterval(accountTimer);
@@ -1776,7 +1798,7 @@ function serverPane() {
     if (confirmed) restartAction("start");
   });
   card.append(how, button);
-  pane.append(card);
+  pane.append(card, browsersSection());
   return pane;
 }
 

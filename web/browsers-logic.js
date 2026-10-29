@@ -1,5 +1,5 @@
 // @ts-check
-/** Signed-in browsers (account window): a readable name from the User-Agent. */
+/** Signed-in browsers (Configuration › Server): a readable name from the User-Agent. */
 
 import { t } from "./i18n.js";
 

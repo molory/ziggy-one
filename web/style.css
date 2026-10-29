@@ -2415,6 +2415,8 @@ kbd {
 .share-login .text-input { width: 100%; padding: 0.4rem 0.6rem; font: 0.78rem var(--mono); }
 /* Signed-in browsers: one line each, this browser marked. */
 .browser-list { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+/* Configuration › Server: title and list share one width, "Sign out the others" at its right end. */
+.browsers-section :is(.account-section-head, .browser-list) { width: min(100%, 560px); box-sizing: border-box; }
 .browser-item {
   display: flex;
   align-items: center;

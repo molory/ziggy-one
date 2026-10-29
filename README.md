@@ -90,7 +90,7 @@ link is worthless wherever it was copied: shell scrollback, `ps`, browser histor
   the account window (click your avatar) has **Sign in another browser**: it copies such a link, no terminal needed.
 - **No browser at hand?** Started as `python3 server.py` (no `--open`), or when no browser can be opened, the server
   prints the login link instead. Run `ziggy --link` for a fresh one.
-- **Signed-in browsers**: the account window lists them (browser, system, sign-in date, last activity), with
+- **Signed-in browsers**: Configuration › Server lists them (browser, system, sign-in date, last activity), with
   **Sign out** for each one and **Sign out the others**. A session unused for 30 days ends by itself; sessions
   survive a restart of Ziggy One.
 - **Bookmark** `http://127.0.0.1:6767/`, never a login link. If the browser is signed out (cookie lost, session

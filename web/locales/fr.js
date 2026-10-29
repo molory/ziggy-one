@@ -3,6 +3,7 @@
 
 /** @type {Record<string, string>} */
 export default {
+  "Each browser has its own session. A session unused for 30 days ends by itself.": "Chaque navigateur a sa propre session. Une session inutilisée pendant 30 jours se termine d'elle-même.",
   "Sound when an agent finishes": "Son quand un agent a fini",
   "Sound when an agent finishes: on": "Son quand un agent a fini : activé",
   "Sound when an agent finishes: off": "Son quand un agent a fini : coupé",
