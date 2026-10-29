@@ -186,7 +186,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
   flex: none;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.35rem;
   min-height: var(--top-bar-height);
   padding: 0.3rem 0.5rem 0.3rem 0.75rem;
   border-bottom: 1px solid var(--border);
@@ -222,7 +222,6 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .usage-refresh.loading svg { animation: none; }
 }
-.usage-sound[aria-pressed="true"] .sound-off, .usage-sound[aria-pressed="false"] .sound-on { display: none; }
 .usage-open {
   all: unset;
   display: flex;
@@ -828,8 +827,11 @@ body.resizing { cursor: col-resize; user-select: none; }
   .head-controls .segmented > label > span { padding: 0 0.45rem; }
 }
 /* Collapse / keep open button, at the end of the line. */
-.sidebar-toggle { flex: none; width: 1.75rem; height: 1.75rem; margin-left: auto; border-color: transparent; background: none; color: var(--muted); }
-.sidebar-toggle:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
+.sidebar-toggle, .sound-toggle { flex: none; width: 1.75rem; height: 1.75rem; margin-left: auto; border-color: transparent; background: none; color: var(--muted); }
+.sidebar-toggle:hover:not(:disabled), .sound-toggle:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
+/* Sound when an agent finishes, just before it: the two buttons side by side. */
+.sound-toggle + .sidebar-toggle { margin-left: 0; }
+.sound-toggle[aria-pressed="true"] .sound-off, .sound-toggle[aria-pressed="false"] .sound-on { display: none; }
 .sidebar-toggle .icon-expand, .layout.collapsed .sidebar-toggle .icon-collapse { display: none; }
 .layout.collapsed .sidebar-toggle .icon-expand { display: block; }
 
@@ -839,6 +841,15 @@ body.resizing { cursor: col-resize; user-select: none; }
   .usage-open .avatar, .usage-ring { display: none; }
   .usage-open { padding-left: 0.4rem; }
   .usage-chip + .usage-chip { margin-left: 0.4rem; padding-left: 0.4rem; }
+}
+/* Rings first (the percentages stay), so the sound button fits at the default width. */
+@container (max-width: 330px) {
+  .usage-ring { display: none; }
+}
+/* Narrowest: the refresh button goes too (it stays in the account window). */
+@container (max-width: 270px) {
+  .usage-refresh { display: none; }
+  .usage-open { padding-right: 0.4rem; }
 }
 
 .chat {
@@ -1431,7 +1442,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   .layout.collapsed .usage { overflow: visible; } /* the usage ring around the avatar */
 
   /* Rail: nothing but the avatars (cropped text would be unreadable). */
-  .layout.collapsed:not(.peek) :is(.agent-text, .usage-windows, .usage-refresh, .workspace-chevron, .row-actions, .workspace-empty, .workspace-sub) {
+  .layout.collapsed:not(.peek) :is(.agent-text, .usage-windows, .usage-refresh, .sound-toggle, .workspace-chevron, .row-actions, .workspace-empty, .workspace-sub) {
     opacity: 0;
     pointer-events: none;
   }
@@ -1506,10 +1517,10 @@ body.resizing { cursor: col-resize; user-select: none; }
 @media (min-width: 801px) and (prefers-reduced-motion: no-preference) {
   .layout { transition: grid-template-columns 0.24s cubic-bezier(0.2, 0, 0, 1); }
   body.resizing .layout, .layout.instant, .layout.instant .sidebar * { transition: none; }
-  .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .workspace-chevron, .row-actions, .workspace-empty) {
+  .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .sound-toggle, .workspace-chevron, .row-actions, .workspace-empty) {
     transition: opacity 0.16s ease;
   }
-  .layout.peek .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .workspace-chevron, .row-actions, .workspace-empty) {
+  .layout.peek .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .sound-toggle, .workspace-chevron, .row-actions, .workspace-empty) {
     transition-delay: 0.06s;
   }
   .layout.peek .sidebar { animation: peek-open 0.24s cubic-bezier(0.2, 0, 0, 1); }
@@ -1518,7 +1529,7 @@ body.resizing { cursor: col-resize; user-select: none; }
     box-shadow: none;
     animation: peek-close 0.18s cubic-bezier(0.4, 0, 1, 1);
   }
-  .layout.peek-closing .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .workspace-chevron, .row-actions, .workspace-empty) {
+  .layout.peek-closing .sidebar :is(.agent-text, .usage-windows, .usage-refresh, .sound-toggle, .workspace-chevron, .row-actions, .workspace-empty) {
     opacity: 0;
     transition-duration: 0.1s;
   }
