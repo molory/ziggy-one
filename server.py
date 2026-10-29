@@ -98,9 +98,9 @@ PROBE_CMD = [
     "--output-format", "stream-json", "--verbose", "Reply only: ok",
 ]
 KANBAN_BOARD_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})$")
-KANBAN_BOARD_ACTION_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})/(update|delete|columns|tickets)$")
+KANBAN_BOARD_ACTION_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})/(update|delete|columns|tickets|archive)$")
 KANBAN_COLUMN_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})/columns/([0-9a-f]{8})/(update|move|delete)$")
-KANBAN_TICKET_ROUTE = re.compile(r"^/api/kanbans/tickets/([0-9a-f]{12})/(update|move|delete|files)$")
+KANBAN_TICKET_ROUTE = re.compile(r"^/api/kanbans/tickets/([0-9a-f]{12})/(update|move|delete|files|archive|unarchive)$")
 KANBAN_NUMBER_ROUTE = re.compile(r"^/api/kanbans/tickets/number/([1-9][0-9]{0,8})$")
 TICKET_PAGE_ROUTE = re.compile(r"^/t/([1-9][0-9]{0,8})$")  # address of a ticket: the page, which opens its card
 TICKET_FILE_LINK_ROUTE = re.compile(r"^/t/([1-9][0-9]{0,8})/files/([0-9a-f]{16})(?:/[^/]*)?$")
@@ -1102,6 +1102,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(200, {"ok": True})
                 elif action == "columns":
                     return self._json(200, kb.add_column(board_id, body.get("name"), body.get("hue")))
+                elif action == "archive":
+                    return self._json(200, {"archived": kb.archive_column(board_id, body.get("column"))})
                 else:
                     return self._json(200, kb.create_ticket(
                         board_id, body.get("column"), body.get("title"), body.get("description", "")))
@@ -1125,6 +1127,10 @@ class Handler(BaseHTTPRequestHandler):
                     kb.move_ticket(ticket_id, body.get("column"), body.get("index"))
                 elif action == "delete":
                     kb.delete_ticket(ticket_id)
+                elif action == "archive":
+                    kb.archive_ticket(ticket_id)
+                elif action == "unarchive":
+                    kb.unarchive_ticket(ticket_id)
                 else:
                     try:
                         data = base64.b64decode(body.get("data") or "", validate=True)

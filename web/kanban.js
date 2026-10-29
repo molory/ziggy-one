@@ -1,12 +1,12 @@
 // @ts-check
 // Tasks mode: the Kanban boards. Sidebar (boards, collapsible workspaces, pins), and in the center
-// the chosen board, or creation, or settings (board: name, color, columns; workspace).
+// the chosen board, or creation, or settings (board: name, color, columns, archived tickets; workspace).
 // The list reuses the agents' CSS classes and pin and workspace functions: it looks and behaves
 // the same way.
 
 import { t, tn } from "./i18n.js";
 import { mountBoardView } from "./kanban-board.js";
-import { boardRow, tagHue, titleTags } from "./kanban-logic.js";
+import { archivedTickets, boardRow, tagHue, titleTags } from "./kanban-logic.js";
 import { mountTicketDialog } from "./kanban-ticket.js";
 import { orderRows, pinnedFirst } from "./pins.js";
 import { matchesTerms, searchTerms } from "./sidebar-search.js";
@@ -26,7 +26,7 @@ const TICKET_RESULTS_MAX = 50;
  * @property {(path: string, body?: object) => Promise<any>} api
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  * @property {(d: string) => SVGElement} icon
- * @property {Record<string, string>} icons pin, gear, close, file, plus, workspace, board
+ * @property {Record<string, string>} icons pin, gear, close, file, plus, workspace, board, archive
  * @property {(options: any) => Promise<boolean>} confirmDialog
  * @property {(text: string, target: HTMLElement, options?: {onToggle?: (line: number, checked: boolean) => void}) => void} renderMarkdown
  * @property {(key: string) => number} autoHue automatic hue (same assignment as the agents)
@@ -74,6 +74,10 @@ export function mountKanban(dom, deps) {
   let view = { kind: "board" };
   /** @type {null | (() => void)} redraws the open settings view when the data changes */
   let viewRefresh = null;
+  /** @type {"settings" | "archive"} tab of the board settings */
+  let settingsTab = "settings";
+  /** @type {Ticket[] | null} tickets of the board being configured (for the Archive tab), null until loaded */
+  let settingsTickets = null;
   const collapsed = new Set(/** @type {string[]} */ (loadSaved(COLLAPSED_KEY, [])));
   let loaded = false;
   /** @type {Map<number, {id: string, board: string, boardName: string, title: string}>} all tickets, by number */
@@ -115,7 +119,8 @@ export function mountKanban(dom, deps) {
 
   const boardHost = el("div", "kanban-host");
   const boardView = mountBoardView(boardHost, {
-    api, el, icon, icons: { plus: icons.plus, file: icons.file }, showError,
+    api, el, icon, icons: { plus: icons.plus, file: icons.file, archive: icons.archive }, showError,
+    confirmDialog: deps.confirmDialog,
     openTicket: (id) => {
       const data = boardView.current();
       const ticket = data?.tickets.find((t) => t.id === id);
@@ -181,7 +186,7 @@ export function mountKanban(dom, deps) {
     const text = el("span", "agent-text");
     const meta = el("span", "muted small agent-meta");
     meta.append(el("span", "", deps.shortDate(board.updatedAt)));
-    const count = board.ticketCount ?? 0;
+    const count = (board.ticketCount ?? 0) - (board.archivedCount ?? 0); // on the board (not archived)
     meta.append(el("span", "", count ? tn(count, "{n} ticket", "{n} tickets") : t("empty")));
     // Spread by column: a chip in the color of each non-empty column.
     const spread = el("span", "board-spread");
@@ -486,12 +491,24 @@ export function mountKanban(dom, deps) {
   }
 
   /**
-   * Board settings: name, color, columns (name, color, order, deletion), deletion of the board.
+   * Board settings, in two tabs. Settings: name, color, columns (name, color, order, deletion), deletion of
+   * the board. Archive: the archived tickets, to open or put back on the board.
    *
    * @param {string} id
+   * @param {"settings" | "archive"} [tab]
    */
-  function openSettings(id) {
+  function openSettings(id, tab = "settings") {
+    if (view.kind !== "settings" || view.id !== id) settingsTickets = null;
     view = { kind: "settings", id };
+    settingsTab = tab;
+    if (!settingsTickets) {
+      api(`/api/kanbans/${id}`).then((data) => {
+        if (view.kind === "settings" && view.id === id) {
+          settingsTickets = data.tickets;
+          viewRefresh?.();
+        }
+      }).catch(showError);
+    }
     const call = (/** @type {string} */ path, /** @type {object} */ body) => api(path, body).catch(showError);
     viewRefresh = () => {
       const board = boards.find((b) => b.id === id);
@@ -503,6 +520,41 @@ export function mountKanban(dom, deps) {
       const focused = /** @type {HTMLInputElement | null} */ (document.activeElement);
       const focusKey = focused?.dataset.focusKey;
       const typing = focusKey && focused?.tagName === "INPUT" ? focused.value : null;
+
+      const tabs = el("div", "chat-tabs panel-tabs");
+      tabs.setAttribute("role", "tablist");
+      tabs.setAttribute("aria-label", t("Configure board"));
+      const archived = board.archivedCount ?? 0;
+      for (const [key, label] of [["settings", t("Settings")], ["archive", t("Archive ({count})", { count: archived })]]) {
+        const button = el("button", "", label);
+        /** @type {HTMLButtonElement} */ (button).type = "button";
+        button.setAttribute("role", "tab");
+        button.setAttribute("aria-selected", String(settingsTab === key));
+        button.dataset.focusKey = `tab-${key}`;
+        button.addEventListener("click", () => openSettings(id, /** @type {"settings" | "archive"} */ (key)));
+        tabs.append(button);
+      }
+      const done = el("button", "primary", t("Done"));
+      done.type = "button";
+      done.addEventListener("click", () => selectBoard(id));
+      const footer = el("div", "panel-actions");
+      footer.append(done);
+      /** @param {Node[]} sections */
+      const show = (...sections) => {
+        showCard(t("Configure board"), false, tabs, ...sections, footer);
+        dom.close.hidden = false;
+        const again = /** @type {HTMLInputElement | null} */ (focusKey ? dom.body.querySelector(`[data-focus-key="${focusKey}"]`) : null);
+        if (again) {
+          if (typing !== null) again.value = typing;
+          again.focus();
+        }
+        drawList();
+      };
+      if (settingsTab === "archive") {
+        show(archiveSection(board));
+        return;
+      }
+
       const nameForm = el("form", "settings-section");
       const nameLabel = el("label", "settings-title", t("Name"));
       nameLabel.setAttribute("for", "board-rename");
@@ -605,22 +657,52 @@ export function mountKanban(dom, deps) {
         if (confirmed) call(`/api/kanbans/${id}/delete`, {});
       });
       danger.append(el("h3", "settings-title", t("Delete")), el("p", "muted small", t("Deletes the board, its tickets and their attached files.")), remove);
-
-      const done = el("button", "primary", t("Done"));
-      done.type = "button";
-      done.addEventListener("click", () => selectBoard(id));
-      const footer = el("div", "panel-actions");
-      footer.append(done);
-      showCard(t("Configure board"), false, nameForm, colorSection, columnsSection, danger, footer);
-      dom.close.hidden = false;
-      const again = /** @type {HTMLInputElement | null} */ (focusKey ? dom.body.querySelector(`[data-focus-key="${focusKey}"]`) : null);
-      if (again) {
-        if (typing !== null) again.value = typing;
-        again.focus();
-      }
-      drawList();
+      show(nameForm, colorSection, columnsSection, danger);
     };
     viewRefresh();
+  }
+
+  /**
+   * Archive tab: the archived tickets, most recent first. A click opens the ticket; "Restore" puts it back
+   * at the end of its column.
+   *
+   * @param {Board} board
+   */
+  function archiveSection(board) {
+    const section = el("div", "settings-section");
+    section.append(el("h3", "settings-title", t("Archived tickets")));
+    if (!settingsTickets) {
+      section.append(el("p", "muted small", t("Loading…")));
+      return section;
+    }
+    const tickets = archivedTickets(settingsTickets);
+    if (!tickets.length) {
+      section.append(el("p", "muted small", t("No archived tickets. Archive the finished tickets from the last column of the board.")));
+      return section;
+    }
+    const columns = new Map(board.columns.map((c) => [c.id, c.name]));
+    const list = el("ul", "archive-list");
+    for (const ticket of tickets) {
+      const item = el("li", "archive-row");
+      const open = el("button", "archive-open");
+      /** @type {HTMLButtonElement} */ (open).type = "button";
+      open.title = t("Open the ticket");
+      open.append(el("span", "archive-number muted small", `#${ticket.number}`), el("span", "archive-title", ticket.title));
+      open.addEventListener("click", () => ticketDialog.open(ticket, board));
+      const when = el("span", "muted small archive-meta",
+        t("{column} · archived {date}", { column: columns.get(ticket.column) ?? "", date: deps.shortDate(ticket.archivedAt ?? 0) }));
+      const restore = el("button", "", t("Restore"));
+      /** @type {HTMLButtonElement} */ (restore).type = "button";
+      restore.title = t("Put the ticket back on the board, at the end of its column");
+      restore.dataset.focusKey = `restore-${ticket.id}`;
+      restore.addEventListener("click", () => {
+        api(`/api/kanbans/tickets/${ticket.id}/unarchive`, {}).catch(showError);
+      });
+      item.append(open, when, restore);
+      list.append(item);
+    }
+    section.append(list);
+    return section;
   }
 
   /**
@@ -790,6 +872,10 @@ export function mountKanban(dom, deps) {
     onBoard(data) {
       refreshIndex(); // up-to-date titles and numbers for "#42" links
       ticketDialog.update(data);
+      if (data.board && view.kind === "settings" && view.id === data.board.id) {
+        settingsTickets = data.tickets;
+        viewRefresh?.();
+      }
       if (data.deleted) {
         ticketDialog.boardDeleted(data.deleted);
         if (data.deleted === selected) {

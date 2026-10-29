@@ -119,7 +119,11 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   between the agents and Kanban boards (remembered by the browser, `#tasks` in the address). Boards are shown like
   agents: pins, collapsible workspaces of boards, settings gear, with the distribution of tickets per column. A board
   has customisable columns (name, colour, order; "To do, In progress, Done" at first; deleting a non-empty column
-  asks where to send its tickets). A ticket has a title, a Markdown description (Write / Preview) and attached files
+  asks where to send its tickets). Finished tickets can be archived from the last column ("Done"): one by one
+  (button on the card, or "Archive" in the ticket window) or all at once (button in the column header). Archived
+  tickets leave the board but stay in their column (`archivedAt`); the board settings list them in the Archive tab,
+  where a click opens one and "Restore" (also in the ticket window) puts it back at the end of its column. Moving
+  an archived ticket also restores it; the agents' `kanban_list_tickets` leaves archived tickets out. A ticket has a title, a Markdown description (Write / Preview) and attached files
   (button, drag or paste; 25 MB per file, kept as long as the ticket exists, in `kanban-files/` with 0700/0600).
   A ticket can have a delivery date (ticket card › "Delivery date", saved as soon as it is picked; "Remove" takes
   it off; `due`, `YYYY-MM-DD`). The card then shows a badge with the days left ("5 days", "Tomorrow", "Today"),

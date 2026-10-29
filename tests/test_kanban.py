@@ -100,6 +100,35 @@ class KanbanTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at least one column"):
             self.kb.delete_column(board, self.done)
 
+    def test_archived_tickets_leave_the_board_and_come_back_at_the_end(self):
+        board = self.board["id"]
+        ids = {t: self.kb.create_ticket(board, self.done, t)["id"] for t in ("A", "B", "C")}
+        self.kb.archive_ticket(ids["A"])
+        shown = lambda: [t["title"] for t in sorted(self.kb.get(board)["tickets"], key=lambda t: t["position"])
+                         if t["column"] == self.done and not t["archivedAt"]]
+        self.assertEqual(shown(), ["B", "C"])
+        summary = self.kb.get(board)["board"]
+        self.assertEqual((summary["counts"][self.done], summary["archivedCount"], summary["ticketCount"]), (2, 1, 3))
+        self.assertEqual(self.kb.archive_column(board, self.done), 2)
+        self.assertEqual(shown(), [])
+        self.assertEqual(self.kb.archive_column(board, self.done), 0)
+        self.kb.create_ticket(board, self.done, "D")
+        self.kb.unarchive_ticket(ids["B"])
+        self.assertEqual(shown(), ["D", "B"])
+        self.kb.move_ticket(ids["C"], self.todo, 0)  # moving an archived ticket puts it back on the board
+        self.assertEqual(self.titles(self.todo), ["C"])
+        kinds = [e["kind"] for e in self.kb.ticket_history(ids["C"])]
+        self.assertEqual(kinds, ["created", "archived", "unarchived", "moved"])
+        # Reloaded as is; deleting the column keeps the archived ticket on the board, in the chosen column.
+        reloaded = {t["id"]: t["archivedAt"] for t in self.make().get(board)["tickets"]}
+        self.assertTrue(reloaded[ids["A"]])
+        self.assertIsNone(reloaded[ids["B"]])
+        self.kb.delete_column(board, self.done, self.doing)
+        archived = next(t for t in self.kb.get(board)["tickets"] if t["id"] == ids["A"])
+        self.assertEqual((archived["column"], bool(archived["archivedAt"])), (self.doing, True))
+        self.kb.unarchive_ticket(ids["A"])
+        self.assertEqual(self.titles(self.doing), ["D", "B", "A"])
+
     def test_files_are_private_and_removed_with_their_ticket_or_board(self):
         board = self.board["id"]
         ticket = self.kb.create_ticket(board, self.todo, "with a file")["id"]

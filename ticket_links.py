@@ -27,6 +27,8 @@ HISTORY_LABELS = {
                        + (f" ({e['reason']})" if e.get("reason") else ""),
     "file_added": lambda e: f"File attached: {e.get('name', '')}",
     "file_removed": lambda e: f"File removed: {e.get('name', '')}",
+    "archived": lambda e: "Archived",
+    "unarchived": lambda e: "Restored from the archive",
     "deleted": lambda e: "Deleted",
 }
 
@@ -64,7 +66,7 @@ def render(export, token, origin):
         f"# #{number} · {ticket['title']}",
         "",
         f"- Board: {export['board']}",
-        f"- Column: {export['column']}",
+        f"- Column: {export['column']}" + (" (archived)" if ticket.get("archivedAt") else ""),
         *([f"- Delivery date: {ticket['due']}"] if ticket.get("due") else []),
         f"- Created {_when(ticket['createdAt'])} · updated {_when(ticket['updatedAt'])}",
         f"- Link: {origin}{ticket_path(token, number)}",

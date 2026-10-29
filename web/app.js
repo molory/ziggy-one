@@ -3542,6 +3542,7 @@ const kanban = mountKanban(
       pin: ICONS.pin, gear: ICONS.gear, close: ICONS.close, file: ICONS.file, workspace: ICONS.workspace,
       plus: "M12 5v14M5 12h14",
       board: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v6h-4z",
+      archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4",
     },
   },
 );

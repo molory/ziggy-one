@@ -3,6 +3,8 @@
 // cards, quick add at the bottom of a column, "+" column at the end. Moves by drag and drop
 // (the browser's native drag and drop, no library) or with the keyboard: Alt + arrows on a card.
 // The move shows right away; the server's answer (kanban_board event) is authoritative.
+// The last column (where finished tickets end up: "Done") can be archived, ticket by ticket or all at once:
+// archived tickets leave the board (they are listed in the board settings, Archive tab).
 // No content goes through innerHTML: text nodes only.
 
 import { locale, t, tn } from "./i18n.js";
@@ -21,9 +23,10 @@ const TICKET_TYPE = "application/x-ziggy-ticket";
  * @property {(path: string, body?: object) => Promise<any>} api
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  * @property {(d: string) => SVGElement} icon
- * @property {{plus: string, file: string}} icons
+ * @property {{plus: string, file: string, archive: string}} icons
  * @property {(ticketId: string) => void} openTicket
  * @property {(err: unknown) => void} showError
+ * @property {(options: {title: string, message: string, confirmLabel?: string}) => Promise<boolean>} confirmDialog
  */
 
 /**
@@ -124,8 +127,58 @@ export function mountBoardView(root, deps) {
     return badge;
   }
 
+  /**
+   * Archive button: on each card of the last column (one ticket), in its header (all its tickets).
+   *
+   * @param {string} className
+   * @param {string} label
+   * @param {() => void} onClick
+   */
+  function archiveButton(className, label, onClick) {
+    const button = el("button", `icon-button ${className}`);
+    /** @type {HTMLButtonElement} */ (button).type = "button";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.append(icon(deps.icons.archive));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onClick();
+    });
+    return button;
+  }
+
   /** @param {Ticket} ticket */
-  function card(ticket) {
+  function archiveTicket(ticket) {
+    if (!data) return;
+    data = { ...data, tickets: data.tickets.map((t) => (t.id === ticket.id ? { ...t, archivedAt: Date.now() / 1000 } : t)) };
+    render();
+    api(`/api/kanbans/tickets/${ticket.id}/archive`, {}).catch((err) => {
+      deps.showError(err);
+      api(`/api/kanbans/${data?.board.id}`).then(update).catch(() => {});
+    });
+  }
+
+  /**
+   * @param {import("./kanban-logic.js").Column} column
+   * @param {number} count
+   */
+  async function archiveColumn(column, count) {
+    if (!data) return;
+    const board = data.board.id;
+    const confirmed = await deps.confirmDialog({
+      title: t("Archive the tickets of \"{name}\"?", { name: column.name.slice(0, 60) }),
+      message: tn(count, "{n} ticket will leave the board. You will find it in the board settings, Archive tab.",
+        "{n} tickets will leave the board. You will find them in the board settings, Archive tab."),
+      confirmLabel: t("Archive"),
+    });
+    if (confirmed) api(`/api/kanbans/${board}/archive`, { column: column.id }).catch(deps.showError);
+  }
+
+  /**
+   * @param {Ticket} ticket
+   * @param {boolean} archivable the ticket is in the last column
+   */
+  function card(ticket, archivable) {
     const item = el("li", "kanban-card");
     item.draggable = true;
     item.dataset.id = ticket.id;
@@ -159,6 +212,10 @@ export function mountBoardView(root, deps) {
       head.append(chips);
     }
     if (ticket.due) head.append(dueBadge(ticket.due));
+    if (archivable) {
+      head.append(archiveButton("kanban-card-archive", t("Archive the ticket #{number}", { number: ticket.number }),
+        () => archiveTicket(ticket)));
+    }
     item.append(head);
     open.addEventListener("keydown", (event) => {
       if (!event.altKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) || !data) return;
@@ -246,10 +303,15 @@ export function mountBoardView(root, deps) {
     return wrap;
   }
 
-  /** @param {import("./kanban-logic.js").Column} column */
-  function columnSection(column) {
+  /**
+   * @param {import("./kanban-logic.js").Column} column
+   * @param {number} index
+   * @param {import("./kanban-logic.js").Column[]} columns
+   */
+  function columnSection(column, index, columns) {
     if (!data) return el("section");
     const tickets = columnTickets(data.tickets, column.id);
+    const last = index === columns.length - 1 && columns.length > 1;
     const section = el("section", "kanban-column");
     section.dataset.column = column.id;
     paint(section, column.hue);
@@ -257,9 +319,13 @@ export function mountBoardView(root, deps) {
     const dot = el("span", "kanban-dot");
     dot.setAttribute("aria-hidden", "true");
     head.append(dot, el("h3", "kanban-column-name", column.name), el("span", "kanban-count", String(tickets.length)));
+    if (last && tickets.length) {
+      head.append(archiveButton("kanban-column-archive", t("Archive all the tickets of \"{name}\"", { name: column.name }),
+        () => archiveColumn(column, tickets.length)));
+    }
     const list = el("ol", "kanban-cards");
     list.setAttribute("aria-label", t("Tickets in \"{name}\"", { name: column.name }));
-    list.append(...tickets.map(card));
+    list.append(...tickets.map((ticket) => card(ticket, last)));
     // Drag and drop: the insertion line follows the pointer in the hovered column.
     section.addEventListener("dragover", (event) => {
       if (!dragged || !event.dataTransfer?.types.includes(TICKET_TYPE)) return;

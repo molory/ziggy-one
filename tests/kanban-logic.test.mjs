@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  boardRow, columnTickets, daysUntil, DUE_HORIZON, dueUrgency, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+  archivedTickets, boardRow, columnTickets, daysUntil, DUE_HORIZON, dueUrgency, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
 } from "../web/kanban-logic.js";
 import { orderRows } from "../web/pins.js";
 import { splitByWorkspace } from "../web/workspaces.js";
@@ -27,6 +27,14 @@ test("moveTicket follows the server rule, without changing the given list", () =
   assert.deepEqual([titles(across, "todo"), titles(across, "doing")], [["C", "B"], ["D", "A"]]);
   assert.deepEqual(columnTickets(across, "todo").map((t) => t.position), [0, 1]);
   assert.deepEqual(titles(tickets, "todo"), ["A", "B", "C"]);
+});
+
+test("archived tickets are off the board, listed most recent first", () => {
+  const list = [...tickets, { ...ticket("E", "todo", 0), archivedAt: 5 }, { ...ticket("F", "done", 0), archivedAt: 9 }];
+  assert.deepEqual(titles(list, "todo"), ["A", "B", "C"]);
+  assert.deepEqual(titles(list, "done"), []);
+  assert.deepEqual(archivedTickets(list).map((t) => t.id), ["F", "E"]);
+  assert.deepEqual(titles(moveTicket(list, "A", "done", 0), "done"), ["A"]);
 });
 
 test("keyboardMove: arrows within the column and across columns, null at the edge", () => {

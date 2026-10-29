@@ -1,6 +1,6 @@
 // @ts-check
 // Tasks mode: a ticket's card, in a window (<dialog>). Title, column, Markdown description
-// (Write / Preview tabs), attached files (button, drag and drop or paste), deletion.
+// (Write / Preview tabs), attached files (button, drag and drop or paste), archiving, deletion.
 // Changes are saved with "Save" (or Ctrl+Enter); closing with unsaved changes asks for confirmation.
 // Files and column are saved right away.
 // At the bottom, the ticket history (all its changes, kept by the server), newest first.
@@ -126,8 +126,10 @@ export function mountTicketDialog(deps) {
   const columnSelect = /** @type {HTMLSelectElement} */ (el("select", "text-input ticket-column"));
   columnSelect.setAttribute("aria-label", t("Column"));
   const dates = el("span", "muted small");
+  const archivedBadge = el("span", "ticket-archived", t("Archived"));
+  archivedBadge.title = t("This ticket is no longer on the board.");
   const meta = el("div", "ticket-meta");
-  meta.append(el("span", "muted small", t("Column")), columnSelect, dates);
+  meta.append(el("span", "muted small", t("Column")), columnSelect, archivedBadge, dates);
 
   // Delivery date: saved as soon as it is picked; "Remove" takes it off. Shown as a badge on the card.
   const dueInput = /** @type {HTMLInputElement} */ (el("input", "text-input ticket-due-input"));
@@ -251,6 +253,8 @@ export function mountTicketDialog(deps) {
       }
       case "file_added": return t("File attached: {name} ({size})", { name: entry.name, size: formatSize(entry.size ?? 0) });
       case "file_removed": return t("File removed: {name}", { name: entry.name });
+      case "archived": return t("Archived from \"{column}\"", { column: entry.column });
+      case "unarchived": return t("Restored from the archive to \"{column}\"", { column: entry.column });
       default: return entry.kind;
     }
   }
@@ -294,11 +298,14 @@ export function mountTicketDialog(deps) {
   error.hidden = true;
   const remove = el("button", "danger", t("Delete ticket"));
   remove.type = "button";
+  // Archive (ticket in the last column) or Restore (archived ticket): saved right away.
+  const archive = el("button", "", t("Archive"));
+  archive.type = "button";
   const save = /** @type {HTMLButtonElement} */ (el("button", "primary", t("Save")));
   save.type = "button";
   save.title = t("Save (Ctrl+Enter)");
   const footer = el("div", "ticket-footer");
-  footer.append(remove, el("span", "spacer"), save);
+  footer.append(remove, archive, el("span", "spacer"), save);
 
   const body = el("div", "ticket-body");
   body.append(head, meta, dueRow, tabs, description, preview, filesSection, history, error, footer);
@@ -327,6 +334,12 @@ export function mountTicketDialog(deps) {
     }));
     const when = (/** @type {number} */ time) => new Date(time * 1000).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
     dates.textContent = t("Created {created} · modified {updated}", { created: when(ticket.createdAt), updated: when(ticket.updatedAt) });
+    archivedBadge.hidden = !ticket.archivedAt;
+    const last = board.columns.length > 1 && board.columns[board.columns.length - 1].id === ticket.column;
+    archive.hidden = !ticket.archivedAt && !last;
+    archive.textContent = ticket.archivedAt ? t("Restore") : t("Archive");
+    archive.title = ticket.archivedAt ? t("Put the ticket back on the board, at the end of its column")
+      : t("Take the ticket off the board (it stays in the board settings, Archive tab)");
     if (document.activeElement !== dueInput) dueInput.value = ticket.due ?? "";
     dueRemove.hidden = !ticket.due;
     files.replaceChildren(...ticket.files.map((file) => {
@@ -397,6 +410,15 @@ export function mountTicketDialog(deps) {
     if (!ticket) return;
     try {
       await api(`/api/kanbans/tickets/${ticket.id}/move`, { column: columnSelect.value, index: 1e6 });
+    } catch (err) {
+      showError(err);
+    }
+  });
+
+  archive.addEventListener("click", async () => {
+    if (!ticket) return;
+    try {
+      await api(`/api/kanbans/tickets/${ticket.id}/${ticket.archivedAt ? "unarchive" : "archive"}`, {});
     } catch (err) {
       showError(err);
     }

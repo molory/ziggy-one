@@ -182,7 +182,7 @@ class KanbanTools:
         names = {c["id"]: c["name"] for c in board["columns"]}
         order = {c["id"]: i for i, c in enumerate(board["columns"])}
         tickets = [t for t in self._kanban.get(board["id"])["tickets"]
-                   if (column is None or t["column"] == column["id"])
+                   if not t.get("archivedAt") and (column is None or t["column"] == column["id"])
                    and (not query or query in _fold(t["title"]) or query in _fold(t["description"]))]
         tickets.sort(key=lambda t: (order.get(t["column"], 99), t["position"]))
         if not tickets:

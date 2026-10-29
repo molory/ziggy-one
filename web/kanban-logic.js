@@ -4,10 +4,10 @@
 /**
  * @typedef {{id: string, name: string, hue: number | null}} Column
  * @typedef {{id: string, name: string, hue: number | null, columns: Column[], ticketCount?: number,
- *   counts?: Record<string, number>, createdAt: number, updatedAt: number}} Board
+ *   counts?: Record<string, number>, archivedCount?: number, createdAt: number, updatedAt: number}} Board
  * @typedef {{id: string, board: string, column: string, position: number, title: string, description: string,
- *   files: {id: string, name: string, type: string, size: number}[], due?: string | null, createdAt: number,
- *   updatedAt: number}} Ticket
+ *   files: {id: string, name: string, type: string, size: number}[], due?: string | null,
+ *   archivedAt?: number | null, createdAt: number, updatedAt: number}} Ticket
  */
 
 /**
@@ -19,13 +19,21 @@
 export const boardRow = (board) => ({ sessionId: board.id, board });
 
 /**
- * Tickets of a column, in order.
+ * Tickets shown in a column (archived ones are off the board), in order.
  *
  * @param {Ticket[]} tickets
  * @param {string} column
  */
 export const columnTickets = (tickets, column) =>
-  tickets.filter((t) => t.column === column).sort((a, b) => a.position - b.position);
+  tickets.filter((t) => t.column === column && !t.archivedAt).sort((a, b) => a.position - b.position);
+
+/**
+ * Archived tickets of a board, most recently archived first.
+ *
+ * @param {Ticket[]} tickets
+ */
+export const archivedTickets = (tickets) =>
+  tickets.filter((t) => t.archivedAt).sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0));
 
 /**
  * Insertion index from the pointer height: before the first ticket whose middle is lower.

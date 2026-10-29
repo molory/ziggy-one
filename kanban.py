@@ -7,6 +7,8 @@ its tickets). Every change to a ticket is also recorded in its history (kanban_h
 published.
 
 The order of the tickets in a column is their `position` (0, 1, 2…), renumbered on every move.
+An archived ticket (`archivedAt`: when) stays in its column but leaves the board: it has no place in the
+column's order and is not counted; restored, it goes back to the end of its column.
 Each ticket has a unique number across all boards (#1, #2…), never reused: it identifies the ticket
 (address /t/<number>, "#42" references between tickets or in conversations).
 """
@@ -158,6 +160,7 @@ class Kanban:
             "title": title, "description": description[:MAX_DESCRIPTION], "files": files[:MAX_FILES],
             "number": raw.get("number") if isinstance(raw.get("number"), int) and raw["number"] > 0 else None,
             "agent": raw.get("agent") if isinstance(raw.get("agent"), str) else None,  # reserved: ticket assigned to an agent
+            "archivedAt": raw.get("archivedAt") if isinstance(raw.get("archivedAt"), (int, float)) else None,
             "createdAt": stamp,
             "updatedAt": raw.get("updatedAt") if isinstance(raw.get("updatedAt"), (int, float)) else stamp,
         }
@@ -198,13 +201,15 @@ class Kanban:
         return ticket
 
     def _column_tickets(self, board_id, column_id):
-        tickets = [t for t in self._tickets if t["board"] == board_id and t["column"] == column_id]
+        """Tickets shown in the column (not archived), in order."""
+        tickets = [t for t in self._tickets if t["board"] == board_id and t["column"] == column_id and not t["archivedAt"]]
         return sorted(tickets, key=lambda t: t["position"])
 
     def _summary(self, board):
         tickets = [t for t in self._tickets if t["board"] == board["id"]]
-        return {**json.loads(json.dumps(board)), "ticketCount": len(tickets),
-                "counts": {c["id"]: sum(1 for t in tickets if t["column"] == c["id"]) for c in board["columns"]}}
+        shown = [t for t in tickets if not t["archivedAt"]]
+        return {**json.loads(json.dumps(board)), "ticketCount": len(tickets), "archivedCount": len(tickets) - len(shown),
+                "counts": {c["id"]: sum(1 for t in shown if t["column"] == c["id"]) for c in board["columns"]}}
 
     def _board_data(self, board):
         tickets = sorted((t for t in self._tickets if t["board"] == board["id"]), key=lambda t: (t["column"], t["position"]))
@@ -331,6 +336,12 @@ class Kanban:
                     ticket.update(column=target["id"], position=start + offset)
                     self.history.record(ticket["id"], "moved", fromColumn=column["name"], toColumn=target["name"],
                                         reason="column deleted")
+            # Archived tickets follow silently (they are not on the board): into `into`, otherwise the first other column.
+            home = next((c for c in board["columns"] if c["id"] == into and c is not column), None) \
+                or next(c for c in board["columns"] if c is not column)
+            for ticket in self._tickets:
+                if ticket["board"] == board_id and ticket["column"] == column_id:
+                    ticket["column"] = home["id"]
             board["columns"].remove(column)
             self._changed(board)
 
@@ -347,7 +358,7 @@ class Kanban:
             now = time.time()
             ticket = {"id": secrets.token_hex(6), "number": self._next_number, "board": board_id, "column": column_id,
                       "position": len(self._column_tickets(board_id, column_id)), "title": title,
-                      "description": description, "files": [], "agent": None, "due": None,
+                      "description": description, "files": [], "agent": None, "due": None, "archivedAt": None,
                       "createdAt": now, "updatedAt": now}
             self._next_number += 1  # never reused, even if the ticket is deleted
             self._tickets.append(ticket)
@@ -389,6 +400,9 @@ class Kanban:
             ticket = self._ticket(ticket_id)
             board = self._board(ticket["board"])
             target_column = self._column(board, column_id)
+            if ticket["archivedAt"]:  # moved (by an agent, the ticket window): back on the board
+                self.history.record(ticket_id, "unarchived", by=by, column=self._column(board, ticket["column"])["name"])
+                ticket["archivedAt"] = None
             if column_id != ticket["column"]:  # a mere reordering within the column is not recorded
                 self.history.record(ticket_id, "moved", by=by, fromColumn=self._column(board, ticket["column"])["name"],
                                     toColumn=target_column["name"])
@@ -400,6 +414,49 @@ class Kanban:
             ticket["column"] = column_id
             for position, other in enumerate(target):
                 other["position"] = position
+            self._changed(board)
+
+    def archive_ticket(self, ticket_id, by=None):
+        """Takes the ticket off the board (it stays in its column, archived); nothing if already archived."""
+        with self._lock:
+            ticket = self._ticket(ticket_id)
+            if ticket["archivedAt"]:
+                return
+            board = self._board(ticket["board"])
+            self._archive(board, [ticket], by)
+            self._changed(board)
+
+    def archive_column(self, board_id, column_id, by=None):
+        """Archives all the tickets shown in the column; returns how many."""
+        with self._lock:
+            board = self._board(board_id)
+            self._column(board, column_id)
+            tickets = self._column_tickets(board_id, column_id)
+            if tickets:
+                self._archive(board, tickets, by)
+                self._changed(board)
+            return len(tickets)
+
+    def _archive(self, board, tickets, by):
+        # Called with _lock held.
+        now = time.time()
+        for ticket in tickets:
+            self.history.record(ticket["id"], "archived", by=by, column=self._column(board, ticket["column"])["name"])
+            ticket["archivedAt"] = now
+        for column in {t["column"] for t in tickets}:
+            for position, other in enumerate(self._column_tickets(board["id"], column)):
+                other["position"] = position
+
+    def unarchive_ticket(self, ticket_id, by=None):
+        """Puts an archived ticket back on the board, at the end of its column; nothing if not archived."""
+        with self._lock:
+            ticket = self._ticket(ticket_id)
+            if not ticket["archivedAt"]:
+                return
+            board = self._board(ticket["board"])
+            self.history.record(ticket_id, "unarchived", by=by, column=self._column(board, ticket["column"])["name"])
+            ticket["position"] = len(self._column_tickets(board["id"], ticket["column"]))
+            ticket["archivedAt"] = None
             self._changed(board)
 
     def delete_ticket(self, ticket_id):

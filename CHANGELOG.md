@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Archived tickets:** the last column of a board ("Done") gets an archive button on each card and one in its
+  header to archive all its tickets at once. Archived tickets leave the board; the board settings now have two
+  tabs, Settings and Archive, which lists them (click to open, "Restore" to put one back at the end of its
+  column). The ticket window also has Archive / Restore.
 - **Sound when an agent finishes its turn** (by default a short chime, `sounds/done.mp3`). The speaker button next to the
   plan usage turns it on or off for this browser; Configuration › General plays it, replaces it with a file of
   your own (MP3, WAV, OGG, M4A, AAC or FLAC, 2 MB max) or goes back to the default. With several tabs open, only
