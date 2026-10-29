@@ -8,6 +8,7 @@
 import { formatSize } from "./files-tree.js";
 import { locale, t } from "./i18n.js";
 import { splitReferences, ticketUrl } from "./kanban-logic.js";
+import { toggleTask } from "./markdown.js";
 
 const MAX_FILE = 25 * 1024 * 1024; // as in kanban.py
 
@@ -21,7 +22,7 @@ const MAX_FILE = 25 * 1024 * 1024; // as in kanban.py
  * @property {(d: string) => SVGElement} icon
  * @property {{close: string, file: string}} icons
  * @property {(options: {title: string, message: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean}) => Promise<boolean>} confirmDialog
- * @property {(text: string, target: HTMLElement) => void} renderMarkdown
+ * @property {(text: string, target: HTMLElement, options?: {onToggle?: (line: number, checked: boolean) => void}) => void} renderMarkdown
  * @property {(number: number) => {title: string, boardName: string} | undefined} lookup ticket by its number
  * @property {(number: number) => void} onOpen card opened (the address becomes /t/<number>)
  * @property {() => void} onClose card closed
@@ -183,11 +184,25 @@ export function mountTicketDialog(deps) {
     if (previewing) {
       preview.replaceChildren();
       if (description.value.trim()) {
-        deps.renderMarkdown(description.value, preview);
+        deps.renderMarkdown(description.value, preview, { onToggle: toggleTaskBox });
         linkReferences(preview, deps.lookup); // "#42": link to ticket 42
       }
       else preview.append(el("p", "muted", t("No description.")));
     }
+  };
+  /**
+   * Box of a task list ticked in the preview: the description changes; saved at once unless other changes
+   * wait for "Save" (they would be saved with it).
+   *
+   * @param {number} line
+   * @param {boolean} checked
+   */
+  const toggleTaskBox = (line, checked) => {
+    const pending = dirty();
+    description.value = toggleTask(description.value, line, checked);
+    showTab(true);
+    refreshSave();
+    if (!pending) saveChanges();
   };
   writeTab.addEventListener("click", () => showTab(false));
   previewTab.addEventListener("click", () => showTab(true));

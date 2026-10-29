@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { parseInline, parseMarkdown } from "../web/markdown.js";
+import { parseInline, parseMarkdown, toggleTask } from "../web/markdown.js";
 
 const types = (blocks) => blocks.map((block) => block.type);
 
@@ -69,4 +69,34 @@ test("tables, even right after a paragraph", () => {
   assert.deepEqual(table.head, [[{ type: "text", text: "Name" }], [{ type: "text", text: "Cost" }]]);
   assert.deepEqual(table.align, ["left", "right"]);
   assert.equal(table.rows.length, 2);
+});
+
+test("images: only badges are loaded, the others become links", () => {
+  const badge = "https://img.shields.io/badge/build-passing-green";
+  assert.deepEqual(parseInline(`![build](${badge})`), [{ type: "image", src: badge, alt: "build" }]);
+  // Badge inside a link, as in READMEs.
+  assert.deepEqual(parseInline(`[![build](${badge})](https://ci.example.com)`), [
+    { type: "link", href: "https://ci.example.com", children: [{ type: "image", src: badge, alt: "build" }] },
+  ]);
+  assert.deepEqual(parseInline("![shot](https://evil.example/x.png?secret)"), [
+    { type: "link", href: "https://evil.example/x.png?secret", children: [{ type: "text", text: "shot" }] },
+  ]);
+  // shields.io routes that fetch another server are not static badges.
+  assert.equal(parseInline("![x](https://img.shields.io/endpoint?url=https://evil.example)")[0].type, "link");
+  assert.deepEqual(parseInline("![x](javascript:alert(1))")[0].type, "text");
+});
+
+test("task lists: state and line of each box", () => {
+  const text = "Intro\n\n- [ ] first\n- [x] second\n  - [X] nested\n- plain\n\n> - [ ] quoted";
+  const [, list, quote] = parseMarkdown(text);
+  assert.deepEqual(list.tasks, [{ checked: false, line: 2 }, { checked: true, line: 3 }, null]);
+  assert.deepEqual(list.items[0][0].children, [{ type: "text", text: "first" }]);
+  assert.deepEqual(list.items[1][1].tasks, [{ checked: true, line: 4 }]);
+  assert.deepEqual(quote.children[0].tasks, [{ checked: false, line: 7 }]);
+  assert.equal(toggleTask(text, 2, true), text.replace("- [ ] first", "- [x] first"));
+  assert.equal(toggleTask(text, 4, false), text.replace("[X] nested", "[ ] nested"));
+  assert.equal(toggleTask(text, 7, true), text.replace("> - [ ] quoted", "> - [x] quoted"));
+  assert.equal(toggleTask(text, 0, true), text, "a line without a box is unchanged");
+  // "[link](url)" at the start of an item is not a box.
+  assert.equal(parseMarkdown("- [doc](https://a.example) x")[0].tasks[0], null);
 });

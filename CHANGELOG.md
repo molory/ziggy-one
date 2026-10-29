@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Ticket window:** a long description no longer covers the files, the history and the buttons; task lists
+  (`- [ ]`) can be ticked in Preview (saved at once); static badges (`img.shields.io/badge/…`, `badgen.net/badge/…`)
+  are shown in Markdown, any other image stays a link (it could make the browser call any server).
 - **`/?token=…` no longer signs in**: the token stayed in the browser's history and address bar. Such an address
   now just goes back to `/` (an old bookmark still works in a browser that is signed in). Scripts sign in with
   a single-use link from `ziggy --link`.

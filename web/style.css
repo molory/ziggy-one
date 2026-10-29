@@ -1357,6 +1357,12 @@ body.resizing { cursor: col-resize; user-select: none; }
 .markdown a { color: var(--accent); }
 .markdown code { font-family: var(--mono); font-size: 0.86em; padding: 0.05rem 0.3rem; border-radius: calc(4px * var(--corners)); background: var(--tool-bg); }
 .markdown del { color: var(--muted); }
+.markdown .md-image { max-width: 100%; vertical-align: middle; }
+.markdown li.md-task { list-style: none; }
+.markdown li.md-task > p > input[type="checkbox"], .markdown li.md-task > input[type="checkbox"] {
+  margin: 0 0.45rem 0 -1.25rem; vertical-align: -0.1em; accent-color: var(--accent);
+}
+.markdown li.md-task input[type="checkbox"]:not(:disabled) { cursor: pointer; }
 .md-code { margin: 0 0 0.7rem; border: 1px solid var(--border); border-radius: calc(8px * var(--corners)); overflow: hidden; }
 .md-code-bar {
   display: flex;
@@ -1865,6 +1871,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .ticket-dialog { width: min(720px, calc(100vw - 2rem)); }
 .ticket-dialog.dropping { outline: 3px dashed var(--accent); outline-offset: -6px; }
 .ticket-body { padding: 1rem 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.75rem; max-height: calc(100vh - 4rem); overflow-y: auto; }
+.ticket-body > * { flex-shrink: 0; } /* the scrolling column must not squeeze the preview onto the files */
 .ticket-head { display: flex; align-items: center; gap: 0.5rem; }
 .ticket-number { all: unset; flex: none; font-size: 1.05rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; cursor: copy; border-radius: calc(4px * var(--corners)); }
 .ticket-number:hover { color: var(--accent); text-decoration: underline; }

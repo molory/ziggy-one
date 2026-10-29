@@ -80,7 +80,8 @@ MIME = {
 }
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: "
+        "https://img.shields.io/badge/ https://badgen.net/badge/; "
         "connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     ),
     "X-Content-Type-Options": "nosniff",

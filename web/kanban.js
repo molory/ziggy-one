@@ -28,7 +28,7 @@ const TICKET_RESULTS_MAX = 50;
  * @property {(d: string) => SVGElement} icon
  * @property {Record<string, string>} icons pin, gear, close, file, plus, workspace, board
  * @property {(options: any) => Promise<boolean>} confirmDialog
- * @property {(text: string, target: HTMLElement) => void} renderMarkdown
+ * @property {(text: string, target: HTMLElement, options?: {onToggle?: (line: number, checked: boolean) => void}) => void} renderMarkdown
  * @property {(key: string) => number} autoHue automatic hue (same assignment as the agents)
  * @property {number[]} hues offered hues
  * @property {(text: string) => string} initialOf
