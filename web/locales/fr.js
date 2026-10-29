@@ -3,6 +3,15 @@
 
 /** @type {Record<string, string>} */
 export default {
+  "Sound when an agent finishes": "Son quand un agent a fini",
+  "Sound when an agent finishes: on": "Son quand un agent a fini : activé",
+  "Sound when an agent finishes: off": "Son quand un agent a fini : coupé",
+  "Play": "Écouter",
+  "Choose a sound…": "Choisir un son…",
+  "Back to the default sound": "Revenir au son par défaut",
+  "(default)": "(par défaut)",
+  "Sound too large (2 MB max)": "Son trop lourd (2 Mo au plus)",
+  "For every browser. MP3, WAV, OGG, M4A, AAC or FLAC, 2 MB max. Turn it on or off for this browser with the speaker button next to the plan usage. The browser only plays it once you have clicked in the page.": "Pour tous les navigateurs. MP3, WAV, OGG, M4A, AAC ou FLAC, 2 Mo au plus. Active-le ou coupe-le pour ce navigateur avec le bouton haut-parleur à côté de l'usage du forfait. Le navigateur ne le joue qu'une fois que tu as cliqué dans la page.",
   "Delivery date removed": "Date de livraison retirée",
   "Delivery date set: {after}": "Date de livraison fixée : {after}",
   "Delivery date: {before} → {after}": "Date de livraison : {before} → {after}",

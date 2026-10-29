@@ -1819,8 +1819,73 @@ function generalPane() {
   });
   section.append(label, select, el("p", "muted small",
     t("Language of the interface and of the server messages, for every browser. Texts given to the agents stay in English.")), error);
-  pane.append(section, cornersSection());
+  pane.append(section, cornersSection(), soundSection());
   return pane;
+}
+
+/** End-of-turn sound: listen, replace by a file of your own, back to the default one. */
+function soundSection() {
+  const section = el("div", "settings-section");
+  const current = el("p");
+  const play = el("button", "", t("Play"));
+  play.type = "button";
+  play.addEventListener("click", () => playSound());
+  const picker = /** @type {HTMLInputElement} */ (el("input"));
+  picker.type = "file";
+  picker.accept = "audio/*";
+  picker.hidden = true;
+  const choose = /** @type {HTMLButtonElement} */ (el("button", "", t("Choose a sound…")));
+  choose.type = "button";
+  choose.addEventListener("click", () => picker.click());
+  const reset = /** @type {HTMLButtonElement} */ (el("button", "link-button", t("Back to the default sound")));
+  reset.type = "button";
+  const error = el("p", "form-error");
+  error.hidden = true;
+  const draw = () => {
+    current.replaceChildren(el("strong", "", finishSound.name),
+      ...(finishSound.custom ? [] : [" ", el("span", "muted", t("(default)"))]));
+    reset.hidden = !finishSound.custom;
+  };
+  /** @param {Promise<{sound: typeof finishSound}>} request */
+  const apply = async (request) => {
+    choose.disabled = reset.disabled = true;
+    try {
+      finishSound = (await request).sound;
+      error.hidden = true;
+      draw();
+      playSound();
+    } catch (err) {
+      showPanelError(error, err);
+    }
+    choose.disabled = reset.disabled = false;
+  };
+  picker.addEventListener("change", () => {
+    const file = picker.files?.[0];
+    picker.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showPanelError(error, new Error(t("Sound too large (2 MB max)")));
+      return;
+    }
+    apply(new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        const data = String(reader.result).split(",", 2)[1] ?? "";
+        api("/api/sound", { name: file.name, data }).then(resolve, reject);
+      });
+      reader.addEventListener("error", () => reject(new Error(t("Cannot read {name}", { name: file.name }))));
+      reader.readAsDataURL(file);
+    }));
+  });
+  reset.addEventListener("click", () => apply(api("/api/sound/reset", {})));
+  redrawSoundSection = draw;
+  draw();
+  const buttons = el("div", "inline-field");
+  buttons.append(play, choose, reset, picker);
+  section.append(el("h3", "settings-title", t("Sound when an agent finishes")), current, buttons,
+    el("p", "muted small", t("For every browser. MP3, WAV, OGG, M4A, AAC or FLAC, 2 MB max. Turn it on or off for this browser with the speaker button next to the plan usage. The browser only plays it once you have clicked in the page.")),
+    error);
+  return section;
 }
 
 /** Corner style: from square to very rounded, applied at once (no reload). */
@@ -3248,12 +3313,68 @@ function notify(title, body, tag, conversationId) {
  */
 function onTurnEnd(data) {
   refreshSessionsSoon(); // last message, cost and context of the list have changed
+  if (soundOn()) playFinishSound(); // even for the agent in view: you may be looking elsewhere
   if (isWatched(data.conversation)) return;
   unseenConversations.add(data.conversation);
   updateAttention();
   drawSessions();
   notify(t("{name} has finished", { name: conversationName(data.conversation) }), data.summary || "", `zo-done-${data.conversation}`, data.conversation);
 }
+
+// --- sound: an agent finishing its turn ---------------------------------------------------------
+// On or off for this browser (speaker button next to the plan usage); the sound itself is the same for
+// every browser (Configuration › General). With several tabs open, only one plays it (Web Lock).
+
+const SOUND_KEY = "zo-sound";
+/** @type {{name: string, custom: boolean, version: number}} */
+let finishSound = { name: "done.mp3", custom: false, version: 0 };
+/** Redraws the Configuration section if it is shown (new sound chosen here or in another tab). */
+let redrawSoundSection = () => {};
+const soundToggle = $("sound-toggle");
+
+const soundOn = () => {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+};
+
+function syncSoundToggle() {
+  const on = soundOn();
+  soundToggle.setAttribute("aria-pressed", String(on));
+  soundToggle.title = on ? t("Sound when an agent finishes: on") : t("Sound when an agent finishes: off");
+}
+
+/** Plays the sound once (the browser refuses it until a first click in the page: then it stays silent). */
+function playSound() {
+  return new Audio(`/api/sound?v=${finishSound.version}`).play().catch(() => {});
+}
+
+function playFinishSound() {
+  if (!navigator.locks) {
+    playSound();
+    return;
+  }
+  // The first tab to take the lock plays it and keeps the lock a moment: the other tabs stay silent.
+  navigator.locks.request("zo-finish-sound", { ifAvailable: true }, async (lock) => {
+    if (!lock) return;
+    await playSound();
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  });
+}
+
+soundToggle.addEventListener("click", () => {
+  const on = !soundOn();
+  try {
+    localStorage.setItem(SOUND_KEY, on ? "on" : "off");
+  } catch {
+    // Storage unavailable: the sound stays on.
+  }
+  syncSoundToggle();
+  if (on) playSound(); // what you will hear
+});
+syncSoundToggle();
 
 // Coming back to the tab clears the "something new" of the agent shown.
 document.addEventListener("visibilitychange", () => {
@@ -3373,6 +3494,10 @@ function connect() {
   on("agents", setAgentSettings);
   on("shortcuts", setShortcuts);
   // Language changed (here or in another tab): the page reloads in the new language.
+  on("sound", (/** @type {typeof finishSound} */ sound) => {
+    finishSound = sound;
+    redrawSoundSection();
+  });
   on("settings", (/** @type {{language: string, corners?: string}} */ settings) => {
     globalSettings = settings;
     applyCorners(settings.corners);
@@ -3488,6 +3613,7 @@ async function init() {
     loadPins(state.pins ?? []);
     shortcutsData = { ...emptyShortcuts(), ...(state.shortcuts ?? {}) };
     globalSettings = state.settings ?? globalSettings;
+    finishSound = state.sound ?? finishSound;
     applyCorners(globalSettings.corners);
     agentSettings = state.agents ?? {};
     claudeDefaults = state.defaults ?? claudeDefaults;

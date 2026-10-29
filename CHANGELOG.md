@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Sound when an agent finishes its turn** (by default a short chime, `sounds/done.mp3`). The speaker button next to the
+  plan usage turns it on or off for this browser; Configuration › General plays it, replaces it with a file of
+  your own (MP3, WAV, OGG, M4A, AAC or FLAC, 2 MB max) or goes back to the default. With several tabs open, only
+  one plays it.
 - **Ticket window:** a long description no longer covers the files, the history and the buttons; task lists
   (`- [ ]`) can be ticked in Preview (saved at once); static badges (`img.shields.io/badge/…`, `badgen.net/badge/…`)
   are shown in Markdown, any other image stays a link (it could make the browser call any server).

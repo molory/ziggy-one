@@ -222,6 +222,7 @@ button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .usage-refresh.loading svg { animation: none; }
 }
+.usage-sound[aria-pressed="true"] .sound-off, .usage-sound[aria-pressed="false"] .sound-on { display: none; }
 .usage-open {
   all: unset;
   display: flex;

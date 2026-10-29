@@ -54,6 +54,7 @@ import agent_mcp
 from storage import default_data_dir, is_agent_key, persistent_token, write_private
 from pins import Pins
 from settings import Settings
+from sound import FinishSound
 from shortcuts import Shortcuts
 from workspaces import Workspaces
 
@@ -63,6 +64,7 @@ MAX_BODY = 1_000_000
 MAX_KANBAN_FILE_BODY = 36_000_000  # file attached to a ticket (25 MB, base64-encoded)
 MAX_PDF_BODY = 5_000_000  # HTML page of an exchange of the conversation, to export as PDF
 MAX_FILE_BODY = 2_500_000  # file saved from the Files tab (512 KB, JSON-escaped)
+MAX_SOUND_BODY = 3_000_000  # sound of the end of a turn (2 MB, base64-encoded)
 # Image served from an agent's folder: an SVG must not be able to run a script.
 RAW_FILE_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
                     "X-Content-Type-Options": "nosniff"}
@@ -349,6 +351,7 @@ class ZiggyServer(ThreadingHTTPServer):
             pass
         # Global settings first: the interface language applies to every message of the server.
         self.settings = Settings(self.bus, data_dir / "settings.json")
+        self.finish_sound = FinishSound(self.bus, data_dir)
         self.defaults = {**DEFAULT_OPTIONS, **(defaults or {})}
         self.workspaces = Workspaces(self.bus, data_dir / "workspaces.json")
         self.pins = Pins(self.bus, data_dir / "pins.json")
@@ -757,6 +760,7 @@ class Handler(BaseHTTPRequestHandler):
                     "server": self.server.info(),
                     "shortcuts": self.server.shortcuts.snapshot(),
                     "settings": self.server.settings.snapshot(),
+                    "sound": self.server.finish_sound.info(),
                     "agents": self.server.agents.snapshot(),
                     "sessions": sessions,
                 })
@@ -815,6 +819,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(500, {"error": tr("Cannot read: {error}", error=exc)})
             if url.path == "/api/events":
                 return self._stream_events()
+            if url.path == "/api/sound":
+                # End-of-turn sound: yours or the default one; ?v= changes with the file, so it can be kept.
+                data, kind = self.server.finish_sound.read()
+                return self._send(200, data, kind, {**RAW_FILE_HEADERS, "Cache-Control": "private, max-age=31536000, immutable"})
             avatar = AVATAR_IMAGE_ROUTE.match(url.path)
             if avatar:
                 image = self.server.agents.avatar_image(avatar.group(1))
@@ -844,7 +852,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         try:
             limit = (MAX_FILE_BODY if path == "/api/files/write" else MAX_PDF_BODY if path == "/api/pdf"
-                     else MAX_KANBAN_FILE_BODY if KANBAN_FILES_ROUTE.match(path) else MAX_BODY)
+                     else MAX_KANBAN_FILE_BODY if KANBAN_FILES_ROUTE.match(path)
+                     else MAX_SOUND_BODY if path == "/api/sound" else MAX_BODY)
             body = self._read_json(limit)
         except ValueError as exc:
             return self._json(400, {"error": str(exc)})
@@ -891,6 +900,17 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(200, {"pins": self.server.pins.set(body.get("pins"))})
                 except ValueError as exc:
                     return self._json(400, {"error": str(exc)})
+            if path == "/api/sound":
+                try:
+                    data = base64.b64decode(body.get("data") or "", validate=True)
+                except binascii.Error:
+                    return self._json(400, {"error": tr("Invalid file")})
+                try:
+                    return self._json(200, {"sound": self.server.finish_sound.set(body.get("name"), data)})
+                except ValueError as exc:
+                    return self._json(400, {"error": str(exc)})
+            if path == "/api/sound/reset":
+                return self._json(200, {"sound": self.server.finish_sound.reset()})
             if path == "/api/settings":
                 try:
                     return self._json(200, {"settings": self.server.settings.update(body.get("settings"))})
