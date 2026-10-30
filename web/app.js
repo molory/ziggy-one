@@ -527,7 +527,11 @@ resizer.addEventListener("pointerdown", (event) => {
   resizer.setPointerCapture(event.pointerId);
   document.body.classList.add("resizing");
   // The sidebar starts at the left edge: its width is the pointer position in the layout.
-  const onMove = (/** @type {PointerEvent} */ e) => setSidebarWidth(e.clientX - layout.getBoundingClientRect().left, false);
+  // Right to left (Arabic): the sidebar is on the right, its width is measured from the right edge.
+  const onMove = (/** @type {PointerEvent} */ e) => {
+    const box = layout.getBoundingClientRect();
+    setSidebarWidth(document.dir === "rtl" ? box.right - e.clientX : e.clientX - box.left, false);
+  };
   resizer.addEventListener("pointermove", onMove);
   resizer.addEventListener("lostpointercapture", () => {
     resizer.removeEventListener("pointermove", onMove);
@@ -539,7 +543,7 @@ resizer.addEventListener("pointerdown", (event) => {
 resizer.addEventListener("dblclick", () => setSidebarWidth(SIDEBAR_DEFAULT));
 
 resizer.addEventListener("keydown", (event) => {
-  const step = event.shiftKey ? 64 : 16;
+  const step = (event.shiftKey ? 64 : 16) * (document.dir === "rtl" ? -1 : 1); // the sidebar is on the right in RTL
   const keys = {
     ArrowLeft: currentSidebarWidth() - step,
     ArrowRight: currentSidebarWidth() + step,
@@ -2573,7 +2577,7 @@ $("chat-tabs").addEventListener("keydown", (event) => {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   event.preventDefault();
   const visible = TABS.map(([tab]) => tab).filter((tab) => !$(`tab-${tab}`).hidden);
-  const step = event.key === "ArrowRight" ? 1 : -1;
+  const step = (event.key === "ArrowRight" ? 1 : -1) * (document.dir === "rtl" ? -1 : 1); // tabs mirror in RTL
   setTab(visible[(visible.indexOf(activeTab) + step + visible.length) % visible.length]);
 });
 // Ctrl+P: opens the Files tab on the search (instead of the browser's print).

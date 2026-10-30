@@ -42,6 +42,9 @@ test("doneColumn: the column named Done, otherwise the last one", () => {
   assert.equal(doneColumn([{ id: "a", name: "À faire", hue: null }, { id: "t", name: " Terminé ", hue: null }, { id: "z", name: "Z", hue: null }]), "t");
   assert.equal(doneColumn([{ id: "a", name: "A", hue: null }, { id: "b", name: "B", hue: null }]), "b");
   assert.equal(doneColumn([{ id: "a", name: "Done", hue: null }]), null);
+  for (const name of ["Hecho", "已完成", "पूर्ण", "منتهية"]) {
+    assert.equal(doneColumn([{ id: "d", name, hue: null }, { id: "z", name: "Z", hue: null }]), "d", name);
+  }
 });
 
 test("keyboardMove: arrows within the column and across columns, null at the edge", () => {

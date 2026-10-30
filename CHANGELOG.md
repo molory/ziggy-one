@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Six languages:** the interface and the server messages are now also in Chinese, Hindi, Spanish and Arabic,
+  next to English and French (Configuration › General). Arabic is shown right to left; code, terminals and paths
+  stay left to right. Plurals follow each language's rules.
 - **Claude Code not ready screen:** when `claude` is not installed (or not on Ziggy One's PATH) or not signed in,
   an animated full screen explains it in one line and hands the fix to an AI agent: copy the prompt, paste it into
   Claude or any agent, then "Check again" (no restart needed). "Continue without Claude Code" explains that an AI agent can adapt

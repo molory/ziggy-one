@@ -10,7 +10,8 @@ import json
 import threading
 from pathlib import Path
 
-LANGUAGES = ("en", "fr")
+LANGUAGES = ("en", "zh", "hi", "es", "ar", "fr")  # the most spoken languages
+RTL = {"ar"}  # written right to left
 LOCALES_DIR = Path(__file__).resolve().parent / "locales"
 
 _lock = threading.Lock()
@@ -38,6 +39,11 @@ def set_language(code):
 
 def language():
     return _language
+
+
+def direction():
+    """Writing direction of the interface language, for <html dir>: "rtl" or "ltr"."""
+    return "rtl" if _language in RTL else "ltr"
 
 
 def tr(text, **params):

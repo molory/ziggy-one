@@ -259,10 +259,11 @@ export function mountClaudeSetup(deps) {
       serverInfo = server;
       title.textContent = { missing: t("Claude Code is not installed"), "signed-out": t("Claude Code is not signed in"),
         error: t("Claude Code is not answering") }[problem];
-      hint.replaceChildren(document.createTextNode(problem === "missing"
-        ? t("Or yourself: install Claude Code, then run ") : t("Or yourself: run ")),
-      el("code", "", problem === "missing" ? "claude" : "claude auth login"),
-      document.createTextNode(t(" in a terminal.")));
+      // One sentence per language (word order differs), the command set in it as code.
+      const sentence = problem === "missing" ? t("Or yourself: install Claude Code, then run {command} in a terminal.")
+        : t("Or yourself: run {command} in a terminal.");
+      const [before, after = ""] = sentence.split("{command}");
+      hint.replaceChildren(before, el("code", "", problem === "missing" ? "claude" : "claude auth login"), after);
       if (!dismissed) screen.hidden = false;
     },
   };

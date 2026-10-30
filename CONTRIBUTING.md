@@ -47,8 +47,9 @@ A missing entry falls back to English. Keep `{placeholders}` identical to the En
 To add a language:
 
 1. Copy `web/locales/fr.js` and `locales/fr.json` to `<code>.js` / `<code>.json` and translate the values.
-2. Register the code in `LANGUAGES` and `CATALOGS` in `web/i18n.js`, in `LANGUAGES` in `i18n.py`, and give it its
-   date locale in `locale()` and its plural rule in `tn()` if it differs from English.
+2. Register the code in `LANGUAGES`, `CATALOGS` and `LOCALES` in `web/i18n.js` and in `LANGUAGES` in `i18n.py`
+   (plus `RTL` for a right-to-left script). Plurals follow the language's `Intl.PluralRules`. If the default
+   "Done" column gets a new name, add it to `DONE_NAMES` in `web/kanban-logic.js`.
 3. Run both test suites, then switch the language in Configuration › General and check every screen.
 
 ## Pull requests

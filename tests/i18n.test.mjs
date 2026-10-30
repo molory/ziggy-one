@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { currentLanguage, locale, setLanguage, t, tn } from "../web/i18n.js";
+import ar from "../web/locales/ar.js";
+import es from "../web/locales/es.js";
 import fr from "../web/locales/fr.js";
+import hi from "../web/locales/hi.js";
+import zh from "../web/locales/zh.js";
 
 const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -32,9 +36,29 @@ test("French: translated when the dictionary has the text, English otherwise; si
   setLanguage("en");
 });
 
-test("the French dictionary keeps every placeholder of its English key, with no empty entry", () => {
-  for (const [key, value] of Object.entries(fr)) {
-    assert.ok(value.trim(), `empty translation for « ${key} »`);
-    assert.deepEqual(placeholders(value), placeholders(key), `placeholders of « ${key} »`);
+test("every dictionary keeps every placeholder of its English key, with no empty entry", () => {
+  for (const [code, catalog] of Object.entries({ ar, es, fr, hi, zh })) {
+    for (const [key, value] of Object.entries(catalog)) {
+      assert.ok(value.trim(), `${code}: empty translation for « ${key} »`);
+      assert.deepEqual(placeholders(value), placeholders(key), `${code}: placeholders of « ${key} »`);
+    }
   }
+});
+
+test("every dictionary translates the same texts as the French one", () => {
+  const keys = Object.keys(fr).sort();
+  for (const [code, catalog] of Object.entries({ ar, es, hi, zh })) assert.deepEqual(Object.keys(catalog).sort(), keys, code);
+});
+
+test("plural rules and locales follow the language", () => {
+  const one = "{n} item", other = "{n} items";
+  setLanguage("zh");
+  assert.equal(locale(), "zh-CN");
+  assert.equal(tn(1, one, other), "1 items", "Chinese: a single form");
+  setLanguage("hi");
+  assert.equal(tn(0, one, other), "0 item");
+  setLanguage("ar");
+  assert.equal(tn(1, one, other), "1 item");
+  assert.equal(tn(3, one, other), "3 items");
+  setLanguage("en");
 });

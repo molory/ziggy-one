@@ -7,13 +7,22 @@
 // saved by the server, and written by it into <html lang> when it serves the page: it is known before any
 // module runs, so texts built at import time are translated too. Changing it reloads the page.
 
+import ar from "./locales/ar.js";
+import es from "./locales/es.js";
 import fr from "./locales/fr.js";
+import hi from "./locales/hi.js";
+import zh from "./locales/zh.js";
 
-/** Languages offered in the Configuration, with their name in their own language. */
-export const LANGUAGES = /** @type {const} */ ([["en", "English"], ["fr", "Français"]]);
+/** Languages offered in the Configuration, with their name in their own language: the most spoken ones. */
+export const LANGUAGES = /** @type {const} */ ([
+  ["en", "English"], ["zh", "中文"], ["hi", "हिन्दी"], ["es", "Español"], ["ar", "العربية"], ["fr", "Français"],
+]);
 
 /** @type {Record<string, Record<string, string>>} */
-const CATALOGS = { fr };
+const CATALOGS = { ar, es, fr, hi, zh };
+
+/** BCP 47 locale of each language, for dates and numbers. */
+const LOCALES = { en: "en-US", zh: "zh-CN", hi: "hi-IN", es: "es-ES", ar: "ar", fr: "fr-FR" };
 
 /** @type {string} */
 let language = "en";
@@ -30,11 +39,11 @@ export function setLanguage(code) {
   catalog = CATALOGS[language] ?? null;
 }
 
-/** Current language code ("en", "fr"). */
+/** Current language code ("en", "fr"…). */
 export const currentLanguage = () => language;
 
 /** BCP 47 locale for dates and numbers (toLocaleString, Intl). */
-export const locale = () => (language === "fr" ? "fr-FR" : "en-US");
+export const locale = () => LOCALES[/** @type {keyof typeof LOCALES} */ (language)] ?? "en-US";
 
 /**
  * Replaces {name} placeholders.
@@ -58,8 +67,8 @@ export function t(text, params) {
 }
 
 /**
- * Translated text that depends on a count: `one` for a single item, `other` otherwise (French also uses the
- * singular for 0). `{n}` is the count; other placeholders come from `params`.
+ * Translated text that depends on a count: `one` when the language's plural rule says so (1 in English, 0 and 1
+ * in French and Hindi, never in Chinese), `other` otherwise. `{n}` is the count; other placeholders come from `params`.
  *
  * @param {number} n
  * @param {string} one English singular, e.g. "{n} agent"
@@ -67,7 +76,7 @@ export function t(text, params) {
  * @param {Record<string, unknown>} [params]
  */
 export function tn(n, one, other, params) {
-  const singular = language === "fr" ? Math.abs(n) < 2 : n === 1;
+  const singular = new Intl.PluralRules(locale()).select(n) === "one";
   return t(singular ? one : other, { n, ...params });
 }
 

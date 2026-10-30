@@ -13,7 +13,8 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 > HTML/CSS/JS with no npm and no build step. The only vendored code is [xterm.js](https://xtermjs.org/) (MIT), pinned
 > and checksummed, with its full TypeScript source in the published source map, plus 42 [Twemoji](https://github.com/jdecked/twemoji) SVGs (CC-BY 4.0) used as avatars.
 
-> The interface is in **English** by default and also available in **French** (Configuration › General).
+> The interface is in **English** by default and also available in **Chinese, Hindi, Spanish, Arabic and French**
+> (Configuration › General).
 > More languages are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Every module is described in the
 > [detailed guide](docs/GUIDE.md).
 

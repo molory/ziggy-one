@@ -30,11 +30,20 @@ class I18nTest(unittest.TestCase):
         i18n.set_language("xx")
         self.assertEqual(i18n.language(), "en")
 
-    def test_french_catalog_keeps_placeholders(self):
-        catalog = json.loads((i18n.LOCALES_DIR / "fr.json").read_text(encoding="utf-8"))
-        for key, value in catalog.items():
-            self.assertTrue(value.strip(), key)
-            self.assertEqual(placeholders(value), placeholders(key), key)
+    def test_catalogs_keep_placeholders_and_the_same_keys(self):
+        french = json.loads((i18n.LOCALES_DIR / "fr.json").read_text(encoding="utf-8"))
+        for code in i18n.LANGUAGES[1:]:
+            catalog = json.loads((i18n.LOCALES_DIR / f"{code}.json").read_text(encoding="utf-8"))
+            self.assertEqual(sorted(catalog), sorted(french), code)
+            for key, value in catalog.items():
+                self.assertTrue(value.strip(), f"{code}: {key}")
+                self.assertEqual(placeholders(value), placeholders(key), f"{code}: {key}")
+
+    def test_arabic_is_written_right_to_left(self):
+        i18n.set_language("ar")
+        self.assertEqual(i18n.direction(), "rtl")
+        i18n.set_language("fr")
+        self.assertEqual(i18n.direction(), "ltr")
 
     def test_settings_are_saved_and_set_the_server_language(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -61,10 +70,14 @@ class I18nTest(unittest.TestCase):
             sent = []
             handler._send = lambda status, body=b"", content_type=None, headers=None: sent.append(body)
             handler._static("/")
-            self.assertIn(b'<html lang="en" data-corners="default">', sent[-1])
+            self.assertIn(b'<html lang="en" dir="ltr" data-corners="default">', sent[-1])
             srv.settings.update({"language": "fr"})
             handler._static("/")
-            self.assertIn(b'<html lang="fr" data-corners="default">', sent[-1])
+            self.assertIn(b'<html lang="fr" dir="ltr" data-corners="default">', sent[-1])
+            srv.settings.update({"language": "ar"})
+            handler._static("/")
+            self.assertIn(b'<html lang="ar" dir="rtl" data-corners="default">', sent[-1])
+            srv.settings.update({"language": "fr"})
             srv.settings.update({"corners": "square"})
             handler._static("/")
             self.assertIn(b'data-corners="square"', sent[-1])

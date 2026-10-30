@@ -27,8 +27,8 @@ export const boardRow = (board) => ({ sessionId: board.id, board });
 export const columnTickets = (tickets, column) =>
   tickets.filter((t) => t.column === column && !t.archivedAt).sort((a, b) => a.position - b.position);
 
-/** Names of the column of finished tickets (folded): the default "Done", in English and French. */
-const DONE_NAMES = new Set(["done", "fait", "termine"]);
+/** Names of the column of finished tickets (folded): the default "Done" in each language (locales/*.json). */
+const DONE_NAMES = new Set(["done", "fait", "termine", "hecho", "已完成", "पूर्ण", "منتهية"]);
 /** @param {string} text */
 const fold = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 

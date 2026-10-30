@@ -72,8 +72,9 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   most; "Force now" or "Cancel" in the banner at the top), notes what must be reopened (`restart.json`), restarts
   itself with the same command (same process), reopens the terminals and makes the paused agents resume. The page
   reloads by itself and a green banner confirms: time, version, reopened terminals.
-- **Language** (`settings.py`, `i18n.py`, `web/i18n.js`): the interface is in English by default; French is
-  available. The language is chosen in the global Configuration ("General" tab) and saved by the server in
+- **Language** (`settings.py`, `i18n.py`, `web/i18n.js`): the interface is in English by default; Chinese,
+  Hindi, Spanish, Arabic and French are available (the most spoken languages). Arabic is shown right to left
+  (`<html dir="rtl">`, logical CSS properties; code, terminals and paths stay left to right). The language is chosen in the global Configuration ("General" tab) and saved by the server in
   `settings.json` (0600): it applies to the interface in every browser and to the server's messages (errors,
   statuses, default Kanban columns). The texts given to the agents (hooks, MCP tools) are always in English.
 - **Corners** (`settings.py`, `--corners` in `web/style.css`): the same "General" tab sets the roundness of every

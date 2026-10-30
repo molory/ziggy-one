@@ -1387,6 +1387,7 @@ class Handler(BaseHTTPRequestHandler):
             body = body.replace(b"__CSP_NONCE__", nonce.encode())
             # Interface language (Configuration › General), known before any script runs: see web/i18n.js.
             body = body.replace(b"__LANG__", i18n.language().encode())
+            body = body.replace(b"__DIR__", i18n.direction().encode())  # Arabic: right to left
             # Corner style (Configuration › General), applied before the first render.
             body = body.replace(b"__CORNERS__", self.server.settings.snapshot()["corners"].encode())
             csp = SECURITY_HEADERS["Content-Security-Policy"].replace(
