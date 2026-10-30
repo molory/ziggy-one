@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  archivedTickets, boardRow, columnTickets, daysUntil, DUE_HORIZON, dueUrgency, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+  archivedTickets, boardRow, columnTickets, daysUntil, doneColumn, DUE_HORIZON, dueUrgency, descriptionPreview, dropIndex, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
 } from "../web/kanban-logic.js";
 import { orderRows } from "../web/pins.js";
 import { splitByWorkspace } from "../web/workspaces.js";
@@ -35,6 +35,13 @@ test("archived tickets are off the board, listed most recent first", () => {
   assert.deepEqual(titles(list, "done"), []);
   assert.deepEqual(archivedTickets(list).map((t) => t.id), ["F", "E"]);
   assert.deepEqual(titles(moveTicket(list, "A", "done", 0), "done"), ["A"]);
+});
+
+test("doneColumn: the column named Done, otherwise the last one", () => {
+  assert.equal(doneColumn([...columns, { id: "blocked", name: "Blocked", hue: null }]), "done");
+  assert.equal(doneColumn([{ id: "a", name: "À faire", hue: null }, { id: "t", name: " Terminé ", hue: null }, { id: "z", name: "Z", hue: null }]), "t");
+  assert.equal(doneColumn([{ id: "a", name: "A", hue: null }, { id: "b", name: "B", hue: null }]), "b");
+  assert.equal(doneColumn([{ id: "a", name: "Done", hue: null }]), null);
 });
 
 test("keyboardMove: arrows within the column and across columns, null at the edge", () => {

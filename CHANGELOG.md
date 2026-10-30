@@ -5,7 +5,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- **Archived tickets:** the last column of a board ("Done") gets an archive button on each card and one in its
+- **Archived tickets:** the "Done" column of a board (by its name, otherwise the last one) gets an archive button on each card and one in its
   header to archive all its tickets at once. Archived tickets leave the board; the board settings now have two
   tabs, Settings and Archive, which lists them (click to open, "Restore" to put one back at the end of its
   column). The ticket window also has Archive / Restore.

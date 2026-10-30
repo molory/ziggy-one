@@ -119,7 +119,7 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   between the agents and Kanban boards (remembered by the browser, `#tasks` in the address). Boards are shown like
   agents: pins, collapsible workspaces of boards, settings gear, with the distribution of tickets per column. A board
   has customisable columns (name, colour, order; "To do, In progress, Done" at first; deleting a non-empty column
-  asks where to send its tickets). Finished tickets can be archived from the last column ("Done"): one by one
+  asks where to send its tickets). Finished tickets can be archived from the "Done" column (by its name, otherwise the last column): one by one
   (button on the card, or "Archive" in the ticket window) or all at once (button in the column header). Archived
   tickets leave the board but stay in their column (`archivedAt`); the board settings list them in the Archive tab,
   where a click opens one and "Restore" (also in the ticket window) puts it back at the end of its column. Moving

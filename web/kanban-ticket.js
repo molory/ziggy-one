@@ -7,7 +7,7 @@
 
 import { formatSize } from "./files-tree.js";
 import { locale, t } from "./i18n.js";
-import { splitReferences, ticketUrl } from "./kanban-logic.js";
+import { doneColumn, splitReferences, ticketUrl } from "./kanban-logic.js";
 import { toggleTask } from "./markdown.js";
 
 const MAX_FILE = 25 * 1024 * 1024; // as in kanban.py
@@ -298,7 +298,7 @@ export function mountTicketDialog(deps) {
   error.hidden = true;
   const remove = el("button", "danger", t("Delete ticket"));
   remove.type = "button";
-  // Archive (ticket in the last column) or Restore (archived ticket): saved right away.
+  // Archive (ticket in the "Done" column) or Restore (archived ticket): saved right away.
   const archive = el("button", "", t("Archive"));
   archive.type = "button";
   const save = /** @type {HTMLButtonElement} */ (el("button", "primary", t("Save")));
@@ -335,7 +335,7 @@ export function mountTicketDialog(deps) {
     const when = (/** @type {number} */ time) => new Date(time * 1000).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
     dates.textContent = t("Created {created} · modified {updated}", { created: when(ticket.createdAt), updated: when(ticket.updatedAt) });
     archivedBadge.hidden = !ticket.archivedAt;
-    const last = board.columns.length > 1 && board.columns[board.columns.length - 1].id === ticket.column;
+    const last = doneColumn(board.columns) === ticket.column;
     archive.hidden = !ticket.archivedAt && !last;
     archive.textContent = ticket.archivedAt ? t("Restore") : t("Archive");
     archive.title = ticket.archivedAt ? t("Put the ticket back on the board, at the end of its column")

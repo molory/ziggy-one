@@ -13,7 +13,7 @@ export default {
   "Archive the tickets of \"{name}\"?": "Archiver les tickets de « {name} » ?",
   "{n} ticket will leave the board. You will find it in the board settings, Archive tab.": "{n} ticket va quitter le tableau. Tu le retrouveras dans les réglages du tableau, onglet Archives.",
   "{n} tickets will leave the board. You will find them in the board settings, Archive tab.": "{n} tickets vont quitter le tableau. Tu les retrouveras dans les réglages du tableau, onglet Archives.",
-  "No archived tickets. Archive the finished tickets from the last column of the board.": "Aucun ticket archivé. Archive les tickets terminés depuis la dernière colonne du tableau.",
+  "No archived tickets. Archive the finished tickets from the \"Done\" column of the board.": "Aucun ticket archivé. Archive les tickets terminés depuis la colonne « Terminé » du tableau.",
   "Open the ticket": "Ouvrir le ticket",
   "{column} · archived {date}": "{column} · archivé {date}",
   "Put the ticket back on the board, at the end of its column": "Remettre le ticket sur le tableau, à la fin de sa colonne",

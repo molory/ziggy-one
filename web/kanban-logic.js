@@ -27,6 +27,23 @@ export const boardRow = (board) => ({ sessionId: board.id, board });
 export const columnTickets = (tickets, column) =>
   tickets.filter((t) => t.column === column && !t.archivedAt).sort((a, b) => a.position - b.position);
 
+/** Names of the column of finished tickets (folded): the default "Done", in English and French. */
+const DONE_NAMES = new Set(["done", "fait", "termine"]);
+/** @param {string} text */
+const fold = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+/**
+ * Column whose tickets can be archived: the one named "Done" (or "Fait", "Terminé"), otherwise the last
+ * column. None on a board with a single column.
+ *
+ * @param {Column[]} columns
+ * @returns {string | null} its id
+ */
+export function doneColumn(columns) {
+  if (columns.length < 2) return null;
+  return (columns.find((c) => DONE_NAMES.has(fold(c.name))) ?? columns[columns.length - 1]).id;
+}
+
 /**
  * Archived tickets of a board, most recently archived first.
  *

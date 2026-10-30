@@ -3,13 +3,13 @@
 // cards, quick add at the bottom of a column, "+" column at the end. Moves by drag and drop
 // (the browser's native drag and drop, no library) or with the keyboard: Alt + arrows on a card.
 // The move shows right away; the server's answer (kanban_board event) is authoritative.
-// The last column (where finished tickets end up: "Done") can be archived, ticket by ticket or all at once:
+// The "Done" column (by its name, otherwise the last one) can be archived, ticket by ticket or all at once:
 // archived tickets leave the board (they are listed in the board settings, Archive tab).
 // No content goes through innerHTML: text nodes only.
 
 import { locale, t, tn } from "./i18n.js";
 import {
-  columnTickets, daysUntil, descriptionPreview, dropIndex, dueUrgency, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
+  columnTickets, daysUntil, doneColumn, descriptionPreview, dropIndex, dueUrgency, keyboardMove, moveTicket, shareLink, tagHue, titleTags,
 } from "./kanban-logic.js";
 
 const TICKET_TYPE = "application/x-ziggy-ticket";
@@ -128,7 +128,7 @@ export function mountBoardView(root, deps) {
   }
 
   /**
-   * Archive button: on each card of the last column (one ticket), in its header (all its tickets).
+   * Archive button: on each card of the "Done" column (one ticket), in its header (all its tickets).
    *
    * @param {string} className
    * @param {string} label
@@ -176,7 +176,7 @@ export function mountBoardView(root, deps) {
 
   /**
    * @param {Ticket} ticket
-   * @param {boolean} archivable the ticket is in the last column
+   * @param {boolean} archivable the ticket is in the "Done" column
    */
   function card(ticket, archivable) {
     const item = el("li", "kanban-card");
@@ -311,7 +311,7 @@ export function mountBoardView(root, deps) {
   function columnSection(column, index, columns) {
     if (!data) return el("section");
     const tickets = columnTickets(data.tickets, column.id);
-    const last = index === columns.length - 1 && columns.length > 1;
+    const last = column.id === doneColumn(columns);
     const section = el("section", "kanban-column");
     section.dataset.column = column.id;
     paint(section, column.hue);

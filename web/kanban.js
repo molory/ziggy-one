@@ -677,7 +677,7 @@ export function mountKanban(dom, deps) {
     }
     const tickets = archivedTickets(settingsTickets);
     if (!tickets.length) {
-      section.append(el("p", "muted small", t("No archived tickets. Archive the finished tickets from the last column of the board.")));
+      section.append(el("p", "muted small", t("No archived tickets. Archive the finished tickets from the \"Done\" column of the board.")));
       return section;
     }
     const columns = new Map(board.columns.map((c) => [c.id, c.name]));
