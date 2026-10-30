@@ -3,6 +3,14 @@
 
 /** @type {Record<string, string>} */
 export default {
+  "Use another agent, or only the Tasks mode.": "Utiliser un autre agent, ou seulement le mode Tâches.",
+  "Use another agent": "Utiliser un autre agent",
+  "Ziggy One is built for Claude Code, but it is open source: ask an AI agent to adapt it to the agent of your choice.": "Ziggy One est conçu pour Claude Code, mais il est open source : demande à un agent IA de l'adapter à l'agent de ton choix.",
+  "Your agent (e.g. Codex, Gemini CLI, Aider…)": "Ton agent (ex. Codex, Gemini CLI, Aider…)",
+  "Your agent": "Ton agent",
+  "Continue to Tasks": "Continuer vers les Tâches",
+  "The Tasks mode works without any agent.": "Le mode Tâches marche sans aucun agent.",
+  "← Back to Claude Code": "← Revenir à Claude Code",
   "Ziggy One needs it to run your agents. Let an AI agent fix it:": "Ziggy One en a besoin pour faire tourner tes agents. Laisse un agent IA réparer ça :",
   "Fix Ziggy One so it can use Claude Code…": "Répare Ziggy One pour qu'il utilise Claude Code…",
   "Done. Click “Check again”.": "C'est fait. Clique sur « Vérifier à nouveau ».",
@@ -11,7 +19,6 @@ export default {
   "Check again": "Vérifier à nouveau",
   "Copied — paste it into your agent": "Copié — colle-le dans ton agent",
   "Continue without Claude Code": "Continuer sans Claude Code",
-  "The Tasks mode works without it; agents will not start.": "Le mode Tâches marche sans ; les agents ne démarreront pas.",
   "Checking…": "Vérification…",
   "Still not ready.": "Toujours pas prêt.",
   "Claude Code is ready.": "Claude Code est prêt.",

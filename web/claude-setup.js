@@ -3,6 +3,8 @@
 // The fix is handed to an AI agent: a prompt to copy (with what Ziggy One knows: the problem, its folder,
 // the PATH where it looks for `claude`), pasted into Claude or any other agent, then "Check again".
 // Motion: Ziggy and Claude Code linked by a cut wire; a small chat plays the fix and the wire heals (CSS loop).
+// "Continue without Claude Code" opens a second view: Ziggy One is open source, an AI agent can adapt it to
+// another coding agent (a prompt to copy), or go on to the Tasks mode, which works without any agent.
 // No content goes through innerHTML: text nodes only.
 
 import { t } from "./i18n.js";
@@ -52,6 +54,28 @@ export function fixPrompt(problem, account, server) {
 }
 
 /**
+ * Prompt for the agent that adapts Ziggy One to another coding agent.
+ *
+ * @param {string} agent the agent chosen (may be empty: the agent asks)
+ * @param {{folder?: string} | null} server
+ */
+export function adaptPrompt(agent, server) {
+  const name = agent.trim() || "[the coding agent I want: ask me which one]";
+  return [
+    `Ziggy One${server?.folder ? ` (folder: ${server.folder})` : ""} is a local web interface built around Claude Code`,
+    `(the \`claude\` command). I want it to work with another coding agent: ${name}.`,
+    "",
+    "Please adapt it:",
+    "1. Read README.md and docs/GUIDE.md, then the code that starts and talks to Claude Code (terminal.py,",
+    "   conversations.py, server.py, ziggy_hook.py, agent_mcp.py), to see what Ziggy One relies on.",
+    `2. Before changing anything, give me a short plan: what maps directly to ${name}, what has no equivalent,`,
+    "   and what I would lose.",
+    "3. Once I agree, implement it without breaking Claude Code support, and run the tests",
+    "   (python3 -m unittest discover -s tests, node --test tests/*.test.mjs).",
+  ].join("\n");
+}
+
+/**
  * @typedef {object} SetupDeps
  * @property {(path: string, body?: object) => Promise<any>} api
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
@@ -70,6 +94,8 @@ export function mountClaudeSetup(deps) {
   let dismissed = false;
   /** @type {string} */
   let prompt = "";
+  /** @type {{folder?: string, path?: string, platform?: string} | null} */
+  let serverInfo = null;
 
   // Ziggy ── ✂ ── Claude Code: the wire is cut, then heals when the agent answers.
   const link = el("div", "setup-link");
@@ -118,24 +144,70 @@ export function mountClaudeSetup(deps) {
   const hint = el("p", "setup-hint");
   const skip = /** @type {HTMLButtonElement} */ (el("button", "link-button setup-skip", t("Continue without Claude Code")));
   skip.type = "button";
-  skip.title = t("The Tasks mode works without it; agents will not start.");
+  skip.title = t("Use another agent, or only the Tasks mode.");
 
   const card = el("div", "setup-card");
   card.append(link, title, lead, chat, steps, actions, status, hint, skip);
   screen.append(card);
 
-  /** @type {number | undefined} */
-  let copyTimer;
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(prompt);
-      copy.textContent = t("Copied — paste it into your agent");
-    } catch {
-      copy.textContent = t("Copy blocked");
-    }
-    clearTimeout(copyTimer);
-    copyTimer = window.setTimeout(() => (copy.textContent = t("Copy the prompt")), 2500);
-  });
+  // Second view: another agent than Claude Code. Ziggy ── ✓ ── an agent of your choice (its mark changes).
+  const otherLink = el("div", "setup-link setup-other-link");
+  otherLink.setAttribute("aria-hidden", "true");
+  const otherZiggy = /** @type {HTMLElement} */ (ziggy.cloneNode(true));
+  const otherWire = el("span", "setup-wire setup-wire-live");
+  otherWire.append(el("span", "setup-pulse"));
+  const any = el("span", "setup-node setup-any");
+  for (const mark of [">_", "</>", "AI", "?"]) any.append(el("span", "setup-any-mark", mark));
+  otherLink.append(otherZiggy, otherWire, any);
+  const otherTitle = el("h1", "setup-title", t("Use another agent"));
+  otherTitle.id = "setup-other-title";
+  const otherLead = el("p", "setup-lead",
+    t("Ziggy One is built for Claude Code, but it is open source: ask an AI agent to adapt it to the agent of your choice."));
+  const agentInput = /** @type {HTMLInputElement} */ (el("input", "text-input setup-agent-input"));
+  Object.assign(agentInput, { placeholder: t("Your agent (e.g. Codex, Gemini CLI, Aider…)"), maxLength: 60, autocomplete: "off" });
+  agentInput.setAttribute("aria-label", t("Your agent"));
+  const otherCopy = /** @type {HTMLButtonElement} */ (el("button", "primary", t("Copy the prompt")));
+  otherCopy.type = "button";
+  const tasks = /** @type {HTMLButtonElement} */ (el("button", "", t("Continue to Tasks")));
+  tasks.type = "button";
+  tasks.title = t("The Tasks mode works without any agent.");
+  const otherActions = el("div", "setup-actions");
+  otherActions.append(otherCopy, tasks);
+  const back = /** @type {HTMLButtonElement} */ (el("button", "link-button setup-skip", t("← Back to Claude Code")));
+  back.type = "button";
+  const otherCard = el("div", "setup-card");
+  otherCard.hidden = true;
+  otherCard.append(otherLink, otherTitle, otherLead, agentInput, otherActions, back);
+  screen.append(otherCard);
+
+  /** @param {boolean} other */
+  const showView = (other) => {
+    card.hidden = other;
+    otherCard.hidden = !other;
+    screen.setAttribute("aria-labelledby", other ? "setup-other-title" : "setup-title");
+    if (other) agentInput.focus();
+  };
+
+  /**
+   * @param {HTMLButtonElement} button
+   * @param {() => string} text
+   */
+  const copier = (button, text) => {
+    /** @type {number | undefined} */
+    let timer;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(text());
+        button.textContent = t("Copied — paste it into your agent");
+      } catch {
+        button.textContent = t("Copy blocked");
+      }
+      clearTimeout(timer);
+      timer = window.setTimeout(() => (button.textContent = t("Copy the prompt")), 2500);
+    });
+  };
+  copier(copy, () => prompt);
+  copier(otherCopy, () => adaptPrompt(agentInput.value, serverInfo));
   check.addEventListener("click", async () => {
     check.disabled = true;
     status.textContent = t("Checking…");
@@ -162,9 +234,12 @@ export function mountClaudeSetup(deps) {
       check.disabled = false;
     }
   });
-  skip.addEventListener("click", () => {
+  skip.addEventListener("click", () => showView(true));
+  back.addEventListener("click", () => showView(false));
+  tasks.addEventListener("click", () => {
     dismissed = true;
     screen.hidden = true;
+    location.hash = "#tasks";
   });
 
   return {
@@ -181,6 +256,7 @@ export function mountClaudeSetup(deps) {
         return;
       }
       prompt = fixPrompt(problem, account, server);
+      serverInfo = server;
       title.textContent = { missing: t("Claude Code is not installed"), "signed-out": t("Claude Code is not signed in"),
         error: t("Claude Code is not answering") }[problem];
       hint.replaceChildren(document.createTextNode(problem === "missing"

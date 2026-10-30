@@ -7,7 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Claude Code not ready screen:** when `claude` is not installed (or not on Ziggy One's PATH) or not signed in,
   an animated full screen explains it in one line and hands the fix to an AI agent: copy the prompt, paste it into
-  Claude or any agent, then "Check again" (no restart needed). The Tasks mode stays reachable.
+  Claude or any agent, then "Check again" (no restart needed). "Continue without Claude Code" explains that an AI agent can adapt
+  Ziggy One to another coding agent of your choice (a prompt to copy), or goes on to the Tasks mode.
 - **Archived tickets:** the "Done" column of a board (by its name, otherwise the last one) gets an archive button on each card and one in its
   header to archive all its tickets at once. Archived tickets leave the board; the board settings now have two
   tabs, Settings and Archive, which lists them (click to open, "Restore" to put one back at the end of its

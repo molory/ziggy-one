@@ -2987,6 +2987,30 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
 .setup-hint { margin: 0; font-size: 0.8rem; color: var(--muted); }
 .setup-skip { font-size: 0.8rem; }
 
+/* Another agent: a live wire (a pulse runs from Ziggy), the agent's mark changes (>_, </>, AI, ?). */
+.setup-wire-live { background: color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: 2px; overflow: hidden; }
+.setup-pulse {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: setup-pulse 1.8s ease-in-out infinite;
+}
+@keyframes setup-pulse { from { translate: -100% 0; } to { translate: 250% 0; } }
+.setup-any { animation: setup-bob 4s ease-in-out -2s infinite; }
+.setup-any-mark {
+  grid-area: 1 / 1;
+  font: 700 1.1rem var(--mono);
+  color: var(--accent);
+  opacity: 0;
+  animation: setup-mark 8s infinite;
+}
+.setup-any-mark:nth-child(2) { animation-delay: 2s; }
+.setup-any-mark:nth-child(3) { animation-delay: 4s; }
+.setup-any-mark:nth-child(4) { animation-delay: 6s; }
+@keyframes setup-mark { 0% { opacity: 0; translate: 0 8px; } 5%, 22% { opacity: 1; translate: 0 0; } 27%, 100% { opacity: 0; translate: 0 -8px; } }
+.setup-agent-input { width: min(100%, 22rem); text-align: center; }
+
 /* Checked and ready: the wire stays healed, the chat ends on the answer. */
 .setup-screen.ready .setup-heal { animation: none; scale: 1 1; }
 .setup-screen.ready .setup-spark, .setup-screen.ready .setup-typing { animation: none; opacity: 0; }
@@ -2998,4 +3022,5 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   .setup-screen *, .setup-screen *::before, .setup-screen *::after { animation: none !important; }
   .setup-you, .setup-done { opacity: 1; }
   .setup-typing { display: none; }
+  .setup-any-mark:first-child { opacity: 1; }
 }

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { claudeProblem, fixPrompt } from "../web/claude-setup.js";
+import { adaptPrompt, claudeProblem, fixPrompt } from "../web/claude-setup.js";
 
 test("claudeProblem: missing, signed out, error, or ready", () => {
   assert.equal(claudeProblem(null), null);
@@ -22,4 +22,12 @@ test("fixPrompt: says what is wrong and where Ziggy One looks for claude", () =>
   assert.match(prompt, /claude auth login/);
   assert.match(fixPrompt("error", { error: "boom" }, null), /fails: boom/);
   assert.doesNotMatch(fixPrompt("signed-out", {}, null), /PATH:/);
+});
+
+test("adaptPrompt: names the chosen agent, or asks for it", () => {
+  const prompt = adaptPrompt("  Codex ", { folder: "/z" });
+  assert.match(prompt, /another coding agent: Codex\./);
+  assert.match(prompt, /\(folder: \/z\)/);
+  assert.match(prompt, /what maps directly to Codex/);
+  assert.match(adaptPrompt("", null), /ask me which one/);
 });
