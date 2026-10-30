@@ -1639,6 +1639,36 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 .terminal-reopen-bar svg { width: 0.85rem; height: 0.85rem; }
 .terminal-reopen-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Introduction under way (ZiggyBoss): the terminal fades behind a large loading screen until its first turn ends. */
+.terminal-screens.is-loading .terminal-screen { opacity: 0.15; filter: blur(3px); pointer-events: none; }
+.terminal-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  color: #e4e6eb;
+  text-align: center;
+  animation: terminal-loading-in 0.3s ease-out;
+}
+.terminal-loading h3 { margin: 0.5rem 0 0; font-size: 1.35rem; }
+.terminal-loading p { margin: 0; max-width: 26rem; color: #aeb3bc; }
+.terminal-loading .terminal-peek { margin-top: 0.75rem; color: #aeb3bc; }
+.terminal-loading .terminal-peek:hover { color: #e4e6eb; }
+.terminal-loading-spinner {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 4px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes terminal-loading-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .terminal-loading-spinner { animation: none; } }
 @keyframes terminal-closed-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); } }
 @keyframes terminal-reopen-spin { to { transform: rotate(-360deg); } }
 @media (prefers-reduced-motion: reduce) {

@@ -1,8 +1,9 @@
 """First launch: ZiggyBoss, the agent that customizes Ziggy One, and a first board to discover it.
 
-Done once (onboarding.json in the data folder). ZiggyBoss is only created on a fresh install: an
-existing user keeps their agents as they are. The "Board" is created whenever the Kanban is empty
-at that moment.
+ZiggyBoss is created at every start that finds no agent at all (fresh install, or every agent
+closed): there is always a way to edit Ziggy One from itself. An existing user's agents are left
+as they are. The "Board" is created once (onboarding.json in the data folder), if the Kanban is
+empty at that moment.
 """
 
 from pathlib import Path
@@ -14,10 +15,10 @@ BOSS_ROLE = "Customizes Ziggy One (the app that runs the agents) and fixes its b
 # First message of ZiggyBoss, sent when its terminal opens for the first time: it introduces itself.
 BOSS_INTRO = (
     "You are ZiggyBoss, the agent in charge of Ziggy One itself: this folder is the code of the Ziggy One app the "
-    "user is looking at right now (read README.md and CONTRIBUTING.md before changing anything). Your role: "
-    "customize Ziggy One the way the user wants, and fix its bugs when needed. Introduce yourself to the user in "
-    "3 or 4 short sentences: who you are, what you can do for them, and two or three examples of requests "
-    "(a new feature, a change of look, a bug to fix). Then wait for their request. Do not change any file yet."
+    "user is looking at right now (read README.md and CONTRIBUTING.md before changing anything). Introduce yourself "
+    "to the user in 2 short sentences, no more: they can ask you to add features to Ziggy One or fix its bugs, and "
+    "to help them use Ziggy One and organize their agents and tasks. Then wait for their request. Do not read or "
+    "change any file before their request."
 )
 BOARD_NAME = "Board"
 WELCOME_TITLE = "WELCOME/ Onboarding todo"
@@ -47,19 +48,16 @@ WELCOME_TICKET = """Things to try to discover Ziggy One. Tick each one when it i
 class Onboarding:
     def __init__(self, path):
         self._path = Path(path)
-        # Read before the server writes anything: no data folder yet means a fresh install.
-        self.first_launch = not any(
-            (self._path.parent / name).exists() for name in ("conversations.json", "agents.json", "kanbans.json"))
 
     def run(self, server, boss_cwd):
-        """Creates ZiggyBoss (fresh install) and the welcome board (empty Kanban), once."""
-        if read_json(self._path, {}).get("done"):
-            return
-        if self.first_launch:
+        """Creates ZiggyBoss (no agent yet) and, once, the welcome board (empty Kanban)."""
+        if not server.conversations.list():
             conversation = server.conversations.open(cwd=str(boss_cwd), label=BOSS_NAME, intro=BOSS_INTRO)
             server.agents.rename(conversation.id, BOSS_NAME)
             server.agents.set_role(conversation.id, BOSS_ROLE)
             server.pins.add(conversation.id)
+        if read_json(self._path, {}).get("done"):
+            return
         if not server.kanban.list():
             board = server.kanban.create_board(BOARD_NAME)
             server.kanban.create_ticket(board["id"], board["columns"][0]["id"], WELCOME_TITLE, WELCOME_TICKET)

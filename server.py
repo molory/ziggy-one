@@ -346,7 +346,7 @@ class ZiggyServer(ThreadingHTTPServer):
         self.data_dir = data_dir
         # Private folder (token, sessions, keys), even if it was created before with wider permissions.
         data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.onboarding = Onboarding(data_dir / "onboarding.json")  # before any file is written: first launch?
+        self.onboarding = Onboarding(data_dir / "onboarding.json")
         try:
             data_dir.chmod(0o700)
         except OSError:
@@ -457,8 +457,10 @@ class ZiggyServer(ThreadingHTTPServer):
             ours = self.our_pids()
             if any(s.get("sessionId") == target and s.get("pid") not in ours for s in list_active_sessions()):
                 args.append("--fork-session")  # open in another terminal: work on a copy
-        elif conversation.intro:
-            args.append(conversation.intro)  # first message (ZiggyBoss introduces itself), before the variadic options
+        # Not when it is already open: start() then does nothing, the introduction is not used.
+        intro = conversation.intro if "--resume" not in args and not self.terminals.running(conversation.id) else ""
+        if intro:
+            args.append(intro)  # first message (ZiggyBoss introduces itself), before the variadic options
         # Session name = agent name in ziggy-one: the other agents find it under that name
         # (Claude Code's ListAgents / SendMessage), instead of "folder-xx".
         name = self.agents.name_for(self.agent_keys(conversation))
@@ -466,6 +468,8 @@ class ZiggyServer(ThreadingHTTPServer):
             args.append(f"--name={name}")  # one argument: a name starting with "-" stays a name
         args += self._claude_args_for(conversation)  # --allowedTools is variadic: it stays last
         self.terminals.start(conversation.id, conversation.cwd, args, cols, rows)
+        if intro:
+            conversation.intro_started()
 
     def agent_directory(self, conversation):
         """Directory given to an agent when its session starts: its role, and the other agents that have one,
@@ -521,6 +525,7 @@ class ZiggyServer(ThreadingHTTPServer):
         if conversation is not None:
             conversation.set_waiting(None)
             conversation.set_busy(False)
+            conversation.intro_stopped()
 
     def _follow_terminal_sessions(self, interval=1):
         """For each terminal, from the Claude Code registry: the session (new, /clear, /resume…),
@@ -1521,7 +1526,7 @@ def main():
         print(f"ziggy-one is already running on port {args.port}", flush=True)
         show_login(args.port, persistent_token(default_data_dir() / "token"), args.open and not args.link)
         return
-    server.onboarding.run(server, WEB_DIR.parent)  # first launch: ZiggyBoss and the welcome board
+    server.onboarding.run(server, WEB_DIR.parent)  # no agent yet: ZiggyBoss; first launch: the welcome board
     threading.Thread(target=server.usage.probe, daemon=True).start()
 
     # `kill` (SIGTERM) stops the server as cleanly as Ctrl+C: the Claude Code terminals are closed.

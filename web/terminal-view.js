@@ -76,6 +76,9 @@ function icon(d) {
 
 // Time after your last action in a terminal during which Claude Code may copy to the clipboard (OSC 52).
 const COPY_AFTER_INPUT = 5000;
+// Introduction (ZiggyBoss): if Claude Code has not started working after this long, it is probably asking
+// something (trust this folder?…): the terminal shows instead of the loading screen.
+const INTRO_GRACE = 15000;
 
 // Terminal window with a prompt, and the circular arrow of the Reopen button.
 const TERMINAL_ICON = "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM6 9l3 3-3 3M12 15h5";
@@ -130,8 +133,21 @@ export function mountTerminalView(root, deps) {
   bar.insertBefore(reopenBar, stop);
   /** @type {Set<string>} agents whose closed card is set aside to read the last output */
   const peeking = new Set();
+  // First message under way (ZiggyBoss introduces itself): a loading screen over the terminal until its turn ends.
+  const loading = el("div", "terminal-loading");
+  loading.setAttribute("role", "status");
+  const loadingTitle = el("h3");
+  const showTerminal = /** @type {HTMLButtonElement} */ (el("button", "terminal-peek", t("Show the terminal")));
+  showTerminal.type = "button";
+  loading.append(el("div", "terminal-loading-spinner"), loadingTitle,
+    el("p", "muted small", t("Claude Code is starting and reading Ziggy One to introduce itself. This takes a few seconds.")),
+    showTerminal);
+  /** @type {Map<string, number>} agents whose introduction is under way: since when it is seen here */
+  const introSince = new Map();
+  /** @type {Set<string>} agents whose loading screen was set aside */
+  const introSkipped = new Set();
   const screens = el("div", "terminal-screens");
-  screens.append(closed);
+  screens.append(closed, loading);
   root.append(bar, intro, screens);
 
   /** @param {unknown} err */
@@ -382,6 +398,11 @@ export function mountTerminalView(root, deps) {
     closed.hidden = !isClosed || peek;
     reopenBar.hidden = !peek;
     screens.classList.toggle("is-closed", isClosed && !peek);
+    const wasLoading = !loading.hidden;
+    loading.hidden = !(isRunning && id && introducing(c));
+    screens.classList.toggle("is-loading", !loading.hidden);
+    if (!loading.hidden) loadingTitle.textContent = t("{name} is getting ready…", { name: c.label });
+    if (wasLoading && loading.hidden) focus = true; // introduction done: the keyboard goes to the terminal
     // The error goes under the button that was clicked.
     (isClosed ? closed : intro).append(error);
     if (isClosed && entry) {
@@ -405,6 +426,31 @@ export function mountTerminalView(root, deps) {
       if (focus) entry.term.focus();
     }
   }
+
+  /**
+   * Its introduction is under way and the loading screen covers it: not when it waits for your reply,
+   * nor once set aside, nor if it has not started working after INTRO_GRACE (a question in the terminal).
+   *
+   * @param {any} c
+   */
+  function introducing(c) {
+    if (!c.introducing) {
+      introSince.delete(c.id);
+      introSkipped.delete(c.id);
+      return false;
+    }
+    if (!introSince.has(c.id)) {
+      introSince.set(c.id, Date.now());
+      window.setTimeout(() => shown?.id === c.id && render(), INTRO_GRACE + 50);
+    }
+    if (c.waiting || introSkipped.has(c.id)) return false;
+    return Boolean(c.busy) || Date.now() - (introSince.get(c.id) ?? 0) < INTRO_GRACE;
+  }
+  showTerminal.addEventListener("click", () => {
+    if (!shown) return;
+    introSkipped.add(shown.id);
+    render(true);
+  });
 
   /** Opens Claude Code for the agent shown. */
   async function startClaude() {
@@ -538,6 +584,16 @@ export function mountTerminalView(root, deps) {
     /** Refreshes the tab (agent state changed). */
     refresh() {
       if (shown) render();
+    },
+    /**
+     * New state of an agent (working, waiting, introduction…): redrawn if it is the one shown.
+     *
+     * @param {any} conversation
+     */
+    update(conversation) {
+      if (shown?.id !== conversation.id) return;
+      shown = conversation;
+      render();
     },
   };
 }

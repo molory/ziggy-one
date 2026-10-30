@@ -47,6 +47,7 @@ class Conversation:
         self.label = label if label and label not in LEGACY_NEW_LABELS else NEW_LABEL
         self.git = manager.in_git_repo(cwd)  # folder inside a git repository?
         self.intro = intro  # first message, sent when Claude Code starts without a session (ZiggyBoss)
+        self.introducing = False  # Claude Code started with `intro`: until the end of that first turn
         self.session_id = None
         self.busy = False
         self.waiting = None  # what the agent waits for from you: "permission", "question", or None
@@ -65,6 +66,8 @@ class Conversation:
                 "busy": self.busy,
                 "waiting": self.waiting,
                 "lastActivity": self.last_activity,
+                "intro": bool(self.intro),
+                "introducing": self.introducing,
             }
 
     def _publish_status(self):
@@ -86,6 +89,21 @@ class Conversation:
         self._manager.session_started(self.id, session_id, previous)
         self._publish_status()
 
+    def intro_started(self):
+        """Claude Code has just started with `intro` as its first message: it is used, not sent again."""
+        with self._lock:
+            self.intro, self.introducing = "", True
+        self._manager.save()
+        self._publish_status()
+
+    def intro_stopped(self):
+        """Its terminal closed: no more introduction under way (finished or not)."""
+        with self._lock:
+            if not self.introducing:
+                return
+            self.introducing = False
+        self._publish_status()
+
     def set_waiting(self, kind):
         """The agent waits for your answer ("permission", "question") or no longer does (None); published if it changes."""
         with self._lock:
@@ -105,6 +123,8 @@ class Conversation:
                 self.label = prompt.strip().splitlines()[0][:80]
             changed = busy != self.busy
             self.busy = busy
+            if changed and not busy:
+                self.introducing = False  # end of the turn: the introduction is done
             self.last_activity = time.time()
         if labelled and self.label != NEW_LABEL:
             self._manager.save()  # first message: its default name is saved

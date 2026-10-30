@@ -3499,6 +3499,7 @@ function connect() {
     }
     if (status.waiting !== wasWaiting) updateAttention();
     if (status.id === selectedId) renderHeader();
+    terminalView.update(status);
     drawSessions();
   });
   on("turn_end", onTurnEnd);
@@ -3666,7 +3667,10 @@ async function init() {
     } catch {
       // Storage unavailable.
     }
-    if (saved && conversations.has(saved)) await selectConversation(saved);
+    // ZiggyBoss not introduced yet (first launch, or no agent left): shown, its Claude Code opens and introduces it.
+    const intro = [...conversations.values()].find((c) => c.intro || c.introducing);
+    if (intro) await selectConversation(intro.id, { start: !terminalView.isRunning(intro.id) });
+    else if (saved && conversations.has(saved)) await selectConversation(saved);
     else showIdle();
     // Address of a ticket (/t/42): its card opens once the boards are loaded.
     const ticketNumber = ticketNumberFromPath(location.pathname);

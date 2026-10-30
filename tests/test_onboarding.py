@@ -33,28 +33,65 @@ class OnboardingTest(unittest.TestCase):
             self.assertEqual((ticket["title"], ticket["column"]), ("WELCOME/ Onboarding todo", board["columns"][0]["id"]))
             self.assertIn("- [ ] ", ticket["description"])
 
-            # Opening ZiggyBoss: Claude Code starts with its introduction as first message.
+            # Opening ZiggyBoss: Claude Code starts with its introduction as first message; the loading screen
+            # ("introducing") lasts until the end of that first turn, and the introduction is not sent again.
+            conversation = srv.conversations.get(boss["id"])
+            self.assertEqual((boss["intro"], boss["introducing"]), (True, False))
             started = []
             srv.terminals.start = lambda conversation, cwd, args, cols, rows: started.append(args)
-            srv.start_terminal(srv.conversations.get(boss["id"]), 80, 24)
+            srv.start_terminal(conversation, 80, 24)
             self.assertIn(onboarding.BOSS_INTRO, started[0])
+            self.assertEqual((conversation.status()["intro"], conversation.status()["introducing"]), (False, True))
+            conversation.set_busy(False)  # idle before the prompt arrives: still introducing
+            self.assertTrue(conversation.introducing)
+            conversation.set_busy(True, prompt=onboarding.BOSS_INTRO)
+            conversation.set_busy(False)  # end of the first turn
+            self.assertFalse(conversation.introducing)
+            srv.start_terminal(conversation, 80, 24)
+            self.assertNotIn(onboarding.BOSS_INTRO, started[1])
 
-            # Next starts: nothing more, even after deleting everything; the introduction is kept until used.
+            # Next starts: nothing more while an agent exists, even with an empty Kanban.
             srv.server_close()
             again = self.make_server(data_dir)
-            self.assertEqual(again.conversations.get(boss["id"]).intro, onboarding.BOSS_INTRO)
+            self.assertEqual(again.conversations.get(boss["id"]).intro, "")
             again.kanban.delete_board(board["id"])
             again.onboarding.run(again, tmp)
             self.assertEqual((len(again.conversations.list()), again.kanban.list()), (1, []))
 
-    def test_existing_install_only_gets_the_board_when_its_kanban_is_empty(self):
+    def test_ziggy_boss_comes_back_when_no_agent_is_left(self):
         with tempfile.TemporaryDirectory() as tmp:
             data_dir = Path(tmp) / "data"
-            data_dir.mkdir()
-            (data_dir / "agents.json").write_text("{}")
             srv = self.make_server(data_dir)
             srv.onboarding.run(srv, tmp)
-            self.assertEqual(srv.conversations.list(), [])
+            [boss] = srv.conversations.list()
+            srv.conversations.remove(boss["id"])
+            srv.server_close()
+            again = self.make_server(data_dir)
+            again.onboarding.run(again, tmp)
+            [new_boss] = again.conversations.list()
+            self.assertEqual((new_boss["label"], new_boss["cwd"]), ("ZiggyBoss", tmp))
+            self.assertIn(new_boss["id"], again.pins.list())
+            self.assertEqual(len(again.kanban.list()), 1)  # the welcome board is not created twice
+
+    def test_closing_the_terminal_ends_the_introduction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            srv = self.make_server(Path(tmp) / "data")
+            srv.onboarding.run(srv, tmp)
+            [boss] = srv.conversations.list()
+            conversation = srv.conversations.get(boss["id"])
+            srv.terminals.start = lambda *args: None
+            srv.start_terminal(conversation, 80, 24)
+            self.assertTrue(conversation.introducing)
+            srv._terminal_closed(conversation.id)
+            self.assertFalse(conversation.introducing)
+
+    def test_existing_install_keeps_its_agents_and_only_gets_the_board_when_its_kanban_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            srv = self.make_server(data_dir)
+            mine = srv.conversations.open(cwd=tmp)
+            srv.onboarding.run(srv, tmp)
+            self.assertEqual([c["id"] for c in srv.conversations.list()], [mine.id])
             self.assertEqual([b["name"] for b in srv.kanban.list()], ["Board"])
 
 

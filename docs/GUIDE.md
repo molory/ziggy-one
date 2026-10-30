@@ -107,12 +107,16 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   The window size is kept per model in `~/.local/share/ziggy-one/context-windows.json`; failing that, 200,000 tokens,
   or one million for a model already seen beyond that.
 
-- **First launch** (`onboarding.py`): when the data folder has no agents and no Kanban yet, `main()` opens
+- **First launch** (`onboarding.py`): at every start that finds no agent (`conversations.json` empty), `main()` opens
   **ZiggyBoss**: pinned, named, in Ziggy One's folder, with the role "customizes Ziggy One and fixes its bugs". Its
   conversation keeps a first message (`intro`, saved in `conversations.json`) passed to `claude` as its prompt the
-  first time its terminal starts without a session: it introduces itself. If the Kanban has no board, a "Board" is
-  created with a `WELCOME/ Onboarding todo` ticket (a Markdown checklist). All this runs once (`onboarding.json`):
-  deleting ZiggyBoss or the board does not bring them back.
+  first time its terminal starts without a session: it introduces itself. The intro is then used (`intro` emptied) and
+  the agent is `introducing` until the end of that first turn (or its terminal closes). On load, the page selects an
+  agent with an intro (or introducing) and opens its terminal; while `introducing`, a loading screen covers the
+  terminal, except when it waits for your reply, after "Show the terminal", or if it has not started working
+  after 15 s (a question such as "trust this folder?"). If the Kanban has no board, a "Board" is
+  created with a `WELCOME/ Onboarding todo` ticket (a Markdown checklist). The board is created once
+  (`onboarding.json`): deleting it does not bring it back; deleting every agent brings ZiggyBoss back at the next start.
 
 - **New agent** (`folders.py`, `web/agent-names.js`): "+" then "Agent" asks for the folder it will work in and
   suggests the folder's name as its name ("project 2" if it is already taken), editable, and a workspace to put it
