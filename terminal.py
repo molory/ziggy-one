@@ -184,9 +184,24 @@ class Terminals:
             _signal_group(terminal.proc, signal.SIGKILL)
         return True
 
-    def stop_all(self):
-        for conversation in self.list():
-            self.stop(conversation)
+    def stop_all(self, timeout=5):
+        """Closes every terminal at once (one shared delay, not 5 s each); a second Ctrl+C kills them at once."""
+        with self._lock:
+            procs = [terminal.proc for terminal in self._terminals.values()]
+        for proc in procs:
+            _signal_group(proc, signal.SIGHUP)
+        deadline = time.monotonic() + timeout
+        try:
+            for proc in procs:
+                try:
+                    proc.wait(timeout=max(deadline - time.monotonic(), 0))
+                except subprocess.TimeoutExpired:
+                    pass
+        except KeyboardInterrupt:
+            pass
+        for proc in procs:
+            if proc.poll() is None:
+                _signal_group(proc, signal.SIGKILL)
 
     def _pump(self, terminal):
         while True:

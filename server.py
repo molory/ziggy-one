@@ -1537,7 +1537,8 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        pass
+        if server.terminals.list():
+            print("\nziggy-one: closing the Claude Code terminals… (Ctrl+C again to kill them now)", flush=True)
     finally:
         server.server_close()
     if server.restart.requested:
