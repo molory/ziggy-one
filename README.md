@@ -76,7 +76,8 @@ ziggy                            # or: ziggy --permission-mode auto, any option 
 - If it is **already running**, `ziggy` does not start a second one: it just opens the interface (from any folder).
 - If the port is taken by another program, `ziggy` says so: choose another one with `--port`.
 
-Then click **New agent**. Stop Ziggy One with <kbd>Ctrl</kbd>+<kbd>C</kbd> in its terminal; agents' terminals are
+On the first launch, the sidebar already has **ZiggyBoss**: the agent that customizes Ziggy One and fixes its bugs
+(open it, it introduces itself), and Tasks has a "Board" with a welcome checklist. Then click **New agent**. Stop Ziggy One with <kbd>Ctrl</kbd>+<kbd>C</kbd> in its terminal; agents' terminals are
 closed cleanly.
 
 ### Logging in without exposing the token

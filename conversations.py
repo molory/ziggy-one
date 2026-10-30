@@ -38,7 +38,7 @@ def parse_json_line(line):
 class Conversation:
     """An agent open here. `prompt`: its last message (UserPromptSubmit hook), for the turn summary."""
 
-    def __init__(self, manager, conversation_id, cwd, resume_from=None, label=""):
+    def __init__(self, manager, conversation_id, cwd, resume_from=None, label="", intro=""):
         self._manager = manager
         self._lock = threading.Lock()
         self.id = conversation_id
@@ -46,6 +46,7 @@ class Conversation:
         self.resume_from = resume_from
         self.label = label if label and label not in LEGACY_NEW_LABELS else NEW_LABEL
         self.git = manager.in_git_repo(cwd)  # folder inside a git repository?
+        self.intro = intro  # first message, sent when Claude Code starts without a session (ZiggyBoss)
         self.session_id = None
         self.busy = False
         self.waiting = None  # what the agent waits for from you: "permission", "question", or None
@@ -139,7 +140,8 @@ class ConversationManager:
                 continue
             resume = raw.get("resumeFrom") if is_agent_key(raw.get("resumeFrom")) else None
             label = raw.get("label") if isinstance(raw.get("label"), str) else ""
-            conversation = Conversation(self, raw["id"], raw["cwd"], resume, label[:200])
+            intro = raw.get("intro") if isinstance(raw.get("intro"), str) else ""
+            conversation = Conversation(self, raw["id"], raw["cwd"], resume, label[:200], intro)
             if is_agent_key(raw.get("sessionId")):
                 conversation.session_id = raw["sessionId"]
             if isinstance(raw.get("lastActivity"), (int, float)):
@@ -153,7 +155,8 @@ class ConversationManager:
             return
         keep = ("id", "cwd", "sessionId", "resumeFrom", "label", "lastActivity")
         with self._lock:
-            records = [{**{key: c.status()[key] for key in keep}, "label": c.label} for c in self._conversations.values()]
+            records = [{**{key: c.status()[key] for key in keep}, "label": c.label, **({"intro": c.intro} if c.intro else {})}
+                       for c in self._conversations.values()]
             write_json(self._path, records)
 
     def get(self, conversation_id):
@@ -180,13 +183,13 @@ class ConversationManager:
                 return conversation
         return None
 
-    def open(self, resume=None, cwd=None, label=""):
+    def open(self, resume=None, cwd=None, label="", intro=""):
         """Agent for a session (the one already following it, else a new one), or a blank agent."""
         if resume is not None:
             existing = self.find_by_session(resume)
             if existing is not None:
                 return existing
-        conversation = Conversation(self, secrets.token_hex(6), cwd or self.default_cwd, resume, label)
+        conversation = Conversation(self, secrets.token_hex(6), cwd or self.default_cwd, resume, label, intro)
         with self._lock:
             self._conversations[conversation.id] = conversation
         self.save()

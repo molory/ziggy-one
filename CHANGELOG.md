@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **First launch:** a fresh install starts with **ZiggyBoss**, a pinned agent working in Ziggy One's own folder,
+  whose role is to customize Ziggy One and fix its bugs; the first time it is opened, it introduces itself. An empty
+  Kanban also gets a first board, "Board", with a `WELCOME/ Onboarding todo` ticket: a checklist to discover
+  Ziggy One. Done once (`onboarding.json`); an existing install keeps its agents and only gets the board if it has none.
 - **Six languages:** the interface and the server messages are now also in Chinese, Hindi, Spanish and Arabic,
   next to English and French (Configuration › General). Arabic is shown right to left; code, terminals and paths
   stay left to right. Plurals follow each language's rules.

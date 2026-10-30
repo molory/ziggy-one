@@ -52,6 +52,7 @@ from restart import Restart
 from shell import ShellRuns
 import agent_mcp
 from storage import default_data_dir, is_agent_key, persistent_token, write_private
+from onboarding import Onboarding
 from pins import Pins
 from settings import Settings
 from sound import FinishSound
@@ -345,6 +346,7 @@ class ZiggyServer(ThreadingHTTPServer):
         self.data_dir = data_dir
         # Private folder (token, sessions, keys), even if it was created before with wider permissions.
         data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.onboarding = Onboarding(data_dir / "onboarding.json")  # before any file is written: first launch?
         try:
             data_dir.chmod(0o700)
         except OSError:
@@ -455,6 +457,8 @@ class ZiggyServer(ThreadingHTTPServer):
             ours = self.our_pids()
             if any(s.get("sessionId") == target and s.get("pid") not in ours for s in list_active_sessions()):
                 args.append("--fork-session")  # open in another terminal: work on a copy
+        elif conversation.intro:
+            args.append(conversation.intro)  # first message (ZiggyBoss introduces itself), before the variadic options
         # Session name = agent name in ziggy-one: the other agents find it under that name
         # (Claude Code's ListAgents / SendMessage), instead of "folder-xx".
         name = self.agents.name_for(self.agent_keys(conversation))
@@ -1517,6 +1521,7 @@ def main():
         print(f"ziggy-one is already running on port {args.port}", flush=True)
         show_login(args.port, persistent_token(default_data_dir() / "token"), args.open and not args.link)
         return
+    server.onboarding.run(server, WEB_DIR.parent)  # first launch: ZiggyBoss and the welcome board
     threading.Thread(target=server.usage.probe, daemon=True).start()
 
     # `kill` (SIGTERM) stops the server as cleanly as Ctrl+C: the Claude Code terminals are closed.
