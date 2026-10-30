@@ -24,6 +24,11 @@ only opens the interface. The token is never displayed: the browser receives a o
 link instead of opening the default browser; from a signed-in tab, the account window offers **Sign in another
 browser**, which copies one (`POST /api/login-link`, signed-in browsers only). A tab that is not signed in (cookie
 lost, `--new-token`) shows a full screen explaining this, with the `ziggy` command to copy.
+When Claude Code is not ready (`claude` not found on the server's PATH, not signed in, or `claude auth status`
+failing), another full screen (`web/claude-setup.js`) hands the fix to an AI agent: "Copy the prompt" copies what
+is wrong, Ziggy One's folder and the PATH where it looks for `claude`; once fixed, "Check again"
+(`POST /api/account/check`) runs `claude auth status` again, without restarting. "Continue without Claude Code"
+hides it for this page (the Tasks mode works without it).
 Each sign-in gives the browser its own session (cookie `zo_<port>`, never the token); the server keeps their
 SHA-256 in `browser-sessions.json` (0600), so open tabs stay signed in after a restart. A session unused for 30 days
 ends. The account window lists the **signed-in browsers** (`GET /api/browsers`) with **Sign out** for each one

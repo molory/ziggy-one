@@ -4,6 +4,7 @@
 import { createAvatarEditor } from "./avatar-editor.js";
 import { abbrSuggestions, animalOf, avatarLook, fillAvatar } from "./avatars.js";
 import { uniqueName } from "./agent-names.js";
+import { mountClaudeSetup } from "./claude-setup.js";
 import { createHero } from "./hero.js";
 import { formatBytes, formatSince, isIdle, sortTerminals } from "./terminals-logic.js";
 import { browserLabel } from "./browsers-logic.js";
@@ -159,6 +160,15 @@ let account = null;
 /** @type {any} */
 let usage = { windows: {} };
 const accountDialog = /** @type {HTMLDialogElement} */ ($("account-dialog"));
+
+// Claude Code not installed or not signed in: a full screen hands the fix to an AI agent.
+const claudeSetup = mountClaudeSetup({
+  api, el,
+  onAccount: (data) => {
+    renderAccount(data);
+    claudeSetup.update(data, serverInfo);
+  },
+});
 
 /** @param {any} data */
 function renderAccount(data) {
@@ -3624,6 +3634,7 @@ async function init() {
     const state = await api(`/api/state${includeAgents()}`);
     serverInfo = state.server ?? null;
     renderAccount(state.account);
+    claudeSetup.update(state.account, serverInfo);
     renderUsage(state.usage);
     defaultCwd = state.defaultCwd;
     for (const status of state.conversations) storeConversation(status);

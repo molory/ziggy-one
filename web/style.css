@@ -2801,3 +2801,201 @@ button.danger-outline:hover:not(:disabled) { border-color: var(--bad); backgroun
   .auth-typed { width: calc(var(--auth-cmd-length) * 1ch); }
   .auth-l2, .auth-l3, .auth-badge { opacity: 1; }
 }
+
+/* --- Claude Code not ready: full screen, the fix handed to an AI agent, played in a loop (8 s) --- */
+.setup-screen {
+  --setup-claude: #d97757;
+  --setup-loop: 8s;
+  position: fixed;
+  inset: 0;
+  z-index: 99; /* under the sign-in screen: signing in comes first */
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+  background: radial-gradient(60rem 30rem at 50% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent), var(--bg);
+}
+.setup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  width: min(34rem, 100%);
+  text-align: center;
+  animation: setup-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.setup-card > * { animation: setup-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.setup-card > :nth-child(2) { animation-delay: 0.08s; }
+.setup-card > :nth-child(3) { animation-delay: 0.14s; }
+.setup-card > :nth-child(4) { animation-delay: 0.2s; }
+.setup-card > :nth-child(n + 5) { animation-delay: 0.26s; }
+@keyframes setup-in { from { opacity: 0; translate: 0 12px; } }
+
+/* Ziggy ── cut wire ── Claude Code */
+.setup-link { display: flex; align-items: center; margin-bottom: 0.3rem; }
+.setup-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: calc(18px * var(--corners));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.5);
+}
+.setup-ziggy img { width: 2.6rem; height: 2.6rem; animation: setup-bob 4s ease-in-out infinite; }
+.setup-claude { animation: setup-bob 4s ease-in-out -2s infinite; }
+.setup-claude-mark { font: 700 1.25rem var(--mono); color: var(--setup-claude); }
+.setup-node::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px solid var(--ok);
+  opacity: 0;
+  animation: setup-glow var(--setup-loop) infinite;
+}
+@keyframes setup-bob { 50% { translate: 0 -4px; } }
+@keyframes setup-glow { 0%, 60% { opacity: 0; scale: 0.9; } 66% { opacity: 1; scale: 1; } 88% { opacity: 0.6; } 96%, 100% { opacity: 0; } }
+
+.setup-wire { position: relative; width: 7rem; height: 4px; }
+.setup-wire-left, .setup-wire-right {
+  position: absolute;
+  top: 0;
+  width: 42%;
+  height: 100%;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 10px);
+  background-size: 20px 100%;
+  opacity: 0.6;
+}
+.setup-wire-left { left: 0; animation: setup-flow 1s linear infinite, setup-gap-left var(--setup-loop) infinite; }
+.setup-wire-right { right: 0; animation: setup-flow 1s linear infinite reverse, setup-gap-right var(--setup-loop) infinite; }
+@keyframes setup-flow { to { background-position: 20px 0; } }
+@keyframes setup-gap-left { 0%, 50% { translate: 0 0; } 56% { translate: 3px 0; } }
+@keyframes setup-gap-right { 0%, 50% { translate: 0 0; } 56% { translate: -3px 0; } }
+/* The spark in the gap: what is broken. */
+.setup-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin: -0.4rem 0 0 -0.4rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #fff, var(--accent) 45%, transparent);
+  animation: setup-spark 0.5s steps(2) infinite, setup-spark-life var(--setup-loop) infinite;
+}
+@keyframes setup-spark { 50% { scale: 0.5; } }
+@keyframes setup-spark-life { 0%, 54% { opacity: 1; } 58%, 96% { opacity: 0; } 100% { opacity: 1; } }
+/* The heal: a solid line that closes the gap, from Ziggy to Claude Code. */
+.setup-heal {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: var(--ok);
+  box-shadow: 0 0 12px var(--ok);
+  transform-origin: left;
+  scale: 0 1;
+  animation: setup-heal var(--setup-loop) cubic-bezier(0.6, 0, 0.2, 1) infinite;
+}
+@keyframes setup-heal { 0%, 56% { scale: 0 1; opacity: 1; } 64%, 90% { scale: 1 1; opacity: 1; } 96%, 100% { scale: 1 1; opacity: 0; } }
+
+.setup-title { margin: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.setup-lead { margin: 0; color: var(--muted); }
+
+/* The fix, as a chat: your prompt, the agent typing, its answer. */
+.setup-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 6.6rem;
+  padding: 0.85rem;
+  border-radius: calc(14px * var(--corners));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px -22px rgb(0 0 0 / 0.5);
+  text-align: left;
+  font-size: 0.85rem;
+}
+.setup-bubble { max-width: 85%; padding: 0.45rem 0.75rem; border-radius: calc(12px * var(--corners)); opacity: 0; }
+.setup-you {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: calc(4px * var(--corners));
+  animation: setup-you var(--setup-loop) cubic-bezier(0.2, 1.3, 0.4, 1) infinite;
+}
+.setup-bubble-text { display: block; }
+.setup-agent { align-self: flex-start; background: var(--tool-bg); border: 1px solid var(--border); border-bottom-left-radius: calc(4px * var(--corners)); }
+.setup-typing { display: flex; gap: 0.25rem; padding: 0.6rem 0.75rem; animation: setup-typing var(--setup-loop) infinite; }
+.setup-typing span { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--muted); animation: setup-dot 1s ease-in-out infinite; }
+.setup-typing span:nth-child(2) { animation-delay: 0.15s; }
+.setup-typing span:nth-child(3) { animation-delay: 0.3s; }
+/* The agent's two states, in the same place: typing, then the answer. */
+.setup-reply { display: grid; justify-items: start; }
+.setup-reply > * { grid-area: 1 / 1; }
+.setup-done { display: flex; align-items: center; gap: 0.45rem; animation: setup-done var(--setup-loop) cubic-bezier(0.2, 1.3, 0.4, 1) infinite; }
+.setup-check {
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--surface);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+@keyframes setup-you { 0%, 6% { opacity: 0; translate: 0 8px; scale: 0.95; } 12%, 92% { opacity: 1; translate: 0 0; scale: 1; } 100% { opacity: 0; } }
+@keyframes setup-typing { 0%, 20% { opacity: 0; } 24%, 50% { opacity: 1; } 54%, 100% { opacity: 0; } }
+@keyframes setup-done { 0%, 52% { opacity: 0; translate: 0 8px; scale: 0.95; } 58%, 92% { opacity: 1; translate: 0 0; scale: 1; } 100% { opacity: 0; } }
+@keyframes setup-dot { 0%, 100% { translate: 0 0; opacity: 0.5; } 50% { translate: 0 -3px; opacity: 1; } }
+
+/* 1 · 2 · 3 */
+.setup-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 0.9rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: setup-step;
+  font-size: 0.85rem;
+}
+.setup-steps li { display: flex; align-items: center; gap: 0.4rem; counter-increment: setup-step; }
+.setup-steps li::before {
+  content: counter(setup-step);
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.setup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; }
+.setup-actions button { padding: 0.55rem 1.1rem; font-size: 0.9rem; font-weight: 600; }
+.setup-status { min-height: 1.2em; margin: -0.3rem 0 0; font-size: 0.85rem; color: var(--muted); }
+.setup-status.bad { color: var(--bad); }
+.setup-status.good { color: var(--ok); font-weight: 600; }
+.setup-hint { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.setup-skip { font-size: 0.8rem; }
+
+/* Checked and ready: the wire stays healed, the chat ends on the answer. */
+.setup-screen.ready .setup-heal { animation: none; scale: 1 1; }
+.setup-screen.ready .setup-spark, .setup-screen.ready .setup-typing { animation: none; opacity: 0; }
+.setup-screen.ready .setup-node::after { animation: none; opacity: 1; }
+.setup-screen.ready .setup-you, .setup-screen.ready .setup-done { animation: none; opacity: 1; }
+
+/* Less motion: the end of the story, without animation. */
+@media (prefers-reduced-motion: reduce) {
+  .setup-screen *, .setup-screen *::before, .setup-screen *::after { animation: none !important; }
+  .setup-you, .setup-done { opacity: 1; }
+  .setup-typing { display: none; }
+}

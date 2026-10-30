@@ -600,9 +600,13 @@ class ZiggyServer(ThreadingHTTPServer):
         self._session_started(key, conversation.id)
 
     def info(self):
-        """What the Configuration screen shows about the server: start, version, ongoing or last restart."""
+        """What the Configuration screen shows about the server: start, version, ongoing or last restart.
+
+        `folder` and `path` (where Ziggy One is installed, the PATH where it looks for `claude`): for the
+        prompt of the "Claude Code is not ready" screen, to hand to an agent that fixes it."""
         return {"startedAt": self.started_at, "version": self.version, "pid": os.getpid(),
-                "restart": self.restart.snapshot(), "lastRestart": self.restart.last}
+                "restart": self.restart.snapshot(), "lastRestart": self.restart.last,
+                "folder": str(WEB_DIR.parent), "path": os.environ.get("PATH", ""), "platform": sys.platform}
 
     def server_close(self):
         super().server_close()
@@ -859,6 +863,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": str(exc)})
         conversations = self.server.conversations
         try:
+            if path == "/api/account/check":
+                # Claude Code installed or signed in since the start: checked again, without restarting.
+                self.server.account = read_account()
+                return self._json(200, self.server.account)
             if path == "/api/usage/refresh":
                 error = self.server.usage.probe()
                 if error:
