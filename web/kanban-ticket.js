@@ -513,7 +513,7 @@ export function mountTicketDialog(deps) {
       title.value = next.title;
       description.value = next.description;
       error.hidden = true;
-      showTab(false);
+      showTab(Boolean(next.description.trim())); // a ticket already described opens on its preview
       renderLive();
       refreshSave();
       historyList.replaceChildren();
@@ -543,6 +543,7 @@ export function mountTicketDialog(deps) {
       if (title.value.trim() === saved.title && description.value === saved.description) {
         title.value = next.title;
         description.value = next.description;
+        if (!preview.hidden) showTab(true);
       }
       saved = { title: next.title, description: next.description };
       renderLive();
