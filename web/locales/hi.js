@@ -801,5 +801,5 @@ export default {
   "Teal": "हरा-नीला",
   "Green": "हरा",
   "Gray": "धूसर",
-  "Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.": "Z लोगो और ब्राउज़र टैब आइकन का रंग: हर कंप्यूटर को अलग रंग दें, ताकि आप अपने Ziggy One को पहचान सकें।",
+  "Color of the Z logo, of the browser tab icon and of the interface's accents: give each computer its own to tell your Ziggy One apart.": "Z लोगो, ब्राउज़र टैब आइकन और इंटरफ़ेस के एक्सेंट का रंग: हर कंप्यूटर को अलग रंग दें, ताकि आप अपने Ziggy One को पहचान सकें।",
 };

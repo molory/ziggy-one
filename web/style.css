@@ -34,11 +34,14 @@
   --text: #1d1d1b;
   --muted: #6b6b66;
   --border: #e2e1dc;
-  --accent: #ea580c;
+  /* Accent: the logo color (Configuration › General), set on <html> by app.js; orange by default. */
+  --brand: #ea580c;
+  --brand-dark: var(--brand);
+  --accent: var(--brand);
   --ok: #15803d;
   --warn: #b45309;
   --bad: #b91c1c;
-  --user-bg: #fdf0e8;
+  --user-bg: color-mix(in srgb, var(--accent) 10%, #ffffff);
   --tool-bg: #f1f1ee;
   --raised: #ffffff;
   --radius: calc(10px * var(--corners));
@@ -60,11 +63,11 @@
     --text: #ecebe6;
     --muted: #9b9a93;
     --border: #33322f;
-    --accent: #ea580c;
+    --accent: var(--brand-dark);
     --ok: #4ade80;
     --warn: #fbbf24;
     --bad: #f87171;
-    --user-bg: #2f241c;
+    --user-bg: color-mix(in srgb, var(--accent) 8%, #1f1f1d);
     --tool-bg: #262624;
   --raised: #3a3936;
   }
@@ -76,11 +79,11 @@
   --text: #ecebe6;
   --muted: #9b9a93;
   --border: #33322f;
-  --accent: #ea580c;
+  --accent: var(--brand-dark);
   --ok: #4ade80;
   --warn: #fbbf24;
   --bad: #f87171;
-  --user-bg: #2f241c;
+  --user-bg: color-mix(in srgb, var(--accent) 8%, #1f1f1d);
   --tool-bg: #262624;
   --raised: #3a3936;
 }

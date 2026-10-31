@@ -801,5 +801,5 @@ export default {
   "Teal": "青色",
   "Green": "绿色",
   "Gray": "灰色",
-  "Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.": "Z 标志和浏览器标签页图标的颜色：为每台电脑设置不同颜色，以区分你的各个 Ziggy One。",
+  "Color of the Z logo, of the browser tab icon and of the interface's accents: give each computer its own to tell your Ziggy One apart.": "Z 标志、浏览器标签页图标和界面强调色的颜色：为每台电脑设置不同颜色，以区分你的各个 Ziggy One。",
 };

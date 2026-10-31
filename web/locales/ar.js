@@ -801,5 +801,5 @@ export default {
   "Teal": "أزرق مخضر",
   "Green": "أخضر",
   "Gray": "رمادي",
-  "Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.": "لون شعار Z وأيقونة علامة التبويب: امنح كل حاسوب لونًا خاصًا لتميّز بين نسخ Ziggy One لديك.",
+  "Color of the Z logo, of the browser tab icon and of the interface's accents: give each computer its own to tell your Ziggy One apart.": "لون شعار Z وأيقونة علامة التبويب وألوان إبراز الواجهة: امنح كل حاسوب لونًا خاصًا لتميّز بين نسخ Ziggy One لديك.",
 };

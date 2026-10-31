@@ -801,5 +801,5 @@ export default {
   "Teal": "Bleu-vert",
   "Green": "Vert",
   "Gray": "Gris",
-  "Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.": "Couleur du logo Z et de l'icône de l'onglet : donnez la sienne à chaque ordinateur pour distinguer vos Ziggy One.",
+  "Color of the Z logo, of the browser tab icon and of the interface's accents: give each computer its own to tell your Ziggy One apart.": "Couleur du logo Z, de l'icône de l'onglet et des accents de l'interface : donnez la sienne à chaque ordinateur pour distinguer vos Ziggy One.",
 };

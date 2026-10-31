@@ -83,7 +83,8 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
 - **Logo color** (`logo.py`, `settings.py`): the same tab picks the color of the Z logo and of the favicon, to tell
   several Ziggy One apart (one per computer). `/logo.svg` and `/favicon.png` are drawn by the server in that color
   (the PNG with a small polygon rasterizer, standard library only); the page links them with `?c=<color>`, changed
-  in every open tab when the setting changes, so the browser fetches them again. Home-screen icons stay orange.
+  in every open tab when the setting changes, so the browser fetches them again. The interface's accent (`--accent`: buttons, selection, links, toggles, home
+  screen) follows: `app.js` sets `--brand` on `<html>` (a lighter tone for gray in the dark theme). Home-screen icons stay orange.
 - **Sessions**: a session = a Claude Code conversation, started from a terminal or from ziggy-one.
   The list merges the open sessions (read-only access to `~/.claude/sessions/*.json`, the `.key` files are never
   read), the 50 most recent sessions of all folders and the agents open in ziggy-one, from newest to oldest, with an

@@ -475,10 +475,20 @@ function applyCorners(corners) {
 
 /**
  * Logo and favicon in the chosen color: the server draws them (logo.py); ?c= makes the browser fetch them again.
+ * The accent of the interface (buttons, selection, links…) takes the same color (--brand in style.css).
  *
  * @param {string | undefined} color
  */
 function applyLogoColor(color) {
+  const tones = LOGO_COLORS.find(([value]) => value === color);
+  const root = document.documentElement.style;
+  if (tones) {
+    root.setProperty("--brand", tones[2]);
+    root.setProperty("--brand-dark", tones[3] ?? tones[2]);
+  } else {
+    root.removeProperty("--brand");
+    root.removeProperty("--brand-dark");
+  }
   const query = `?c=${encodeURIComponent(color ?? "orange")}`;
   for (const node of document.querySelectorAll('link[rel="icon"], img[src^="/logo.svg"], image[href^="/logo.svg"]')) {
     const attribute = node.hasAttribute("src") ? "src" : "href";
@@ -1969,10 +1979,12 @@ function cornersSection() {
   return section;
 }
 
-// Logo colors (logo.py, the dark tone): one per Ziggy One, to tell them apart at a glance.
-const LOGO_COLORS = /** @type {const} */ ([["orange", "Orange", "#ea580c"], ["red", "Red", "#dc2626"],
+// Logo colors (logo.py, the dark tone): one per Ziggy One, to tell them apart at a glance. Also the accent
+// of the interface; a fourth value is a lighter tone for the dark theme, where the dark one would hardly show.
+/** @type {ReadonlyArray<readonly [string, string, string, string?]>} */
+const LOGO_COLORS = [["orange", "Orange", "#ea580c"], ["red", "Red", "#dc2626"],
   ["pink", "Pink", "#db2777"], ["purple", "Purple", "#7c3aed"], ["blue", "Blue", "#2563eb"],
-  ["teal", "Teal", "#0d9488"], ["green", "Green", "#16a34a"], ["gray", "Gray", "#475569"]]);
+  ["teal", "Teal", "#0d9488"], ["green", "Green", "#16a34a"], ["gray", "Gray", "#475569", "#94a3b8"]];
 
 /** Color of the Z logo and of the favicon: tells this Ziggy One from the others (one per computer). */
 function colorSection() {
@@ -2015,7 +2027,7 @@ function colorSection() {
   mark(globalSettings.color ?? "orange");
   swatches.append(...buttons.map(([, button]) => button));
   section.append(title, swatches, el("p", "muted small",
-    t("Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.")), error);
+    t("Color of the Z logo, of the browser tab icon and of the interface's accents: give each computer its own to tell your Ziggy One apart.")), error);
   return section;
 }
 

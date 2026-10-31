@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Logo color is also the accent color:** buttons, selection, links, toggles and the home screen take the color
+  chosen in Configuration › General (a lighter gray in the dark theme).
 - **Terminal (macOS):** a click above Claude Code's input no longer fills it with a previous prompt (the click was
   sent as Option + click, which xterm.js turns into arrow keys to move the cursor).
 - **Logo color:** Configuration › General picks the color of the Z logo and of the favicon (orange, red, pink,
