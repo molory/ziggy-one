@@ -41,7 +41,7 @@ def svg(color):
 
 def _inside(polygon, px, py):
     inside = False
-    for (x1, y1), (x2, y2) in zip(polygon, polygon[1:] + polygon[:1]):
+    for (x1, y1), (x2, y2) in zip(polygon, polygon[1:] + polygon[:1], strict=True):
         if (y1 > py) != (y2 > py) and px < x1 + (py - y1) * (x2 - x1) / (y2 - y1):
             inside = not inside
     return inside
@@ -73,7 +73,7 @@ def png(color, size=64):
             if not covered:
                 line += b"\0\0\0\0"
                 continue
-            mix = [round((l * hits["light"] + d * hits["dark"]) / covered) for l, d in zip(light, dark)]
+            mix = [round((l * hits["light"] + d * hits["dark"]) / covered) for l, d in zip(light, dark, strict=True)]
             line += bytes([*mix, round(255 * covered / SAMPLES ** 2)])
         rows.append(bytes(line))
 
