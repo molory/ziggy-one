@@ -223,6 +223,45 @@ class ConversationsHttpTest(unittest.TestCase):
         self.call("POST", f"/api/conversations/{opened['id']}/terminal-stop", {})
         self.assertTrue(wait_for(lambda: not config_path.exists()), "MCP configuration deleted on close")
 
+    def test_agents_create_agents_and_group_them_in_workspaces(self):
+        _, boss = self.call("POST", "/api/conversations", {})
+        self.call("POST", "/api/agents/rename", {"agent": boss["id"], "name": "Doxo Boss"})
+        key = f"Bearer {server.agent_mcp.agent_key(self.httpd.token, boss['id'])}"
+        projects = tempfile.TemporaryDirectory()  # outside ziggy-one's data (self.tmp), which is refused
+        self.addCleanup(projects.cleanup)
+        repo = Path(projects.name) / "api"
+        repo.mkdir()
+
+        def tool(name, arguments):
+            status, response = self.call("POST", "/mcp", {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                                         "params": {"name": name, "arguments": arguments}},
+                                         {"Cookie": "", "Origin": "", "Authorization": key})
+            self.assertEqual(status, 200)
+            return response["result"]["content"][0]["text"], response["result"]["isError"]
+
+        text, error = tool("agents_create", {"name": "Doxo API", "folder": str(repo), "role": "Backend NestJS",
+                                             "workspace": "Doxomed"})
+        self.assertFalse(error, text)
+        self.assertIn("(new)", text)
+        created = next(c for c in self.httpd.conversations.list() if c["cwd"] == str(repo.resolve()))
+        self.assertFalse(self.httpd.terminals.running(created["id"]), "a created agent does not start by itself")
+        self.assertEqual(self.httpd.agents.name_for([created["id"]]), "Doxo API")
+        self.assertIn((created["id"], "Doxo API", "Backend NestJS"), self.httpd.agents.roles())
+        workspace = self.httpd.workspaces.workspace_for([created["id"]])
+        self.assertEqual(workspace["name"], "Doxomed")
+        # The caller joins the same workspace, by its name; the workspace is found again, not created twice.
+        text, error = tool("agents_set_workspace", {"agent": "doxo boss", "workspace": "doxomed"})
+        self.assertFalse(error, text)
+        self.assertEqual(self.httpd.workspaces.workspace_for([boss["id"]])["id"], workspace["id"])
+        self.assertEqual(len(self.httpd.workspaces.list()), 1)
+        listing, _ = tool("agents_list", {})
+        self.assertIn(f'"Doxo API" (not started) in {repo.resolve()}, workspace "Doxomed": Backend NestJS', listing)
+        # Refused: same name, missing folder, ziggy-one's data, unknown agent.
+        self.assertTrue(tool("agents_create", {"name": "doxo api", "folder": str(repo)})[1])
+        self.assertTrue(tool("agents_create", {"name": "Other", "folder": str(self.tmp / "missing")})[1])
+        self.assertTrue(tool("agents_create", {"name": "Other", "folder": str(self.httpd.data_dir)})[1])
+        self.assertTrue(tool("agents_set_workspace", {"agent": "Nobody", "workspace": "Doxomed"})[1])
+
     def test_open_terminals_with_their_memory(self):
         _, opened = self.call("POST", "/api/conversations", {})
         self.assertEqual(self.call("GET", "/api/terminals"), (200, {"terminals": []}))

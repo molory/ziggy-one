@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Agents can create agents:** the "ziggy" MCP server gets `agents_list`, `agents_create` (name, folder, role,
+  workspace) and `agents_set_workspace`. A created agent appears pinned in the sidebar but does not start: its Claude
+  Code opens when you open it. A workspace named by an agent is created if missing.
 - **Logo color is also the accent color:** buttons, selection, links, toggles and the home screen take the color
   chosen in Configuration › General (a lighter gray in the dark theme).
 - **Terminal (macOS):** a click above Claude Code's input no longer fills it with a previous prompt (the click was

@@ -34,7 +34,8 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 - **Shared activity.** Agents of the same workspace working in the same repository get a short digest of what the
   others did since their last message (no model call, about 400 tokens at most, can be turned off).
 - **Kanban boards.** Boards, columns, tickets with Markdown and attachments, full history, numbered links. Agents
-  get a local MCP server (`kanban_*` tools) to read, create, update and move tickets.
+  get a local MCP server (`kanban_*` tools) to read, create, update and move tickets, and (`agents_*` tools) to list
+  agents, create new ones (they start only when you open them) and group them into workspaces.
 - **Files and Git tabs.** Browse, search and edit the agent's folder; stage, commit, branch, pull and push.
 - **Usage and context.** Your plan's 5-hour and weekly usage, and each agent's context window fill.
 - **Clean restarts.** Restarting the server pauses working agents, waits for them, then reopens every terminal and
@@ -158,7 +159,7 @@ browser (vanilla JS + xterm.js) ── HTTP + Server-Sent Events ── server.p
                                                                    │
                                      pty (own session) ────────────┼──> claude  (one per agent)
                                      hooks (ziggy_hook.py) <───────┤      ├─ SessionStart / UserPromptSubmit / Stop …
-                                     MCP over HTTP (/mcp)  <───────┘      └─ kanban_* tools
+                                     MCP over HTTP (/mcp)  <───────┘      └─ kanban_* / agents_* tools
 ```
 
 - `server.py` serves the page, the JSON API and an SSE stream; `terminal.py` runs `claude` in a pseudo-terminal

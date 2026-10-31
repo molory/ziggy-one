@@ -182,6 +182,11 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   <agent name>". `/mcp` accepts neither a cookie nor a request from a web page (origin refused); `--new-token`
   invalidates all keys. Like any MCP tool, each call goes through Claude Code's permissions (`mcp__ziggy__kanban_*`
   tools).
+  The same server has three agent tools: `agents_list` (open agents: name, folder, workspace, role, running or not),
+  `agents_create` (name, absolute folder, optional role and workspace) and `agents_set_workspace` (an agent, the
+  caller included, by its name). A workspace named there is created if missing. A created agent is pinned like one
+  made by the user, but its Claude Code does not start: it opens when the user opens the agent, with the user's
+  permission settings. Refused: a name already used by an open agent, a missing folder, Ziggy One's data folder.
 
 - **Terminal** (`terminal.py`, `web/terminal-view.js`): the default tab of an agent. It opens the real Claude Code
   (interactive) in the agent's folder, on its session (`--resume`), with its settings (model, permissions, Chrome).
