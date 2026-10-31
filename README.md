@@ -72,11 +72,6 @@ through MCP), and tracks your plan usage, all from one page served on `127.0.0.1
 - **Clean restarts.** Restarting the server pauses working agents, waits for them, then reopens every terminal and
   lets them resume.
 
-<p align="center">
-  <img src="docs/images/shortcuts.png" alt="Prompt shortcuts of an agent" width="49%">
-  <img src="docs/images/kanban.png" alt="Kanban board" width="49%">
-</p>
-
 ## Requirements
 
 - **Linux or macOS.** Terminals rely on `pty` and a controlling terminal per agent. Windows is not supported yet:
