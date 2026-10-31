@@ -187,6 +187,9 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   caller included, by its name). A workspace named there is created if missing. A created agent is pinned like one
   made by the user, but its Claude Code does not start: it opens when the user opens the agent, with the user's
   permission settings. Refused: a name already used by an open agent, a missing folder, Ziggy One's data folder.
+  An agent working in Ziggy One's own folder (ZiggyBoss) also gets `server_restart`: the same clean restart as the
+  button, to load a change of Ziggy One's code. The other agents do not see it. The agent that asks gets no pause
+  request (it ends its turn) but gets the resume message after the restart, to report or carry on.
 
 - **Terminal** (`terminal.py`, `web/terminal-view.js`): the default tab of an agent. It opens the real Claude Code
   (interactive) in the agent's folder, on its session (`--resume`), with its settings (model, permissions, Chrome).

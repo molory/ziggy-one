@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **ZiggyBoss can restart the server:** the "ziggy" MCP server gives the agents working in Ziggy One's own folder a
+  `server_restart` tool (the same clean restart as the button). The agent that asks is told to resume afterwards.
 - **Agents can create agents:** the "ziggy" MCP server gets `agents_list`, `agents_create` (name, folder, role,
   workspace) and `agents_set_workspace`. A created agent appears pinned in the sidebar but does not start: its Claude
   Code opens when you open it. A workspace named by an agent is created if missing.

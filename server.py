@@ -368,9 +368,10 @@ class ZiggyServer(ThreadingHTTPServer):
         self.started_at = time.time()
         self.version = git_version()
         # MCP tools of the agents (POST /mcp): read tickets and move them forward, without being able to delete any;
-        # list, create and group agents (a created one does not start by itself).
+        # list, create and group agents (a created one does not start by itself); restart the server, only for
+        # the agents working in Ziggy One's own folder (ZiggyBoss).
         self.mcp_tools = agent_mcp.AgentTools(self, self.kanban, render=lambda number: ticket_links.render(
-            self.kanban.export(number), self.token, f"http://127.0.0.1:{self.server_address[1]}"))
+            self.kanban.export(number), self.token, f"http://127.0.0.1:{self.server_address[1]}"), home=WEB_DIR.parent)
         self.kanban_workspaces = Workspaces(self.bus, data_dir / "kanban-workspaces.json", event="kanban_workspaces")
         self.kanban_pins = Pins(self.bus, data_dir / "kanban-pins.json", event="kanban_pins")
         self.agents = AgentSettings(self.bus, data_dir / "agents.json")
@@ -694,7 +695,7 @@ class Handler(BaseHTTPRequestHandler):
         conversation = self.server.conversations.get(conversation_id)
         keys = self.server.agent_keys(conversation) if conversation else [conversation_id]
         actor = self.server.agents.name_for(keys) or f"agent {conversation_id}"
-        response = agent_mcp.dispatch(message, self.server.mcp_tools, actor)
+        response = agent_mcp.dispatch(message, self.server.mcp_tools, actor, conversation_id)
         if response is None:
             return self._send(202)  # notification: nothing to answer
         return self._json(200, response)

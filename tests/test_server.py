@@ -262,6 +262,29 @@ class ConversationsHttpTest(unittest.TestCase):
         self.assertTrue(tool("agents_create", {"name": "Other", "folder": str(self.httpd.data_dir)})[1])
         self.assertTrue(tool("agents_set_workspace", {"agent": "Nobody", "workspace": "Doxomed"})[1])
 
+    def test_only_the_agent_in_ziggy_ones_folder_can_restart_the_server(self):
+        _, boss = self.call("POST", "/api/conversations", {"cwd": str(server.WEB_DIR.parent)})
+        _, other = self.call("POST", "/api/conversations", {})
+
+        def mcp(conversation, method, params=None):
+            key = f"Bearer {server.agent_mcp.agent_key(self.httpd.token, conversation['id'])}"
+            return self.call("POST", "/mcp", {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}},
+                             {"Cookie": "", "Origin": "", "Authorization": key})[1]
+
+        def names(conversation):
+            return [tool["name"] for tool in mcp(conversation, "tools/list")["result"]["tools"]]
+
+        self.assertIn("server_restart", names(boss))
+        self.assertNotIn("server_restart", names(other))
+        self.assertIn("agents_create", names(other))
+        call = {"name": "server_restart", "arguments": {}}
+        with mock.patch.object(self.httpd.restart, "request") as request:
+            self.assertEqual(mcp(other, "tools/call", call)["error"]["code"], server.agent_mcp.INVALID_PARAMS)
+            request.assert_not_called()
+            result = mcp(boss, "tools/call", call)["result"]
+        self.assertFalse(result["isError"], result)
+        request.assert_called_once_with(requester=boss["id"])
+
     def test_open_terminals_with_their_memory(self):
         _, opened = self.call("POST", "/api/conversations", {})
         self.assertEqual(self.call("GET", "/api/terminals"), (200, {"terminals": []}))

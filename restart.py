@@ -65,13 +65,15 @@ class Restart:
 
     # --- request, force, cancel --------------------------------------------------------------------
 
-    def request(self):
+    def request(self, requester=None):
+        """`requester`: the agent that asked (server_restart tool). It gets no pause request, as it ends its turn
+        by itself, but it gets the resume message, to report or carry on after the restart."""
         with self._lock:
             if self._state:
                 raise RuntimeError(tr("A restart is already requested"))
             now = time.time()
             self._state = {"phase": "waiting", "requestedAt": now, "deadline": now + self._wait_idle,
-                           "paused": [], "waiting": []}
+                           "paused": [], "waiting": [], "requester": requester}
             self._force.clear()
             self._cancel.clear()
         threading.Thread(target=self._run, daemon=True).start()
@@ -90,7 +92,11 @@ class Restart:
 
     def _run(self):
         terminals = self._server.terminals
-        paused = [cid for cid in self._busy() if terminals.running(cid) and type_message(terminals, cid, PAUSE)]
+        requester = self.snapshot()["requester"]
+        paused = [cid for cid in self._busy() if cid != requester and terminals.running(cid)
+                  and type_message(terminals, cid, PAUSE)]
+        if requester and terminals.running(requester):
+            paused.append(requester)
         with self._lock:
             self._state["paused"] = paused
         deadline = self.snapshot()["deadline"]

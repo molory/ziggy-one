@@ -149,6 +149,19 @@ AGENT_TOOLS = [
     },
 ]
 TOOLS = KANBAN_TOOLS + AGENT_TOOLS
+# Only for the agents working in Ziggy One's own folder (ZiggyBoss): the others do not see it.
+SERVER_TOOLS = [
+    {
+        "name": "server_restart",
+        "title": "Restart Ziggy One",
+        "description": "Restarts the Ziggy One server cleanly, as the Restart button does (to load a change of its "
+                       "code): working agents are asked to pause, the server waits until they are idle, restarts, "
+                       "reopens the terminals and tells them to resume. Your own terminal reopens too: end your "
+                       "turn after this call; you get a resume message once the server is back.",
+        "inputSchema": _schema({}),
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
+    },
+]
 
 
 class ToolError(Exception):
@@ -280,8 +293,12 @@ class KanbanTools:
 
     tools = KANBAN_TOOLS
 
-    def call(self, name, arguments, actor):
-        if name not in {tool["name"] for tool in self.tools}:
+    def tools_for(self, caller):
+        """Tools offered to the agent `caller` (its conversation id)."""
+        return self.tools
+
+    def call(self, name, arguments, actor, caller=None):
+        if name not in {tool["name"] for tool in self.tools_for(caller)}:
             raise KeyError(name)
         return getattr(self, name)(arguments if isinstance(arguments, dict) else {}, actor)
 
@@ -291,9 +308,30 @@ class AgentTools(KanbanTools):
 
     tools = TOOLS
 
-    def __init__(self, server, kanban, render):
+    def __init__(self, server, kanban, render, home=None):
         super().__init__(kanban, render)
         self._server = server
+        self._home = Path(home).resolve() if home else None  # Ziggy One's own folder
+
+    def _in_home(self, caller):
+        conversation = self._server.conversations.get(caller) if caller else None
+        return bool(conversation and self._home and Path(conversation.cwd).resolve() == self._home)
+
+    def tools_for(self, caller):
+        return self.tools + (SERVER_TOOLS if self._in_home(caller) else [])
+
+    def call(self, name, arguments, actor, caller=None):
+        if name == "server_restart" and self._in_home(caller):
+            return self.server_restart(caller)
+        return super().call(name, arguments, actor, caller)
+
+    def server_restart(self, caller):
+        try:
+            self._server.restart.request(requester=caller)
+        except RuntimeError as exc:
+            raise ToolError(str(exc)) from None
+        return ("Restart requested: the server waits until the working agents are idle, then restarts and reopens "
+                "the terminals. End your turn now; you will get a resume message once the server is back.")
 
     def _open_agents(self):
         """[(conversation, name, keys)] of the open agents, most recent first."""
@@ -384,8 +422,9 @@ def _error(request_id, code, message):
     return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
-def dispatch(message, tools, actor):
-    """JSON-RPC response to an MCP message; None for a notification (nothing to answer)."""
+def dispatch(message, tools, actor, caller=None):
+    """JSON-RPC response to an MCP message; None for a notification (nothing to answer).
+    `caller`: conversation id of the agent, for the tools only some agents get."""
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
         return _error(message.get("id") if isinstance(message, dict) else None, INVALID_REQUEST, "invalid JSON-RPC request")
     method, request_id = message["method"], message.get("id")
@@ -404,10 +443,10 @@ def dispatch(message, tools, actor):
     if method == "ping":
         return _result(request_id, {})
     if method == "tools/list":
-        return _result(request_id, {"tools": tools.tools})
+        return _result(request_id, {"tools": tools.tools_for(caller)})
     if method == "tools/call":
         try:
-            text = tools.call(params.get("name"), params.get("arguments"), actor)
+            text = tools.call(params.get("name"), params.get("arguments"), actor, caller)
         except KeyError:
             return _error(request_id, INVALID_PARAMS, f"unknown tool: {params.get('name')}")
         except ToolError as exc:

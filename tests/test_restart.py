@@ -98,6 +98,17 @@ class RestartTest(unittest.TestCase):
         restarted.resume_after_restart()  # nothing left to do
         self.assertEqual(after.terminals.started, ["a", "b"])
 
+    def test_the_agent_that_asks_is_not_paused_but_resumes(self):
+        fake, restart, _ = self.make(busy={"a", "b"}, running={"a", "b"})
+        restart.request(requester="b")  # b called the server_restart tool, in the middle of its turn
+        self.assertTrue(wait_for(lambda: restart.snapshot()["paused"] == ["a", "b"]))
+        self.assertEqual(fake.terminals.typed, [("a", PAUSE)])  # b ends its turn by itself
+        fake.conversations.busy.clear()
+        self.assertTrue(fake.stopped.wait(3))
+        after = FakeServer(busy=set(), running=set())
+        Restart(after, self.dir, reopen_delay=0).resume_after_restart()
+        self.assertEqual(after.terminals.typed, [("a", RESUME), ("b", RESUME)])  # b can report after the restart
+
     def test_force_and_cancel(self):
         fake, restart, _ = self.make(busy={"a"}, running={"a"})
         restart.request()
