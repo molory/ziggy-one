@@ -10,5 +10,7 @@
 
 - [ ] `python3 -m unittest discover -s tests` passes
 - [ ] `node --test tests/*.test.mjs` passes
+- [ ] `ruff check .` passes
+- [ ] New UI texts go through `t()` / `tr()`, with translations where possible
 - [ ] No new third-party dependency
 - [ ] Docs and `CHANGELOG.md` updated if needed
