@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Terminal (macOS):** a click above Claude Code's input no longer fills it with a previous prompt (the click was
+  sent as Option + click, which xterm.js turns into arrow keys to move the cursor).
 - **Logo color:** Configuration › General picks the color of the Z logo and of the favicon (orange, red, pink,
   purple, blue, teal, green or gray), to tell several Ziggy One apart at a glance (one per computer). The server
   draws both in that color (`logo.py`, no image library); open tabs follow at once.

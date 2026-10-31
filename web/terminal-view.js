@@ -177,6 +177,9 @@ export function mountTerminalView(root, deps) {
       scrollback: 5000,
       theme: THEME,
       macOptionClickForcesSelection: true, // macOS: Option + drag selects (see FORCE_SELECTION_KEY)
+      // A plain click is turned into Option + click (forced selection): xterm.js would move the cursor there by
+      // sending arrow keys, and ↑ in Claude Code recalls the previous prompts (a click above the input).
+      altClickMovesCursor: false,
       // Links of the output (OSC 8): web addresses only, in a new tab without access to this one.
       // xterm.js would open any scheme (file:, vscode:…) after a simple confirmation.
       linkHandler: {
