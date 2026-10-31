@@ -16,5 +16,6 @@ test("browserLabel: browser and system", () => {
 test("browserLabel: scripts and unknown agents", () => {
   assert.equal(browserLabel("curl/8.7.1"), "curl");
   assert.equal(browserLabel("Python-urllib/3.14"), "Python");
+  assert.equal(browserLabel("python-requests/2.32.3"), "Python");
   assert.equal(browserLabel(""), "Unknown browser");
 });

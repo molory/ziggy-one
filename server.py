@@ -642,8 +642,11 @@ class Handler(BaseHTTPRequestHandler):
     # --- helpers -----------------------------------------------------------
 
     def _send(self, status, body=b"", content_type="application/json; charset=utf-8", headers=None):
-        self.send_response(status)
         headers = headers or {}
+        # http.server writes header values as they are: a line break would start a new header (response splitting).
+        if any("\r" in str(value) or "\n" in str(value) for value in headers.values()):
+            raise ValueError("line break in an HTTP header value")
+        self.send_response(status)
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, headers.get(name, value))  # a route can harden a security header
         self.send_header("Cache-Control", headers.get("Cache-Control", "no-store"))

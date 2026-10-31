@@ -11,7 +11,7 @@ const BROWSERS = [
   [/Chrome\/|CriOS\//, "Chrome"],
   [/Safari\//, "Safari"],
   [/^curl\//, "curl"],
-  [/^Python-urllib\/|python-requests\//, "Python"],
+  [/^(Python-urllib|python-requests)\//, "Python"],
 ];
 
 const SYSTEMS = [

@@ -4,8 +4,8 @@
 agents: run them side by side, see who needs you, and hand out work on a shared board. Free, open source, and it
 runs on your machine.
 
-[![CI](https://github.com/molory/ziggy-one/actions/workflows/ci.yml/badge.svg)](https://github.com/molory/ziggy-one/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml/badge.svg)](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml)
+[![CI](https://github.com/molory/ziggy-one/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/molory/ziggy-one/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/molory/ziggy-one/badge)](https://scorecard.dev/viewer/?uri=github.com/molory/ziggy-one)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
