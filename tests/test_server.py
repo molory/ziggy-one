@@ -15,7 +15,6 @@ import time
 import unittest
 import urllib.parse
 from pathlib import Path
-from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -519,7 +518,7 @@ class ConversationsHttpTest(unittest.TestCase):
         status, read = self.call("GET", f"/api/files/read?path={path}&file=src/app.py")
         self.assertEqual((status, read["kind"], read["content"]), (200, "text", "print('needle')\n"))
         self.assertEqual(self.call("GET", f"/api/files/read?path={path}&file=../{folder.parent.name}")[0], 400)
-        self.assertEqual(self.call("GET", f"/api/files/read?path=relative&file=x")[0], 400)
+        self.assertEqual(self.call("GET", "/api/files/read?path=relative&file=x")[0], 400)
         status, found = self.call("GET", f"/api/files/search?path={path}&q=needle&mode=content")
         self.assertEqual((status, found["results"][0]["file"]), (200, "src/app.py"))
         self.assertEqual(self.call("GET", f"/api/files/search?path={path}&q=&mode=name")[0], 400)
@@ -543,7 +542,7 @@ class ConversationsHttpTest(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/files/write", body)[0], 400)  # > 512 KB, but body accepted
         body["content"] = "after\n"
         status, written = self.call("POST", "/api/files/write", body)
-        self.assertEqual((status, written["file"], written["size"]), (200, "notes.txt", len("after\n".encode())))
+        self.assertEqual((status, written["file"], written["size"]), (200, "notes.txt", len(b"after\n")))
         self.assertEqual((folder / "notes.txt").read_text(), "after\n")
         status, conflict = self.call("POST", "/api/files/write", body)  # old version
         self.assertEqual((status, conflict["version"]), (409, written["version"]))

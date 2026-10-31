@@ -92,6 +92,6 @@ def render(export, token, origin):
             lines.append(f"- #{other} · {title}{where}: {origin}{ticket_path(token, other)}")
     if export["history"]:
         lines += ["", "## History", ""]
-        lines += [f"- {_when(e['at'])} · {HISTORY_LABELS.get(e['kind'], lambda _: e['kind'])(e)}"
+        lines += [f"- {_when(e['at'])} · {HISTORY_LABELS.get(e['kind'], lambda entry: entry['kind'])(e)}"
                   + (f" (by {e['by']})" if e.get("by") not in (None, "user") else "") for e in export["history"]]
     return "\n".join(lines) + "\n"

@@ -1,0 +1,13 @@
+# Lint only (CI runs `ruff check`); ruff is a development tool, not a dependency of Ziggy One.
+target-version = "py310"
+line-length = 120
+
+[lint]
+# pycodestyle, pyflakes, bugbear, pyupgrade.
+select = ["E", "F", "W", "B", "UP"]
+# Long lines are left to review (.editorconfig says 120); short lambdas and `l` are fine in this code.
+ignore = ["E501", "E731", "E741"]
+
+[lint.per-file-ignores]
+# JSON written with `%` reads better than an f-string full of doubled braces.
+"tests/*" = ["UP031"]

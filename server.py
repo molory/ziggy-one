@@ -1069,8 +1069,8 @@ class Handler(BaseHTTPRequestHandler):
         """Ticket read by an agent with its link's key: Markdown text, or an attached file."""
         number = int((page or file_link).group(1))
         if not ticket_links.valid(self.server.token, number, parse_qs(url.query).get("k", [""])[0]):
-            return self._send(401, "Ticket link without a valid key: copy the link from the ticket card "
-                                   "(\"Copy link\" button).\n".encode(), "text/plain; charset=utf-8")
+            return self._send(401, b"Ticket link without a valid key: copy the link from the ticket card "
+                                   b"(\"Copy link\" button).\n", "text/plain; charset=utf-8")
         try:
             export = self.server.kanban.export(number)
             if file_link:

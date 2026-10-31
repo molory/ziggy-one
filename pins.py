@@ -4,7 +4,6 @@ Saved on the server (local JSON file, 0600): they survive a restart and apply to
 profiles, unlike browser storage.
 """
 
-import json
 import re
 import threading
 from pathlib import Path
