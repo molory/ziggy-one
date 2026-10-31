@@ -1,0 +1,11 @@
+# Keep LF everywhere (the server, launcher and tests expect it), except the Windows launcher.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.ico binary
+*.woff2 binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+# Vendored, minified upstream code: not counted in the language stats, collapsed in diffs.
+web/vendor/** linguist-vendored -diff

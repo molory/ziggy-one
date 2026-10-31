@@ -1,6 +1,37 @@
 # Ziggy One
 
-**Agentic Collaboration Environment: run many [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents side by side, and stay in control.**
+**Organise your agent teams.** Boost the productivity of your [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+agents: run them side by side, see who needs you, and hand out work on a shared board. Free, open source, and it
+runs on your machine.
+
+[![CI](https://github.com/molory/ziggy-one/actions/workflows/ci.yml/badge.svg)](https://github.com/molory/ziggy-one/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml/badge.svg)](https://github.com/molory/ziggy-one/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/molory/ziggy-one/badge)](https://scorecard.dev/viewer/?uri=github.com/molory/ziggy-one)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![Linux | macOS](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)
+
+[Website](https://ziggy-one.smyno.com) · [Quick start](#quick-start) · [Guide](docs/GUIDE.md) ·
+[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+
+## Why Ziggy One
+
+**One agent is an assistant. Several agents are a team.** A team needs a place to work together, and a terminal
+per agent is not one: you lose track of who is working, who is stuck on a permission prompt, and who is doing what.
+Ziggy One gives your agents that place.
+
+- **See the whole team.** Every agent on one page with its live status. Know at once who is working, who is idle and
+  who is waiting for you.
+- **Hand out the work.** A shared Kanban board your agents use themselves: they take a ticket, update it and move it
+  to Done.
+- **Agents that work together.** Give each agent a role. Every agent knows who else is on the team and how to reach
+  them, and sees what teammates did in the same repository.
+- **Shaped to your workflow.** Ask an agent to change Ziggy One itself, restart from the interface, and use your
+  change.
+- **Your machine, your account, your data.** No cloud, no account, no dependency: one page served on `127.0.0.1`,
+  using your existing Claude Code login.
+
+## What it is
 
 Each agent is the real, interactive Claude Code running in its own terminal, in the browser. Ziggy One keeps them
 organised (workspaces, pins, names, avatars), shows what they are doing (live status, context usage, a readable
@@ -64,8 +95,11 @@ cd ziggy-one
 ln -s "$PWD/ziggy" ~/.local/bin/ziggy   # once: the `ziggy` command, from any folder
 ```
 
-`~/.local/bin` must be on your `PATH` (it usually is on Linux; on macOS, create it and add it to your shell profile if needed). On
-Windows, the repository folder goes on the `PATH` instead, and `ziggy.cmd` runs the same launcher.
+`~/.local/bin` must be on your `PATH` (it usually is on Linux; on macOS, create it and add it to your shell profile if needed):
+
+```bash
+mkdir -p ~/.local/bin && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc   # macOS, then open a new terminal
+```
 
 Then, in the folder you want your agents to work in:
 
@@ -174,7 +208,11 @@ The [detailed guide](docs/GUIDE.md) describes every module and behaviour.
 ```bash
 python3 -m unittest discover -s tests     # server tests (use a fake `claude`, no quota spent)
 node --test tests/*.test.mjs              # front-end logic tests (Node 22+)
+ruff check .                              # lint (optional locally, enforced by CI: pipx install ruff)
 ```
+
+CI runs both suites on Linux (Python 3.10 to 3.14) and macOS, the linters, and CodeQL. Releases are published from
+a `vX.Y.Z` tag with that version's notes from [CHANGELOG.md](CHANGELOG.md).
 
 Contributions are welcome: please read [CONTRIBUTING.md](CONTRIBUTING.md) first, especially the
 **no-dependency** rule.

@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Project quality:** CI also runs on macOS, lints the server with ruff and the workflows with zizmor; CodeQL and
+  OpenSSF Scorecard scan the project; a `vX.Y.Z` tag publishes a GitHub release from this changelog. The README
+  explains why Ziggy One exists, in the same words as the [website](https://ziggy-one.smyno.com).
 - **ZiggyBoss can restart the server:** the "ziggy" MCP server gives the agents working in Ziggy One's own folder a
   `server_restart` tool (the same clean restart as the button). The agent that asks is told to resume afterwards.
 - **Agents can create agents:** the "ziggy" MCP server gets `agents_list`, `agents_create` (name, folder, role,
@@ -128,3 +131,6 @@ First public release.
 - Shared activity between agents of a workspace working in the same repository.
 - Kanban boards with history, attachments, numbered links and MCP tools for the agents.
 - Files and Git tabs, plan usage and context window indicators, clean server restarts.
+
+[Unreleased]: https://github.com/molory/ziggy-one/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/molory/ziggy-one/releases/tag/v0.1.0

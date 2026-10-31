@@ -14,8 +14,8 @@ Thanks for your interest! Bug reports, ideas, translations and pull requests are
 - **Read like the code around it.** Match the existing style, naming and comment density. Code, comments and
   documentation are in English.
 - **Every visible text is translatable.** Write UI texts in English inside `t("…")` / `tn(n, "…", "…")`
-  (`web/i18n.js`), and server messages shown in the UI inside `tr("…")` (`i18n.py`), then add the French
-  translation (see below). Texts written for the agents (hooks, MCP tools) stay in plain English.
+  (`web/i18n.js`), and server messages shown in the UI inside `tr("…")` (`i18n.py`), then add the translations
+  for every language you can (see below; a missing one falls back to English, and maintainers fill the gaps). Texts written for the agents (hooks, MCP tools) stay in plain English.
 
 ## Getting started
 
@@ -32,7 +32,11 @@ Requirements: Linux or macOS, Python 3.10+, Claude Code (`claude`) for real use,
 ```bash
 python3 -m unittest discover -s tests     # server: uses a fake interactive `claude`, spends no quota
 node --test tests/*.test.mjs              # front-end logic (pure modules, no DOM)
+ruff check .                              # lint, configured in ruff.toml (pipx install ruff)
 ```
+
+Ruff is a development tool only; it is never a dependency of Ziggy One. CI also runs the server tests on macOS and
+checks the workflows with [zizmor](https://docs.zizmor.sh/).
 
 Put pure logic in modules without DOM access (for example `web/*-logic.js`) so it can be tested with `node --test`.
 Server features get tests in `tests/test_*.py`; HTTP routes are tested end to end against a real server on a random
@@ -56,9 +60,15 @@ To add a language:
 
 1. Open an issue first for anything bigger than a small fix, so we can agree on the approach.
 2. Create a branch, make your change, and add or update tests.
-3. Make sure both test suites pass and that the app still works in a browser.
+3. Make sure both test suites and `ruff check .` pass, and that the app still works in a browser.
 4. Update the documentation (README or `docs/GUIDE.md`, in English) and `CHANGELOG.md` (section "Unreleased").
 5. Describe what you changed, why, and how you tested it.
+
+## Releases
+
+Maintainers release from `main`: move the "Unreleased" entries of `CHANGELOG.md` under a new `## [X.Y.Z] - date`
+heading, update the links at the bottom, then push a signed tag `vX.Y.Z`. The release workflow publishes the GitHub
+release with that section as notes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Reporting bugs
 
