@@ -46,6 +46,16 @@ class ParsingTest(unittest.TestCase):
         self.assertEqual(set(sessions[0]), set(server.SESSION_FIELDS))
 
 
+class HeaderTest(unittest.TestCase):
+    def test_send_refuses_a_line_break_in_a_header_value(self):
+        handler = server.Handler.__new__(server.Handler)
+        handler.send_response = mock.Mock()
+        for value in ("a\r\nSet-Cookie: x=1", "a\nb"):
+            with self.assertRaises(ValueError):
+                handler._send(200, b"x", headers={"Content-Disposition": value})
+        handler.send_response.assert_not_called()
+
+
 class ListSessionsTest(unittest.TestCase):
     def test_merges_open_sessions_with_recent_transcripts(self):
         recent = [
