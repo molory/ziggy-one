@@ -14,6 +14,8 @@ runs on your machine.
 [Website](https://ziggy-one.smyno.com) · [Quick start](#quick-start) · [Guide](docs/GUIDE.md) ·
 [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
+![Ziggy One: organise your agent teams. A workspace of Claude Code agents with their live status.](docs/images/og.png)
+
 ## Why Ziggy One
 
 **One agent is an assistant. Several agents are a team.** A team needs a place to work together, and a terminal
@@ -37,8 +39,6 @@ Each agent is the real, interactive Claude Code running in its own terminal, in 
 organised (workspaces, pins, names, avatars), shows what they are doing (live status, context usage, a readable
 view of the conversation), lets them coordinate (shared activity, an agent directory, a Kanban board they can use
 through MCP), and tracks your plan usage, all from one page served on `127.0.0.1`.
-
-![Welcome screen](docs/images/welcome.png)
 
 > **Zero third-party dependencies.** The server is the Python standard library; the front end is vanilla
 > HTML/CSS/JS with no npm and no build step. The only vendored code is [xterm.js](https://xtermjs.org/) (MIT), pinned
@@ -181,7 +181,7 @@ Ziggy One is a single-user tool for your own machine.
   textconv programs: opening a repository does not run its code.
 - Claude Code can copy to your clipboard (`/copy`) only within 5 seconds of something you did in that terminal;
   terminal links open only `http(s)` addresses.
-- An agent with **Chrome** enabled drives your real browser, where Ziggy One is signed in: it can use the cockpit
+- An agent with **Chrome** enabled drives your real browser, where Ziggy One is signed in: it can use the interface
   as you would. Enable it only for agents you trust with that.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
