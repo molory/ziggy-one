@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Home screen:** the animation always shows at least 8 agents orbiting the emblem: yours first, then random
+  extras (never shown as working) when you have fewer.
 - **First launch:** a start with no agent (a fresh install, or every agent closed) creates **ZiggyBoss**, a pinned agent working in Ziggy One's own folder,
   whose role is to customize Ziggy One and fix its bugs. The page opens its Claude Code right away and shows a large
   loading screen until it has introduced itself. An empty

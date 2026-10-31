@@ -4,6 +4,7 @@
 // "notes": the conductor's instructions. Then the title and the two buttons to create.
 // SVG and JavaScript, no library. No animation if the system asks for it; paused when the tab is hidden.
 
+import { heroCast } from "./hero-logic.js";
 import { t } from "./i18n.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -12,10 +13,9 @@ const ORBITS = [
   { rx: 176, ry: 60, tilt: 14, speed: -0.22 },
   { rx: 232, ry: 78, tilt: -6, speed: 0.15 },
 ];
-const MAX_AGENTS = 12;
 
 /**
- * @typedef {{letter: string, hue: number, state: string}} HeroAgent
+ * @typedef {import("./hero-logic.js").HeroAgent} HeroAgent
  * @typedef {object} HeroOptions
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
  * @property {(d: string) => SVGElement} icon
@@ -84,10 +84,12 @@ export function createHero(options) {
   stage.append(scene);
 
   // Agents: spread over the orbits, each with its color, its initial and its state.
-  const agents = options.agents.slice(0, MAX_AGENTS).map((agent, index) => {
+  // Fewer than 8 agents: random extras complete the scene (heroCast).
+  const cast = heroCast(options.agents);
+  const agents = cast.map((agent, index) => {
     const orbit = ORBITS[index % ORBITS.length];
     const onOrbit = Math.floor(index / ORBITS.length);
-    const perOrbit = Math.ceil(Math.min(options.agents.length, MAX_AGENTS) / ORBITS.length) || 1;
+    const perOrbit = Math.ceil(cast.length / ORBITS.length);
     const node = svg("g", { class: `hero-agent state-${agent.state}` });
     const color = `hsl(${agent.hue} 62% 52%)`;
     node.append(svg("circle", { r: 15, fill: color, class: "hero-agent-disc" }));

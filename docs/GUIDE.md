@@ -58,7 +58,7 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   Claude Code right away. Several agents work in parallel, each in its own terminal. The cross in the header closes
   the agent (Claude Code keeps running in its terminal); its configuration is the last tab, "Configuration". With no
   agent open, the centre shows the animated home screen (`web/hero.js`): the Z emblem, your agents orbiting around
-  it (colours, initials, the working ones pulse) linked by beams, the title and the "New agent" / "New workspace"
+  it (colours, initials, the working ones pulse; with fewer than 8, random extras fill the orbits) linked by beams, the title and the "New agent" / "New workspace"
   buttons; without animation if the system asks for reduced motion.
 - **Usage**: read by a minimal Haiku call (about $0.001, without tools or MCP) at startup, with the "Refresh"
   button, and at the end of an agent's turn, at most every 5 minutes.
