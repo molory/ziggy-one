@@ -50,14 +50,15 @@ class I18nTest(unittest.TestCase):
             bus = server.Bus()
             events = bus.subscribe()
             settings = Settings(bus, Path(tmp) / "settings.json")
-            self.assertEqual(settings.snapshot(), {"language": "en", "corners": "default"})
-            self.assertEqual(settings.update({"language": "fr"}), {"language": "fr", "corners": "default"})
+            self.assertEqual(settings.snapshot(), {"language": "en", "corners": "default", "color": "orange"})
+            self.assertEqual(settings.update({"language": "fr"}), {"language": "fr", "corners": "default", "color": "orange"})
             self.assertEqual(i18n.language(), "fr")
-            self.assertEqual(events.get_nowait(), ("settings", {"language": "fr", "corners": "default"}))
+            self.assertEqual(events.get_nowait(), ("settings", {"language": "fr", "corners": "default", "color": "orange"}))
             self.assertEqual(settings.update({"corners": "square"})["corners"], "square")
+            self.assertEqual(settings.update({"color": "purple"})["color"], "purple")
             reloaded = Settings(bus, Path(tmp) / "settings.json").snapshot()
-            self.assertEqual(reloaded, {"language": "fr", "corners": "square"}, "reloaded")
-            for bad in ({"language": "xx"}, {"corners": "pointy"}, {"theme": "dark"}, {}, "fr"):
+            self.assertEqual(reloaded, {"language": "fr", "corners": "square", "color": "purple"}, "reloaded")
+            for bad in ({"language": "xx"}, {"corners": "pointy"}, {"color": "#ff0000"}, {"theme": "dark"}, {}, "fr"):
                 with self.assertRaises(ValueError):
                     settings.update(bad)
 

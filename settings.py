@@ -1,4 +1,5 @@
-"""Global settings of Ziggy One, chosen in the Configuration (General tab): the interface language and the corner style.
+"""Global settings of Ziggy One, chosen in the Configuration (General tab): the interface language, the corner style
+and the logo color (which tells several Ziggy One apart).
 
 Saved by the server (`settings.json`, 0600): they apply to every browser and to the server's own messages.
 """
@@ -7,9 +8,10 @@ import threading
 from pathlib import Path
 
 import i18n
+import logo
 from storage import read_json, write_json
 
-DEFAULTS = {"language": "en", "corners": "default"}
+DEFAULTS = {"language": "en", "corners": "default", "color": logo.DEFAULT}
 CORNERS = ("square", "subtle", "default", "round")
 
 
@@ -23,8 +25,10 @@ class Settings:
         raw = raw if isinstance(raw, dict) else {}
         language = raw.get("language")
         corners = raw.get("corners")
+        color = raw.get("color")
         self._values = {**DEFAULTS, "language": language if language in i18n.LANGUAGES else DEFAULTS["language"],
-                        "corners": corners if corners in CORNERS else DEFAULTS["corners"]}
+                        "corners": corners if corners in CORNERS else DEFAULTS["corners"],
+                        "color": color if color in logo.COLORS else DEFAULTS["color"]}
         i18n.set_language(self._values["language"])
 
     def snapshot(self):
@@ -42,6 +46,8 @@ class Settings:
             raise ValueError(i18n.tr("Unknown language: {code}", code=str(changes["language"])[:20]))
         if "corners" in changes and changes["corners"] not in CORNERS:
             raise ValueError(i18n.tr("Unknown corner style: {name}", name=str(changes["corners"])[:20]))
+        if "color" in changes and changes["color"] not in logo.COLORS:
+            raise ValueError(i18n.tr("Unknown color: {name}", name=str(changes["color"])[:20]))
         with self._lock:
             self._values.update(changes)
             write_json(self._path, self._values)

@@ -28,7 +28,7 @@ import { TOP_ZONES, applyToPins, applyToWorkspaces, planDrop, workspaceZones } f
 
 // Static markup of index.html, written in English: translated once, before anything else is drawn.
 translateStatic(document.documentElement);
-/** Global settings (Configuration › General). @type {{language: string, corners?: string}} */
+/** Global settings (Configuration › General). @type {{language: string, corners?: string, color?: string}} */
 let globalSettings = { language: currentLanguage() };
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -471,6 +471,20 @@ for (const button of refreshButtons) button.addEventListener("click", refreshUsa
  */
 function applyCorners(corners) {
   document.documentElement.dataset.corners = corners ?? "default";
+}
+
+/**
+ * Logo and favicon in the chosen color: the server draws them (logo.py); ?c= makes the browser fetch them again.
+ *
+ * @param {string | undefined} color
+ */
+function applyLogoColor(color) {
+  const query = `?c=${encodeURIComponent(color ?? "orange")}`;
+  for (const node of document.querySelectorAll('link[rel="icon"], img[src^="/logo.svg"], image[href^="/logo.svg"]')) {
+    const attribute = node.hasAttribute("src") ? "src" : "href";
+    const url = new URL(/** @type {string} */ (node.getAttribute(attribute)), location.href);
+    if (url.search !== query) node.setAttribute(attribute, url.pathname + query);
+  }
 }
 
 /** @param {string} theme */
@@ -1855,7 +1869,7 @@ function generalPane() {
   });
   section.append(label, select, el("p", "muted small",
     t("Language of the interface and of the server messages, for every browser. Texts given to the agents stay in English.")), error);
-  pane.append(section, cornersSection(), soundSection());
+  pane.append(section, cornersSection(), colorSection(), soundSection());
   return pane;
 }
 
@@ -1952,6 +1966,56 @@ function cornersSection() {
   });
   section.append(label, select, el("p", "muted small",
     t("Roundness of the cards, avatars and buttons, for every browser.")), error);
+  return section;
+}
+
+// Logo colors (logo.py, the dark tone): one per Ziggy One, to tell them apart at a glance.
+const LOGO_COLORS = /** @type {const} */ ([["orange", "Orange", "#ea580c"], ["red", "Red", "#dc2626"],
+  ["pink", "Pink", "#db2777"], ["purple", "Purple", "#7c3aed"], ["blue", "Blue", "#2563eb"],
+  ["teal", "Teal", "#0d9488"], ["green", "Green", "#16a34a"], ["gray", "Gray", "#475569"]]);
+
+/** Color of the Z logo and of the favicon: tells this Ziggy One from the others (one per computer). */
+function colorSection() {
+  const section = el("div", "settings-section");
+  const title = el("p", "settings-title", t("Logo color"));
+  title.id = "settings-color";
+  const swatches = el("div", "color-swatches");
+  swatches.setAttribute("role", "radiogroup");
+  swatches.setAttribute("aria-labelledby", title.id);
+  const error = el("p", "form-error");
+  error.hidden = true;
+  const buttons = LOGO_COLORS.map(([value, name, hex]) => {
+    const button = /** @type {HTMLButtonElement} */ (el("button", "color-swatch"));
+    button.type = "button";
+    button.title = t(name);
+    button.setAttribute("aria-label", t(name));
+    button.setAttribute("role", "radio");
+    button.style.setProperty("--swatch", hex);
+    button.addEventListener("click", () => choose(value));
+    return /** @type {const} */ ([value, button]);
+  });
+  const mark = (/** @type {string} */ color) => {
+    for (const [value, button] of buttons) button.setAttribute("aria-checked", String(value === color));
+  };
+  const choose = async (/** @type {string} */ color) => {
+    const previous = globalSettings.color ?? "orange";
+    if (color === previous) return;
+    mark(color);
+    for (const [, button] of buttons) button.disabled = true;
+    try {
+      globalSettings = (await api("/api/settings", { settings: { color } })).settings;
+      applyLogoColor(color);
+      error.hidden = true;
+    } catch (err) {
+      mark(previous);
+      showPanelError(error, err);
+    }
+    for (const [, button] of buttons) button.disabled = false;
+  };
+  mark(globalSettings.color ?? "orange");
+  swatches.append(...buttons.map(([, button]) => button));
+  section.append(title, swatches, el("p", "muted small",
+    t("Color of the Z logo and of the browser tab icon: give each computer its own to tell your Ziggy One apart.")), error);
   return section;
 }
 
@@ -3535,9 +3599,10 @@ function connect() {
     finishSound = sound;
     redrawSoundSection();
   });
-  on("settings", (/** @type {{language: string, corners?: string}} */ settings) => {
+  on("settings", (/** @type {{language: string, corners?: string, color?: string}} */ settings) => {
     globalSettings = settings;
     applyCorners(settings.corners);
+    applyLogoColor(settings.color);
     if (settings.language !== currentLanguage()) location.reload();
   });
 }
@@ -3654,6 +3719,7 @@ async function init() {
     globalSettings = state.settings ?? globalSettings;
     finishSound = state.sound ?? finishSound;
     applyCorners(globalSettings.corners);
+    applyLogoColor(globalSettings.color);
     agentSettings = state.agents ?? {};
     claudeDefaults = state.defaults ?? claudeDefaults;
     renderSessions(state.sessions);

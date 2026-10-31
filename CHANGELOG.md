@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Logo color:** Configuration › General picks the color of the Z logo and of the favicon (orange, red, pink,
+  purple, blue, teal, green or gray), to tell several Ziggy One apart at a glance (one per computer). The server
+  draws both in that color (`logo.py`, no image library); open tabs follow at once.
 - **Home screen:** the animation always shows at least 8 agents orbiting the emblem: yours first, then random
   extras (never shown as working) when you have fewer.
 - **First launch:** a start with no agent (a fresh install, or every agent closed) creates **ZiggyBoss**, a pinned agent working in Ziggy One's own folder,

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ziggy One</title>
-  <!-- Icons: SVG for current browsers, .ico for the others, PNGs for the home screen (iOS, manifest). -->
-  <link rel="icon" href="/favicon.ico" sizes="32x32">
-  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <!-- Icons: logo and favicon drawn by the server in the chosen color (logo.py); PNGs for the home screen (iOS, manifest). -->
+  <link rel="icon" href="/favicon.png?c=__COLOR__" type="image/png" sizes="64x64">
+  <link rel="icon" href="/logo.svg?c=__COLOR__" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
   <script src="/theme.js"></script>
@@ -19,7 +19,7 @@
   <!-- Not signed in (an API call answered 401): a full screen that shows, animated, how to get back in. -->
   <section id="auth-error" class="auth-screen" hidden role="alertdialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-text">
     <div class="auth-card">
-      <div class="auth-emblem" aria-hidden="true"><img src="/logo.svg" alt=""></div>
+      <div class="auth-emblem" aria-hidden="true"><img src="/logo.svg?c=__COLOR__" alt=""></div>
       <h1 id="auth-title" class="auth-title">This tab is not signed in</h1>
       <p id="auth-text" class="auth-text">Ziggy One is running, but this browser is not signed in yet (new browser, private window, signed out or cleared cookies). Run this command in a terminal: it opens a new tab, already signed in. Nothing restarts, your agents keep running.</p>
       <div class="auth-term" aria-hidden="true">
@@ -45,7 +45,7 @@
       <!-- Sidebar header: logo, account and plan usage (refresh in place,
            or a click on the 5 h and 7 d gauges opens the details). -->
       <div class="sidebar-top">
-        <h1 class="logo"><button id="home" type="button" class="logo-button" title="Home" aria-label="Ziggy One: home"><img src="/logo.svg" alt=""></button></h1>
+        <h1 class="logo"><button id="home" type="button" class="logo-button" title="Home" aria-label="Ziggy One: home"><img src="/logo.svg?c=__COLOR__" alt=""></button></h1>
         <div class="usage">
           <button id="usage" type="button" class="usage-open" aria-haspopup="dialog" aria-controls="account-dialog">
             <span id="avatar" class="avatar" aria-hidden="true">?</span>

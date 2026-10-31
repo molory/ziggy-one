@@ -80,6 +80,10 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
 - **Corners** (`settings.py`, `--corners` in `web/style.css`): the same "General" tab sets the roundness of every
   card, avatar and button: square, slightly rounded, rounded (default) or very rounded. Saved in `settings.json`,
   written on `<html data-corners>` when the page is served, and applied at once in every open browser.
+- **Logo color** (`logo.py`, `settings.py`): the same tab picks the color of the Z logo and of the favicon, to tell
+  several Ziggy One apart (one per computer). `/logo.svg` and `/favicon.png` are drawn by the server in that color
+  (the PNG with a small polygon rasterizer, standard library only); the page links them with `?c=<color>`, changed
+  in every open tab when the setting changes, so the browser fetches them again. Home-screen icons stay orange.
 - **Sessions**: a session = a Claude Code conversation, started from a terminal or from ziggy-one.
   The list merges the open sessions (read-only access to `~/.claude/sessions/*.json`, the `.key` files are never
   read), the 50 most recent sessions of all folders and the agents open in ziggy-one, from newest to oldest, with an

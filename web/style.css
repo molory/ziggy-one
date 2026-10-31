@@ -1060,6 +1060,14 @@ body.resizing { cursor: col-resize; user-select: none; }
 .inline-field { display: flex; gap: 0.5rem; width: min(100%, 460px); }
 .inline-field .text-input { flex: 1; min-width: 0; }
 .settings-section select.text-input { width: min(100%, 460px); }
+.color-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.color-swatch {
+  inline-size: 2rem; block-size: 2rem; padding: 0; border-radius: 50%;
+  background: var(--swatch); border: 2px solid var(--swatch);
+}
+button.color-swatch:hover:not(:disabled) { border-color: var(--swatch); transform: scale(1.1); }
+.color-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--swatch); }
+.color-swatch:focus-visible { outline: 2px solid var(--text); outline-offset: 4px; }
 .settings-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.45rem 0.9rem; width: min(100%, 560px); }
 .settings-field-label { font-size: 0.88rem; color: var(--muted); }
 .settings-info { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; font-size: 0.88rem; }

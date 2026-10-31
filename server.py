@@ -52,6 +52,7 @@ from restart import Restart
 from shell import ShellRuns
 import agent_mcp
 from storage import default_data_dir, is_agent_key, persistent_token, write_private
+import logo
 from onboarding import Onboarding
 from pins import Pins
 from settings import Settings
@@ -1379,6 +1380,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, path):
         relative = "index.html" if path in ("", "/") else path.lstrip("/")
+        if relative in ("logo.svg", "favicon.png"):
+            # Logo and favicon in the chosen color (Configuration › General); ?c= in the page changes with it.
+            color = self.server.settings.snapshot()["color"]
+            body, kind = (logo.svg(color), MIME[".svg"]) if relative == "logo.svg" else (logo.png(color), "image/png")
+            return self._send(200, body, kind, {"Cache-Control": "no-cache"})
         target = (WEB_DIR / relative).resolve()
         if not target.is_relative_to(WEB_DIR) or not target.is_file():
             return self._json(404, {"error": tr("Not found")})
@@ -1399,6 +1405,7 @@ class Handler(BaseHTTPRequestHandler):
             body = body.replace(b"__DIR__", i18n.direction().encode())  # Arabic: right to left
             # Corner style (Configuration › General), applied before the first render.
             body = body.replace(b"__CORNERS__", self.server.settings.snapshot()["corners"].encode())
+            body = body.replace(b"__COLOR__", self.server.settings.snapshot()["color"].encode())  # logo and favicon
             csp = SECURITY_HEADERS["Content-Security-Policy"].replace(
                 "style-src 'self'", f"style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'")
             headers = {"Content-Security-Policy": csp}

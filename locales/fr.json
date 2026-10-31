@@ -178,5 +178,6 @@
   "Empty file": "Fichier vide",
   "Invalid file": "Fichier invalide",
   "Sound too large (2 MB max)": "Son trop lourd (2 Mo au plus)",
-  "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "Ce n'est pas un fichier audio (MP3, WAV, OGG, M4A, AAC ou FLAC)"
+  "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "Ce n'est pas un fichier audio (MP3, WAV, OGG, M4A, AAC ou FLAC)",
+  "Unknown color: {name}": "Couleur inconnue : {name}"
 }
