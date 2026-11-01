@@ -91,6 +91,31 @@ class ListSessionsIncludeTest(unittest.TestCase):
         self.assertEqual(sessions, [{**old, "active": False, "git": False, "context": None}])
 
 
+class BusTest(unittest.TestCase):
+    def test_named_stream_only_receives_the_terminal_it_watches(self):
+        bus = server.Bus()
+        everything, page, other = bus.subscribe(), bus.subscribe(("s", "page")), bus.subscribe(("s", "other"))
+        bus.watch(("s", "page"), "c1")
+        for conversation in ("c1", "c2"):
+            bus.publish("terminal", {"conversation": conversation, "seq": 1, "data": ""})
+        bus.publish("status", {"id": "c2"})
+        drain = lambda q: [(kind, data.get("conversation")) for kind, data in iter(lambda: q.get_nowait() if q.qsize() else None, None)]
+        self.assertEqual(drain(everything), [("terminal", "c1"), ("terminal", "c2"), ("status", None)])
+        self.assertEqual(drain(page), [("terminal", "c1"), ("status", None)])
+        self.assertEqual(drain(other), [("status", None)], "watches nothing yet: other events only")
+
+    def test_watch_survives_a_reconnection_then_is_forgotten(self):
+        bus = server.Bus()
+        old = bus.subscribe(("s", "page"))
+        bus.watch(("s", "page"), "c1")
+        new = bus.subscribe(("s", "page"))  # EventSource reconnected before the old stream noticed the cut
+        bus.unsubscribe(old)
+        bus.publish("terminal", {"conversation": "c1", "seq": 1, "data": ""})
+        self.assertEqual(new.get_nowait()[0], "terminal")
+        bus.unsubscribe(new)
+        self.assertEqual(bus._watched, {})
+
+
 class UsageTest(unittest.TestCase):
     def test_update_reads_unified_windows_and_publishes(self):
         bus = server.Bus()
@@ -714,7 +739,41 @@ class HttpTest(unittest.TestCase):
                 response += chunk
                 if b"\r\n\r\n" in response and response.rstrip().endswith(b"}"):
                     break
-            self.assertTrue(response.startswith(b"HTTP/1.0 400 "), response[:40])
+            self.assertTrue(response.startswith(b"HTTP/1.1 400 "), response[:40])
+            self.assertIn(b"\r\nConnection: close\r\n", response, "body not read: the connection cannot go on")
+
+    def test_connection_is_kept_between_requests(self):
+        # Through an SSH tunnel, each key typed in a terminal must not open a connection of its own.
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(connection.close)
+        headers = {"Host": self.host, "Cookie": self.cookie, "Origin": self.origin, "Content-Type": "application/json"}
+        body = json.dumps({"stream": "page-12345678", "conversation": None})
+        for _ in range(3):
+            connection.request("POST", "/api/terminal-watch", body=body, headers=headers)
+            response = connection.getresponse()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(json.loads(response.read()), {})
+            self.assertFalse(response.will_close)
+        sock = connection.sock
+        connection.request("GET", "/api/terminal?conversation=none", headers=headers)
+        response = connection.getresponse()
+        self.assertEqual(json.loads(response.read()), {"running": False, "seq": 0, "data": ""})
+        self.assertIs(connection.sock, sock, "same connection")
+
+    def test_refused_request_with_unread_body_closes_its_connection(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(connection.close)
+        connection.request("POST", "/api/terminal-watch", body=b'{"stream": "page-12345678"}',
+                           headers={"Host": self.host, "Cookie": self.cookie, "Origin": "http://evil.example"})
+        response = connection.getresponse()
+        response.read()
+        self.assertEqual(response.status, 403)
+        self.assertTrue(response.will_close)
+
+    def test_terminal_watch_validates_the_stream(self):
+        headers = {"Cookie": self.cookie, "Origin": self.origin, "Content-Type": "application/json"}
+        for body in ({"stream": "short", "conversation": None}, {"stream": "page-12345678", "conversation": 3}):
+            self.assertEqual(self.request("POST", "/api/terminal-watch", headers, json.dumps(body).encode()).status, 400)
 
     def test_rejects_invalid_resume_id(self):
         headers = {"Cookie": self.cookie, "Origin": self.origin, "Content-Type": "application/json"}

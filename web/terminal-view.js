@@ -2,7 +2,8 @@
 // Terminal tab: the agent's real (interactive) Claude Code, shown by xterm.js (frozen copy in
 // vendor/xterm, loaded on first use). The server runs `claude` in a pseudo-terminal: the screen
 // comes through the SSE stream (numbered "terminal" events), keys go back by POST.
-// One xterm terminal per agent, kept when switching agent or tab.
+// One xterm terminal per agent, kept when switching agent or tab. The stream only carries the output of
+// the terminal shown (see watch): one left behind catches up with what it missed when it is shown again.
 
 import { t } from "./i18n.js";
 import { createRecolor } from "./terminal-colors.js";
@@ -56,9 +57,12 @@ function decode(base64) {
  * @typedef {object} TerminalViewDeps
  * @property {(path: string, body?: object) => Promise<any>} api
  * @property {(tag: string, className?: string, text?: string) => HTMLElement} el
+ * @property {string} stream name of this page's event stream (/api/events?stream=…)
  *
  * @typedef {{term: any, fit: any, host: HTMLElement, seq: number, ready: boolean, early: {seq: number, data: string}[],
- *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>, code?: number, stopping?: boolean, lastInput: number}} Entry
+ *   pending: string, sending: boolean, recolor: ReturnType<typeof createRecolor>, code?: number, stopping?: boolean, lastInput: number,
+ *   instance?: number, stale?: boolean, syncing?: Promise<void>}} Entry
+ * (instance: the server's terminal the screen comes from; stale: its output no longer arrives here, see watch)
  */
 
 /**
@@ -89,7 +93,7 @@ const REOPEN_ICON = "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5";
  * @param {TerminalViewDeps} deps
  */
 export function mountTerminalView(root, deps) {
-  const { api, el } = deps;
+  const { api, el, stream } = deps;
   /** @type {Set<string>} agents whose Claude Code runs in a terminal */
   const running = new Set();
   /** @type {Map<string, Entry>} */
@@ -358,30 +362,113 @@ export function mountTerminalView(root, deps) {
     entry.sending = false;
   }
 
+  /** @type {string | null} terminal whose output this page's stream receives (see watch) */
+  let watched = null;
+  /** @type {Promise<void>} */
+  let watchSent = Promise.resolve();
+
+  /**
+   * The server now sends this page's stream the output of this terminal only (null: none), so that over
+   * a slow link (SSH tunnel, train) the agents working in the background do not slow down the one you
+   * type in. The terminal left behind is stale: it catches up when shown again (see sync).
+   *
+   * @param {string | null} id
+   * @param {boolean} [again] tell the server even if unchanged (event stream reconnected)
+   */
+  function watch(id, again = false) {
+    if (id === watched && !again) return watchSent;
+    const left = watched === null ? undefined : entries.get(watched);
+    if (left && watched !== id) left.stale = true;
+    watched = id;
+    // One after the other: they must reach the server in this order.
+    watchSent = watchSent.then(() => api("/api/terminal-watch", { stream, conversation: id })).catch(() => {});
+    return watchSent;
+  }
+
+  /**
+   * Brings the screen up to date: only what it missed if the server still has it, otherwise redrawn.
+   *
+   * @param {string} id
+   * @param {Entry} entry
+   */
+  function sync(id, entry) {
+    if (entry.syncing) return entry.syncing;
+    const known = entry.ready && entry.instance ? `&since=${entry.seq}&instance=${entry.instance}` : "";
+    entry.ready = false; // what arrives meanwhile waits in entry.early
+    entry.early = [];
+    entry.stale = watched !== id;
+    entry.syncing = api(`/api/terminal?conversation=${encodeURIComponent(id)}${known}`).then(
+      (/** @type {{running: boolean, instance: number, seq: number, data: string, since?: number}} */ snapshot) => {
+        entry.syncing = undefined;
+        if (!snapshot.running) return;
+        if (snapshot.since === undefined) replay(id, entry, snapshot);
+        else catchUp(id, entry, snapshot);
+      },
+      (/** @type {unknown} */ err) => {
+        entry.syncing = undefined;
+        throw err;
+      },
+    );
+    return entry.syncing;
+  }
+
   /**
    * Redraws the screen: recent output kept by the server, then what arrived in the meantime.
    *
    * @param {string} id
    * @param {Entry} entry
-   * @param {{seq: number, data: string}} snapshot
+   * @param {{seq: number, data: string, instance?: number}} snapshot
    */
   function replay(id, entry, snapshot) {
     entry.term.reset();
     entry.recolor.reset();
     if (snapshot.data) entry.term.write(entry.recolor.push(decode(snapshot.data)));
     entry.seq = snapshot.seq;
-    for (const chunk of entry.early) if (chunk.seq > entry.seq) write(entry, chunk);
-    entry.early = [];
-    entry.ready = true;
+    entry.instance = snapshot.instance;
+    settle(id, entry);
     // Same size: the server still asks Claude Code to redraw the whole screen.
     api(`/api/conversations/${id}/terminal-resize`, { cols: entry.term.cols, rows: entry.term.rows }).catch(() => {});
   }
 
   /**
+   * Adds what the screen missed (sync), then what arrived in the meantime.
+   *
+   * @param {string} id
+   * @param {Entry} entry
+   * @param {{seq: number, data: string}} missed
+   */
+  function catchUp(id, entry, missed) {
+    if (missed.data) entry.term.write(entry.recolor.push(decode(missed.data)));
+    entry.seq = missed.seq;
+    settle(id, entry);
+  }
+
+  /**
+   * The screen is up to date: the output that waited during the sync follows.
+   *
+   * @param {string} id
+   * @param {Entry} entry
+   */
+  function settle(id, entry) {
+    entry.ready = true;
+    const early = entry.early;
+    entry.early = [];
+    for (const chunk of early) take(id, entry, chunk);
+  }
+
+  /**
+   * Output of the terminal, in order; a gap in the numbers (stream cut, events dropped) asks for what is missing.
+   *
+   * @param {string} id
    * @param {Entry} entry
    * @param {{seq: number, data: string}} chunk
    */
-  function write(entry, chunk) {
+  function take(id, entry, chunk) {
+    if (chunk.seq <= entry.seq) return;
+    if (chunk.seq > entry.seq + 1) {
+      sync(id, entry).catch(() => {});
+      return;
+    }
     entry.seq = chunk.seq;
     entry.term.write(entry.recolor.push(decode(chunk.data)));
   }
@@ -467,7 +554,9 @@ export function mountTerminalView(root, deps) {
       entry.host.hidden = false;
       entry.fit.fit();
       entry.ready = false;
+      entry.early = [];
       entry.stopping = false;
+      await watch(c.id); // before it starts: its first output must come here
       const snapshot = await api(`/api/conversations/${c.id}/terminal-start`, { cols: entry.term.cols, rows: entry.term.rows });
       running.add(c.id);
       replay(c.id, entry, snapshot);
@@ -506,16 +595,28 @@ export function mountTerminalView(root, deps) {
     if (arriving) error.hidden = true;
     render(arriving);
     const id = conversation.id;
-    if (!running.has(id) || entries.get(id)?.ready) return;
+    if (!running.has(id)) {
+      watch(null);
+      return;
+    }
+    if (document.hidden) return; // nothing to receive: done when the page shows again
     try {
       const entry = await entryFor(id);
       if (shown?.id !== id) return;
-      render(true);
-      replay(id, entry, await api(`/api/terminal?conversation=${encodeURIComponent(id)}`));
+      await watch(id);
+      if (shown?.id !== id || (entry.ready && !entry.stale)) return;
+      if (!entry.ready) render(true);
+      await sync(id, entry);
     } catch (err) {
       showError(err);
     }
   }
+
+  // Page in the background (another browser tab, window minimized): no terminal output is sent to it.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) watch(null);
+    else if (shown) open(shown);
+  });
 
   return {
     open,
@@ -535,6 +636,16 @@ export function mountTerminalView(root, deps) {
     },
     hide() {
       shown = null;
+      watch(null);
+    },
+    /** Event stream back after a cut: the server is told again which terminal to send, which catches up. */
+    reconnected() {
+      const id = watched;
+      if (id === null) return;
+      watch(id, true).then(() => {
+        const entry = entries.get(id);
+        if (watched === id && entry?.ready) sync(id, entry).catch(() => {});
+      });
     },
     /** @param {string[]} ids open terminals (initial state from the server) */
     setRunning(ids) {
@@ -564,7 +675,7 @@ export function mountTerminalView(root, deps) {
       const entry = entries.get(chunk.conversation);
       if (!entry) return; // never shown here: the screen will be redrawn on opening
       if (!entry.ready) entry.early.push(chunk);
-      else if (chunk.seq > entry.seq) write(entry, chunk);
+      else take(chunk.conversation, entry, chunk);
     },
     /** @param {{conversation: string, running: boolean, code?: number}} event */
     onStatus(event) {

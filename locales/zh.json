@@ -179,5 +179,6 @@
   "Invalid file": "文件无效",
   "Sound too large (2 MB max)": "声音文件过大（最大 2 MB）",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "不是音频文件（MP3、WAV、OGG、M4A、AAC 或 FLAC）",
-  "Unknown color: {name}": "未知颜色：{name}"
+  "Unknown color: {name}": "未知颜色：{name}",
+  "Invalid terminal stream": "终端流无效"
 }

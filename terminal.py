@@ -2,7 +2,8 @@
 
 The server launches `claude` itself (never a shell) in the agent's folder, resuming its
 session. The screen (raw terminal bytes, in base64) goes out on the SSE stream, numbered; keys
-come in by POST. Recent output is kept to redraw the screen when the tab opens.
+come in by POST. Recent output is kept to redraw the screen when the tab opens, or to send a page only
+what it missed (a terminal it was not watching, a network cut).
 
 Claude Code needs the terminal as its controlling terminal (resizing, Ctrl+C). Popen starts it
 in a new session, then a tiny Python launcher takes the terminal (TIOCSCTTY) and becomes `claude`
@@ -12,6 +13,7 @@ and macOS alike.
 
 import base64
 import collections
+import itertools
 import fcntl
 import os
 import signal
@@ -27,6 +29,7 @@ from i18n import tr
 REPLAY_BYTES = 512 * 1024  # output kept to redraw the screen of a tab that opens
 MAX_INPUT = 64 * 1024  # characters per key send (a paste included)
 READ_SIZE = 65536
+_instances = itertools.count(1)  # a terminal reopened starts again at seq 1: its "instance" tells them apart
 # Variables of a parent Claude Code session (the server may have been started by an agent):
 # if inherited, they would make the new `claude` believe it runs inside another session.
 PARENT_SESSION_VARS = (
@@ -65,6 +68,7 @@ class _Terminal:
         self.conversation = conversation
         self.proc = proc
         self.fd = fd
+        self.instance = next(_instances)
         self.seq = 0
         self.chunks = collections.deque()  # recent (number, bytes)
         self.size = 0
@@ -162,14 +166,22 @@ class Terminals:
                  "memory": memory.get(sessions[conversation]) if sessions[conversation] else None}
                 for conversation, started in items]
 
-    def snapshot(self, conversation):
-        """Recent output, to redraw the screen: {running, seq (last number included), data}."""
+    def snapshot(self, conversation, since=None, instance=None):
+        """Recent output, to redraw the screen: {running, instance, seq (last number included), data}.
+
+        With `since` (last number the page has) and the same `instance`: only the output after it, if it is
+        still kept; the answer then carries "since" (data to add to the screen, not to redraw it)."""
         with self._lock:
             terminal = self._terminals.get(conversation)
             if terminal is None:
                 return {"running": False, "seq": 0, "data": ""}
+            answer = {"running": True, "instance": terminal.instance, "seq": terminal.seq}
+            if (isinstance(since, int) and instance == terminal.instance and 0 <= since <= terminal.seq
+                    and (since == terminal.seq or (terminal.chunks and terminal.chunks[0][0] <= since + 1))):
+                data = b"".join(chunk for number, chunk in terminal.chunks if number > since)
+                return {**answer, "since": since, "data": base64.b64encode(data).decode()}
             data = b"".join(chunk for _, chunk in terminal.chunks)
-            return {"running": True, "seq": terminal.seq, "data": base64.b64encode(data).decode()}
+            return {**answer, "data": base64.b64encode(data).decode()}
 
     def stop(self, conversation):
         """Closes Claude Code (SIGHUP, like closing a terminal), then kills it if it lingers."""

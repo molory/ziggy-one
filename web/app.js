@@ -2530,7 +2530,9 @@ const filesView = mountFilesView($("files-view"), {
   },
 });
 // Terminal: the agent's real Claude Code (xterm.js), the default tab.
-const terminalView = mountTerminalView($("terminal-view"), { api, el });
+// Name of this page's event stream: the server only sends it the output of the terminal it shows.
+const STREAM = crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+const terminalView = mountTerminalView($("terminal-view"), { api, el, stream: STREAM });
 // Discussion: the agent's conversation, formatted, read-only, to the right of the Terminal.
 const discussionView = mountDiscussionView($("discussion-view"), {
   api, el, renderMarkdown,
@@ -3540,7 +3542,7 @@ syncNotifyToggle();
 
 function connect() {
   // EventSource reconnects by itself if the server restarts.
-  const source = new EventSource("/api/events");
+  const source = new EventSource(`/api/events?stream=${STREAM}`);
   const on = (/** @type {string} */ name, /** @type {(data: any) => void} */ handler) =>
     source.addEventListener(name, (e) => handler(JSON.parse(/** @type {MessageEvent} */ (e).data)));
   // Stream cut (server stopped or relaunched), then resumed: did the server restart?
@@ -3553,7 +3555,10 @@ function connect() {
     interrupted = true;
   });
   source.addEventListener("open", () => {
-    if (interrupted) checkServerAfterReconnect();
+    if (interrupted) {
+      checkServerAfterReconnect();
+      terminalView.reconnected(); // what the terminal shown printed during the cut
+    }
     interrupted = false;
   });
   on("server_restart", (data) => {

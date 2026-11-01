@@ -57,6 +57,23 @@ class TerminalsTest(unittest.TestCase):
         self.assertIn("GOT hello", base64.b64decode(snapshot["data"]).decode())
         self.assertGreater(snapshot["seq"], 0)
 
+    def test_snapshot_since_gives_only_the_missed_output(self):
+        self.terminals.start("c1", self.cwd, [], 80, 24)
+        self.assertTrue(wait_for(lambda: "SIZE" in self.screen()))
+        before = self.terminals.snapshot("c1")
+        self.terminals.write("c1", "later\r")
+        self.assertTrue(wait_for(lambda: "GOT later" in self.screen()))
+        missed = self.terminals.snapshot("c1", since=before["seq"], instance=before["instance"])
+        self.assertEqual(missed["since"], before["seq"])
+        self.assertIn("GOT later", base64.b64decode(missed["data"]).decode())
+        self.assertNotIn("SIZE", base64.b64decode(missed["data"]).decode(), "not what the page already has")
+        self.assertEqual(self.terminals.snapshot("c1", since=missed["seq"], instance=before["instance"])["data"], "")
+        # Another instance (Claude Code reopened), or a number ahead of the terminal: the whole screen.
+        for since, instance in ((before["seq"], before["instance"] + 1), (missed["seq"] + 5, before["instance"])):
+            full = self.terminals.snapshot("c1", since=since, instance=instance)
+            self.assertNotIn("since", full)
+            self.assertIn("SIZE", base64.b64decode(full["data"]).decode())
+
     def test_stop_closes_claude_and_reports_it(self):
         self.terminals.start("c1", self.cwd, [], 80, 24)
         self.assertTrue(wait_for(lambda: "SIZE" in self.screen()))

@@ -195,7 +195,12 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   (interactive) in the agent's folder, on its session (`--resume`), with its settings (model, permissions, Chrome).
   The server launches `claude` itself, never a shell, in a pseudo-terminal (its own session with the terminal as controlling
   terminal: resizing, Ctrl+C); the screen goes out on the SSE stream (numbered bytes), keystrokes come in by POST,
-  and the last 512 KB are kept to redraw the screen of a tab that opens. Every Claude Code command works there and
+  and the last 512 KB are kept to redraw the screen of a tab that opens. Made for a slow link (SSH tunnel, mobile
+  network): connections are kept between requests (HTTP/1.1, `TCP_NODELAY`), so a key does not open a connection of
+  its own; each page names its stream (`/api/events?stream=…`) and tells the server which terminal it shows
+  (`POST /api/terminal-watch`, none when the page is in the background): only that terminal's output is sent to it. A
+  terminal shown again asks only for what it missed (`GET /api/terminal?since=…&instance=…`), and a gap in the numbers
+  (stream cut) does the same. Through SSH, `ssh -C` also compresses the tunnel. Every Claude Code command works there and
   depends on no internal format: it is a terminal. If Claude Code switches session (new, `/clear`, `/resume`), the
   agent follows it thanks to the session registry, which also tells whether it is working.
   Keys typed in the terminal (Ctrl+B, Ctrl+P…) are for Claude Code, not for Ziggy's shortcuts.

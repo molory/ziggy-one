@@ -179,5 +179,6 @@
   "Invalid file": "अमान्य फ़ाइल",
   "Sound too large (2 MB max)": "ध्वनि फ़ाइल बहुत बड़ी है (अधिकतम 2 MB)",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "ऑडियो फ़ाइल नहीं है (MP3, WAV, OGG, M4A, AAC या FLAC)",
-  "Unknown color: {name}": "अज्ञात रंग: {name}"
+  "Unknown color: {name}": "अज्ञात रंग: {name}",
+  "Invalid terminal stream": "अमान्य टर्मिनल स्ट्रीम"
 }

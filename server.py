@@ -18,6 +18,7 @@ import secrets
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -99,6 +100,7 @@ PROBE_CMD = [
     "--no-session-persistence", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
     "--output-format", "stream-json", "--verbose", "Reply only: ok",
 ]
+STREAM_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")  # name a page gives its event stream (see Bus)
 KANBAN_BOARD_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})$")
 KANBAN_BOARD_ACTION_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})/(update|delete|columns|tickets|archive)$")
 KANBAN_COLUMN_ROUTE = re.compile(r"^/api/kanbans/([0-9a-f]{12})/columns/([0-9a-f]{8})/(update|move|delete)$")
@@ -247,30 +249,46 @@ def list_sessions(limit=50, our_pids=(), include=(), windows=None):
 
 
 class Bus:
-    """Broadcasts events to all the tabs subscribed to the SSE stream."""
+    """Broadcasts events to all the tabs subscribed to the SSE stream.
+
+    A page that names its stream only receives the output ("terminal" events) of the terminal it watches
+    (see watch): over a slow link (SSH tunnel, mobile network), the agents working in the background do not
+    take the bandwidth of the one you type in. A stream without a name receives everything."""
 
     def __init__(self):
-        self._subscribers = set()
+        self._subscribers = {}  # queue → stream key (None: receives every terminal)
+        self._watched = {}  # stream key → conversation whose terminal it shows (None: none)
         self._lock = threading.Lock()
 
-    def subscribe(self):
+    def subscribe(self, stream=None):
         q = queue.Queue(maxsize=1000)
         with self._lock:
-            self._subscribers.add(q)
+            self._subscribers[q] = stream
         return q
 
     def unsubscribe(self, q):
         with self._lock:
-            self._subscribers.discard(q)
+            stream = self._subscribers.pop(q, None)
+            if stream is not None and stream not in self._subscribers.values():
+                self._watched.pop(stream, None)
+
+    def watch(self, stream, conversation):
+        """The page of this stream now shows this terminal (None: none)."""
+        with self._lock:
+            self._watched[stream] = conversation
 
     def publish(self, kind, data):
         with self._lock:
-            subscribers = list(self._subscribers)
+            if kind == "terminal":
+                subscribers = [q for q, stream in self._subscribers.items()
+                               if stream is None or self._watched.get(stream) == data["conversation"]]
+            else:
+                subscribers = list(self._subscribers)
         for q in subscribers:
             try:
                 q.put_nowait((kind, data))
             except queue.Full:
-                pass
+                pass  # the page will see a gap in the numbers of its terminal and ask for what it missed
 
 
 class Usage:
@@ -632,12 +650,34 @@ class ZiggyServer(ThreadingHTTPServer):
 class Handler(BaseHTTPRequestHandler):
     server_version = "ziggy-one"
     sys_version = ""
+    # Persistent connections: through an SSH tunnel or a slow network, each key typed in a terminal
+    # no longer opens a connection (and a tunnel channel) of its own. Every answer gives its length,
+    # except the event stream, which closes its connection.
+    protocol_version = "HTTP/1.1"
     # A connection that sends nothing for a minute is closed (an idle program cannot hold threads forever).
     # The event stream is not affected: it writes at least every 15 s.
     timeout = 60
 
     def log_message(self, fmt, *args):
         pass
+
+    def setup(self):
+        super().setup()
+        # Small writes (an answer's headers then its body, an event) go out at once: without this,
+        # Nagle's algorithm waits for the previous one to be acknowledged.
+        self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+    def parse_request(self):
+        self.body_read = False  # per request of the connection (see _keep_alive)
+        return super().parse_request()
+
+    def _keep_alive(self):
+        """A request whose body was not read (refused before) closes its connection: its body would be
+        read as the next request."""
+        if self.headers is None or self.body_read:
+            return
+        if int(self.headers.get("Content-Length") or 0) or self.headers.get("Transfer-Encoding"):
+            self.close_connection = True
 
     # --- helpers -----------------------------------------------------------
 
@@ -646,7 +686,10 @@ class Handler(BaseHTTPRequestHandler):
         # http.server writes header values as they are: a line break would start a new header (response splitting).
         if any("\r" in str(value) or "\n" in str(value) for value in headers.values()):
             raise ValueError("line break in an HTTP header value")
+        self._keep_alive()
         self.send_response(status)
+        if self.close_connection:
+            self.send_header("Connection", "close")
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, headers.get(name, value))  # a route can harden a security header
         self.send_header("Cache-Control", headers.get("Cache-Control", "no-store"))
@@ -692,7 +735,9 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
             if length < 0 or length > MAX_BODY:
                 raise ValueError("Invalid Content-Length")
-            message = json.loads(self.rfile.read(length) or b"null")
+            raw = self.rfile.read(length)
+            self.body_read = True
+            message = json.loads(raw or b"null")
         except ValueError:
             return self._json(400, {"jsonrpc": "2.0", "id": None, "error": {"code": agent_mcp.PARSE_ERROR, "message": "Invalid JSON"}})
         conversation = self.server.conversations.get(conversation_id)
@@ -726,6 +771,7 @@ class Handler(BaseHTTPRequestHandler):
         if length < 0 or length > limit:
             raise ValueError(tr("Invalid Content-Length"))
         raw = self.rfile.read(length) if length else b""
+        self.body_read = True
         data = json.loads(raw or b"{}")
         if not isinstance(data, dict):
             raise ValueError(tr("JSON object expected"))
@@ -818,8 +864,12 @@ class Handler(BaseHTTPRequestHandler):
                 folders = recent_folders(used, limit=limit + 1)
                 return self._json(200, {"folders": folders[:limit], "more": len(folders) > limit})
             if url.path == "/api/terminal":
-                conversation_id = parse_qs(url.query).get("conversation", [""])[0]
-                return self._json(200, self.server.terminals.snapshot(conversation_id))
+                # The screen to redraw; with since and instance, only the output after it (see Terminals.snapshot).
+                params = parse_qs(url.query)
+                conversation_id = params.get("conversation", [""])[0]
+                since, instance = (params.get(name, [""])[0] for name in ("since", "instance"))
+                return self._json(200, self.server.terminals.snapshot(
+                    conversation_id, int(since) if since.isdigit() else None, int(instance) if instance.isdigit() else None))
             if url.path == "/api/transcript":
                 # Conversation tab: the formatted session; "since" avoids reading it again if nothing changed.
                 params = parse_qs(url.query)
@@ -837,7 +887,8 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as exc:
                     return self._json(500, {"error": tr("Cannot read: {error}", error=exc)})
             if url.path == "/api/events":
-                return self._stream_events()
+                stream = parse_qs(url.query).get("stream", [""])[0]
+                return self._stream_events(stream if STREAM_RE.match(stream) else None)
             if url.path == "/api/sound":
                 # End-of-turn sound: yours or the default one; ?v= changes with the file, so it can be kept.
                 data, kind = self.server.finish_sound.read()
@@ -889,6 +940,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, self.server.usage.snapshot())
             if path == "/api/conversations":
                 return self._open_conversation(body)
+            if path == "/api/terminal-watch":
+                # This page's stream (/api/events?stream=…) now shows this terminal (null: none).
+                stream, conversation_id = body.get("stream"), body.get("conversation")
+                if not isinstance(stream, str) or not STREAM_RE.match(stream) or not (
+                        conversation_id is None or isinstance(conversation_id, str)):
+                    return self._json(400, {"error": tr("Invalid terminal stream")})
+                self.server.bus.watch((self.session, stream), conversation_id)
+                return self._json(200, {})
             if path.startswith("/api/kanbans"):
                 return self._kanban_post(path, body)
             if path == "/api/server/restart":
@@ -1416,14 +1475,16 @@ class Handler(BaseHTTPRequestHandler):
             headers = {"Content-Security-Policy": csp}
         self._send(200, body, content_type, headers)
 
-    def _stream_events(self):
+    def _stream_events(self, stream=None):
+        """Events (SSE). With a stream name, the page's own: only the terminal it watches (see Bus)."""
+        self.close_connection = True  # no length: the stream ends with its connection
         self.send_response(200)
         for name, value in SECURITY_HEADERS.items():
             self.send_header(name, value)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        q = self.server.bus.subscribe()
+        q = self.server.bus.subscribe(None if stream is None else (self.session, stream))
         try:
             while True:
                 try:
@@ -1435,7 +1496,7 @@ class Handler(BaseHTTPRequestHandler):
                     break  # browser signed out: its stream stops too
                 self.wfile.write(payload.encode())
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
+        except OSError:  # browser gone, or link cut for longer than the socket timeout
             pass
         finally:
             self.server.bus.unsubscribe(q)

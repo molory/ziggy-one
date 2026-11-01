@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Terminal over a slow link (SSH tunnel, train):** typing and scrolling stay smooth. Connections are kept open
+  (HTTP/1.1, no Nagle delay) instead of one per key; a page only receives the output of the terminal it shows (none
+  in the background), so agents working elsewhere no longer take the bandwidth; switching back to an agent or
+  reconnecting after a cut fetches only the output that was missed, not the whole screen.
 - **Project quality:** CI also runs on macOS, lints the server with ruff and the workflows with zizmor; CodeQL and
   OpenSSF Scorecard scan the project; a `vX.Y.Z` tag publishes a GitHub release from this changelog. The README
   explains why Ziggy One exists, in the same words as the [website](https://ziggy-one.smyno.com).
