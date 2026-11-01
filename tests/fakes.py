@@ -78,8 +78,10 @@ def drain(events):
 FAKE_INTERACTIVE = f"""#!{sys.executable}
 import json, os, signal, sys
 def size(*_):
+    # os.write, not print: a SIGWINCH can land while print is running (macOS may send two in a row),
+    # and print inside print raises "reentrant call" and kills the fake.
     columns, lines = os.get_terminal_size(0)
-    print(f"SIZE {{columns}}x{{lines}}", flush=True)
+    os.write(1, f"SIZE {{columns}}x{{lines}}\\n".encode())
 try:
     os.close(os.open("/dev/tty", os.O_RDWR))
     ctty = True
