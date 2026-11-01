@@ -64,6 +64,10 @@ To add a language:
 4. Update the documentation (README or `docs/GUIDE.md`, in English) and `CHANGELOG.md` (section "Unreleased").
 5. Describe what you changed, why, and how you tested it.
 
+Using Claude Code? `/review-pr <number>` (`.claude/skills/review-pr/SKILL.md`) reviews a pull request against these
+rules and the threat model; run it on your own PR before asking for a review. If you change a security helper it
+names (`_send`, `files._inside`, `gitops.run`…) or the required CI checks, update the skill in the same PR.
+
 ## Releases
 
 Maintainers release from `main`: move the "Unreleased" entries of `CHANGELOG.md` under a new `## [X.Y.Z] - date`

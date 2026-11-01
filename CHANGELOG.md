@@ -5,6 +5,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **Review skill for contributors:** `/review-pr <number>` in Claude Code reviews a pull request of Ziggy One
+  against its rules (HTTP boundary, no `innerHTML`, agents and files, no dependencies, translations, tests) and
+  checks the PR's compliance (target, required checks, description, changelog). See CONTRIBUTING.md.
 - **Project quality:** CI also runs on macOS, lints the server with ruff and the workflows with zizmor; CodeQL and
   OpenSSF Scorecard scan the project; a `vX.Y.Z` tag publishes a GitHub release from this changelog. The README
   explains why Ziggy One exists, in the same words as the [website](https://ziggy-one.smyno.com).
