@@ -87,7 +87,8 @@ squash only (ruleset) and review threads must be resolved.
   Build nodes with the file's `el(tag, class, text)` / `textContent`. Existing exceptions are literals (`hero.js`
   SVG defs) or our own rendered tree (`discussion-view.js` PDF export): a new one needs the same justification.
 - Markdown goes through `web/markdown.js` (parse then build nodes), never a regex-to-HTML shortcut.
-- Links: only `http(s)` URLs become clickable (terminal links, Markdown); `javascript:` / `data:` must not.
+- Links: terminal links open only `http(s)` (`terminal-view.js` `linkHandler`); Markdown keeps `http(s)` and `mailto:`
+  (`SAFE_LINK` in `web/markdown.js`). `javascript:` / `data:` must never become clickable.
 - Inline `style` attributes are allowed (xterm.js needs them) but values from data are set with
   `style.setProperty`, not string-built `style` attributes.
 
