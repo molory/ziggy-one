@@ -641,9 +641,16 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- helpers -----------------------------------------------------------
 
+    def send_header(self, keyword, value):
+        # http.server writes header values as they are: a line break would start a new header (response splitting).
+        # Checked here, where every header goes (_send, _send_file, the event stream, error pages).
+        if "\r" in str(value) or "\n" in str(value):
+            raise ValueError("line break in an HTTP header value")
+        super().send_header(keyword, value)
+
     def _send(self, status, body=b"", content_type="application/json; charset=utf-8", headers=None):
         headers = headers or {}
-        # http.server writes header values as they are: a line break would start a new header (response splitting).
+        # Also before the status line: a refused header leaves no half-written response.
         if any("\r" in str(value) or "\n" in str(value) for value in headers.values()):
             raise ValueError("line break in an HTTP header value")
         self.send_response(status)

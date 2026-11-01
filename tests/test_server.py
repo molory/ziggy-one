@@ -55,6 +55,17 @@ class HeaderTest(unittest.TestCase):
                 handler._send(200, b"x", headers={"Content-Disposition": value})
         handler.send_response.assert_not_called()
 
+    def test_every_header_refuses_a_line_break(self):
+        # _send_file and the event stream write their headers themselves: the check is in send_header.
+        handler = server.Handler.__new__(server.Handler)
+        handler.request_version = "HTTP/1.1"
+        handler._headers_buffer = []
+        handler.send_header("Content-Disposition", "inline; filename*=UTF-8''a%0Ab")  # encoded: fine
+        for value in ("inline; filename=a\r\nSet-Cookie: x=1", "a\nb"):
+            with self.assertRaises(ValueError):
+                handler.send_header("Content-Disposition", value)
+        self.assertEqual(len(handler._headers_buffer), 1)
+
 
 class ListSessionsTest(unittest.TestCase):
     def test_merges_open_sessions_with_recent_transcripts(self):
