@@ -1,5 +1,9 @@
 __pycache__/
 *.pyc
-.claude/
+# Local Claude Code settings stay out of git; the project's skills are shared.
+.claude/*
+!.claude/skills/
 .venv/
 .DS_Store
+# Reviews written by the review-pr skill.
+.reviews/
