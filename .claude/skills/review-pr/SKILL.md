@@ -71,11 +71,12 @@ squash only (ruleset) and review threads must be resolved.
   (constant time), never `==`. CRITICAL if missing.
 - Request bodies go through `_read_json(limit)` with a size limit (`MAX_BODY` or a dedicated `MAX_*_BODY`); never
   `rfile.read()` of an unbounded length.
-- Responses use `_send()` / `_json()`, which add `SECURITY_HEADERS` and refuse `\r`/`\n` in header values.
-  Exception: `_send_file()` and `_stream_events()` write headers with `send_header` directly, so they skip that
-  check; a new route copied from them must sanitize every value built from data (`_send_file` uses
-  `quote(name, safe="")`). Files opened in a tab use `RAW_FILE_HEADERS` (sandboxing CSP). Any CSP change must keep `default-src 'self'` and no inline
-  script; styles only via the per-load nonce.
+- Responses use `_send()` / `_json()`, which add `SECURITY_HEADERS`. Every header value goes through
+  `Handler.send_header`, which refuses `\r`/`\n` (response splitting): a route must not bypass it (no direct
+  `wfile.write` of headers, no `super().send_header`). Values built from data are still encoded first, like
+  `_send_file`'s `quote(name, safe="")`, so a file name does not turn into a server error. Files opened in a tab use
+  `RAW_FILE_HEADERS` (sandboxing CSP). Any CSP change must keep `default-src 'self'` and no inline script; styles
+  only via the per-load nonce.
 - Secrets: the browser token is never printed, logged, put in a URL or a command line. Login goes through single-use
   links (`login_links.py`); `/?token=` must not sign in again. Hooks and MCP keys stay in `0600` files
   (`write_private`, `agent_mcp.agent_key`), never in `argv` (visible in `ps`).
