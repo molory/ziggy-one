@@ -78,8 +78,8 @@ def drain(events):
 FAKE_INTERACTIVE = f"""#!{sys.executable}
 import json, os, signal, sys
 def size(*_):
-    # os.write, not print: a SIGWINCH can land while print is running (macOS may send two in a row),
-    # and print inside print raises "reentrant call" and kills the fake.
+    # os.write, not print: Terminals.resize sends its own SIGWINCH on top of the kernel's, so a second
+    # one can land while print is running, and print inside print raises "reentrant call" and kills the fake.
     columns, lines = os.get_terminal_size(0)
     os.write(1, f"SIZE {{columns}}x{{lines}}\\n".encode())
 try:
