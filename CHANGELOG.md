@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- **A damaged Kanban file no longer stops the server:** `kanbans.json` with a list or an object where a board, a
+  column or a list of tickets was expected now loads with defaults instead of crashing at start. Found by fuzzing.
 - **Review skill for contributors:** `/review-pr <number>` in Claude Code reviews a pull request of Ziggy One
   against its rules (HTTP boundary, no `innerHTML`, agents and files, no dependencies, translations, tests) and
   checks the PR's compliance (target, required checks, description, changelog). See CONTRIBUTING.md.

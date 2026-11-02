@@ -67,6 +67,11 @@ FIELD_ERRORS = {
 }
 
 
+def _list(value):
+    """A list field of the stored file; [] if it is missing or damaged (any other type)."""
+    return value if isinstance(value, list) else []
+
+
 def _text(value, limit, what, required=True):
     invalid, empty = FIELD_ERRORS[what]
     if not isinstance(value, str):
@@ -100,9 +105,9 @@ class Kanban:
         self._lock = threading.Lock()
         data = read_json(self._path, {})
         data = data if isinstance(data, dict) else {}
-        self._boards = [b for b in map(self._load_board, data.get("boards") or []) if b][:MAX_BOARDS]
+        self._boards = [b for b in map(self._load_board, _list(data.get("boards"))) if b][:MAX_BOARDS]
         known = {board["id"]: board for board in self._boards}
-        self._tickets = [t for t in (self._load_ticket(raw, known) for raw in data.get("tickets") or []) if t]
+        self._tickets = [t for t in (self._load_ticket(raw, known) for raw in _list(data.get("tickets"))) if t]
         self._next_number = data.get("nextNumber") if isinstance(data.get("nextNumber"), int) else 1
         if self._number_tickets():
             write_json(self._path, self._data())
@@ -119,7 +124,7 @@ class Kanban:
         except ValueError:
             return None
         columns = []
-        for column in raw.get("columns") or []:
+        for column in _list(raw.get("columns")):
             if not isinstance(column, dict) or not COLUMN_RE.match(str(column.get("id"))):
                 continue
             try:
@@ -135,9 +140,12 @@ class Kanban:
 
     @staticmethod
     def _load_ticket(raw, boards):
-        if not isinstance(raw, dict) or not ID_RE.match(str(raw.get("id"))) or raw.get("board") not in boards:
+        # `board` and `column` must be strings before the lookups: a list or a dict there is not hashable.
+        if not isinstance(raw, dict) or not ID_RE.match(str(raw.get("id"))) or not isinstance(raw.get("board"), str):
             return None
-        if raw.get("column") not in {c["id"] for c in boards[raw["board"]]["columns"]}:
+        if raw["board"] not in boards or not isinstance(raw.get("column"), str):
+            return None
+        if raw["column"] not in {c["id"] for c in boards[raw["board"]]["columns"]}:
             return None
         try:
             title = _text(raw.get("title"), MAX_TITLE, "title")
@@ -147,7 +155,7 @@ class Kanban:
         files = [
             {"id": f["id"], "name": str(f.get("name"))[:200], "type": str(f.get("type") or "")[:100],
              "size": f.get("size") if isinstance(f.get("size"), int) else 0}
-            for f in raw.get("files") or [] if isinstance(f, dict) and FILE_RE.match(str(f.get("id")))
+            for f in _list(raw.get("files")) if isinstance(f, dict) and FILE_RE.match(str(f.get("id")))
         ]
         stamp = raw.get("createdAt") if isinstance(raw.get("createdAt"), (int, float)) else 0
         try:
