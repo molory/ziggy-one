@@ -72,7 +72,9 @@ names (`_send`, `files._inside`, `gitops.run`…) or the required CI checks, upd
 
 Maintainers release from `main`: move the "Unreleased" entries of `CHANGELOG.md` under a new `## [X.Y.Z] - date`
 heading, update the links at the bottom, then push a signed tag `vX.Y.Z`. The release workflow publishes the GitHub
-release with that section as notes. Versions follow [Semantic Versioning](https://semver.org/).
+release with that section as notes, the source archive `ziggy-one-vX.Y.Z.tar.gz` and its signed build provenance
+(`.sigstore.json`; check it with `gh attestation verify ziggy-one-vX.Y.Z.tar.gz --repo molory/ziggy-one`). Versions
+follow [Semantic Versioning](https://semver.org/).
 
 ## Reporting bugs
 
