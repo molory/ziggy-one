@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
 - **A damaged Kanban file no longer stops the server:** `kanbans.json` with a list or an object where a board, a
   column or a list of tickets was expected now loads with defaults instead of crashing at start. Found by fuzzing.
 - **Review skill for contributors:** `/review-pr <number>` in Claude Code reviews a pull request of Ziggy One
@@ -139,5 +141,6 @@ First public release.
 - Kanban boards with history, attachments, numbered links and MCP tools for the agents.
 - Files and Git tabs, plan usage and context window indicators, clean server restarts.
 
-[Unreleased]: https://github.com/molory/ziggy-one/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/molory/ziggy-one/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/molory/ziggy-one/releases/tag/v0.2.0
 [0.1.0]: https://github.com/molory/ziggy-one/releases/tag/v0.1.0
