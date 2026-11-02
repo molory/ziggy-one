@@ -246,6 +246,24 @@ class KanbanTest(unittest.TestCase):
         path.write_text("not json")
         self.assertEqual(self.make().list(), [])
 
+    def test_reload_survives_fields_of_the_wrong_type(self):
+        """These used to raise TypeError in the constructor, which stopped the server at start (found by fuzz/)."""
+        board = self.board["id"]
+        self.kb.create_ticket(board, self.todo, "kept")
+        path = self.dir / "data" / "kanbans.json"
+        data = json.loads(path.read_text())
+        data["boards"].append({"id": "b" * 12, "name": "x", "columns": 5})
+        data["tickets"] += [{"id": "a" * 12, "board": [board], "column": self.todo, "title": "list board"},
+                            {"id": "c" * 12, "board": board, "column": {"id": self.todo}, "title": "dict column"},
+                            {"id": "d" * 12, "board": board, "column": self.todo, "title": "files", "files": 5}]
+        path.write_text(json.dumps(data))
+        reloaded = self.make()
+        self.assertEqual([b["name"] for b in reloaded.list()], ["Ziggy roadmap"])
+        self.assertEqual(sorted(t["title"] for t in reloaded.get(board)["tickets"]), ["files", "kept"])
+        for whole in ({"boards": 5}, {"tickets": 5.5}, {"boards": True, "tickets": "x"}):
+            path.write_text(json.dumps(whole))
+            self.assertEqual(self.make().list(), [])
+
 
 class KanbanHttpTest(unittest.TestCase):
     """The routes end to end, on a real local server."""

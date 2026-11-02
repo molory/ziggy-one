@@ -53,6 +53,24 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tests -v
 
+  fuzz:
+    name: Fuzzing (atheris)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      # Development tool only, pinned by hash; the unit tests run the same targets without it (tests/test_fuzz.py).
+      - name: Install atheris
+        run: "python -m pip install --require-hashes --only-binary=:all: -r .github/requirements-fuzz.txt"
+      - name: Damaged Kanban file
+        run: python fuzz/fuzz_kanban.py -max_total_time=60
+      - name: Paths of the Files tab
+        run: python fuzz/fuzz_paths.py -max_total_time=60
+
   frontend:
     name: Front-end tests (Node)
     runs-on: ubuntu-latest

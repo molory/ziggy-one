@@ -1,6 +1,7 @@
 # Pushing a tag vX.Y.Z publishes a GitHub release whose notes are that version's section of CHANGELOG.md.
 # The tag must match a "## [X.Y.Z]" heading: move the "Unreleased" entries under it before tagging.
-# The release carries the source archive and its signed build provenance (Sigstore bundle), which anyone can check:
+# The release carries the source archive and its signed build provenance (Sigstore bundle and .intoto.jsonl), which
+# anyone can check:
 #   gh attestation verify ziggy-one-vX.Y.Z.tar.gz --repo molory/ziggy-one
 name: Release
 
@@ -51,7 +52,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        # The same provenance twice: the whole Sigstore bundle (.sigstore.json, for `gh attestation verify --bundle`)
+        # and its signed in-toto statement alone, one DSSE envelope per line (.intoto.jsonl, the SLSA convention).
         run: |
           cp "$BUNDLE" "ziggy-one-$TAG.tar.gz.sigstore.json"
+          jq -c -e .dsseEnvelope "$BUNDLE" > "ziggy-one-$TAG.intoto.jsonl"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Ziggy One $TAG" --notes-file notes.md --verify-tag \
-            "ziggy-one-$TAG.tar.gz" "ziggy-one-$TAG.tar.gz.sigstore.json"
+            "ziggy-one-$TAG.tar.gz" "ziggy-one-$TAG.tar.gz.sigstore.json" "ziggy-one-$TAG.intoto.jsonl"

@@ -141,7 +141,8 @@ squash only (ruleset) and review threads must be resolved.
 ### 7. No dependencies, vendored code
 - No new import outside the Python standard library; no npm, bundler, CDN or external font/script URL in `web/`.
   Vendored code lives in `web/vendor/<name>/` with a README giving version, date and sha256 (like
-  `web/vendor/xterm/README.md`). Dev tools (ruff, zizmor) stay CI-only, pinned by hash in `.github/requirements-lint.txt`.
+  `web/vendor/xterm/README.md`). Dev tools (ruff, zizmor, atheris) stay CI-only, pinned by hash in
+  `.github/requirements-*.txt`.
 - Workflows: actions pinned by full SHA with a version comment, `persist-credentials: false`, least `permissions`
   (zizmor runs in CI, but check new `permissions:` blocks by eye).
 

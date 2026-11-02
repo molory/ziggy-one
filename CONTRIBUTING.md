@@ -38,6 +38,10 @@ ruff check .                              # lint, configured in ruff.toml (pipx 
 Ruff is a development tool only; it is never a dependency of Ziggy One. CI also runs the server tests on macOS and
 checks the workflows with [zizmor](https://docs.zizmor.sh/).
 
+`fuzz/` holds fuzz targets for code that reads untrusted input (a damaged data file, a path sent by the browser or an
+agent). CI fuzzes them with [atheris](https://github.com/google/atheris) (Linux x86_64 only); `tests/test_fuzz.py`
+runs the same checks on seeded random inputs, so the unit tests cover them on every OS without atheris.
+
 Put pure logic in modules without DOM access (for example `web/*-logic.js`) so it can be tested with `node --test`.
 Server features get tests in `tests/test_*.py`; HTTP routes are tested end to end against a real server on a random
 port.
@@ -73,8 +77,9 @@ names (`_send`, `files._inside`, `gitops.run`…) or the required CI checks, upd
 Maintainers release from `main`: move the "Unreleased" entries of `CHANGELOG.md` under a new `## [X.Y.Z] - date`
 heading, update the links at the bottom, then push a signed tag `vX.Y.Z`. The release workflow publishes the GitHub
 release with that section as notes, the source archive `ziggy-one-vX.Y.Z.tar.gz` and its signed build provenance
-(`.sigstore.json`; check it with `gh attestation verify ziggy-one-vX.Y.Z.tar.gz --repo molory/ziggy-one`). Versions
-follow [Semantic Versioning](https://semver.org/).
+(`.sigstore.json`, and its in-toto statement as `.intoto.jsonl`; check it with
+`gh attestation verify ziggy-one-vX.Y.Z.tar.gz --repo molory/ziggy-one`). Versions follow
+[Semantic Versioning](https://semver.org/).
 
 ## Reporting bugs
 
