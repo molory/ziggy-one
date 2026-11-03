@@ -349,7 +349,9 @@ class ZiggyServer(ThreadingHTTPServer):
         # Private folder (token, sessions, keys), even if it was created before with wider permissions.
         data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.onboarding = Onboarding(data_dir / "onboarding.json")
-        self.pasted = PastedFiles(data_dir / "pasted")
+        # Next to the data folder, not inside: the agents may not read the data folder (see _hooks_config).
+        self.pasted = PastedFiles(data_dir.with_name(f"{data_dir.name}-pasted"))
+        shutil.rmtree(data_dir / "pasted", ignore_errors=True)  # pastes of the first version, unreadable there
         try:
             data_dir.chmod(0o700)
         except OSError:
@@ -437,7 +439,9 @@ class ZiggyServer(ThreadingHTTPServer):
         }
         # "//" + absolute path: a path from the root of the disk in Claude Code's permission rules.
         data = f"/{self.data_dir.resolve()}/**"
-        permissions = {"deny": [f"Read({data})", f"Edit({data})"]}
+        # Files you pasted into the terminal (pasted.py): read without asking, since you gave them.
+        pasted = f"/{self.pasted.folder.resolve()}/**"
+        permissions = {"deny": [f"Read({data})", f"Edit({data})"], "allow": [f"Read({pasted})"]}
         write_private(path, json.dumps({"hooks": hooks, "permissions": permissions}))
         return path
 

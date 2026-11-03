@@ -5,6 +5,9 @@ saved here, in a private folder of its own, and the terminal receives the path. 
 would send Ctrl+V and Claude Code would read the system clipboard itself, which holds the file's icon
 (an image), not the file.
 
+The folder is next to Ziggy One's data folder, not inside it: the agents are denied reading the data folder
+(tokens, sessions), and a deny rule of Claude Code cannot have exceptions.
+
 Files are kept 7 days, then removed at the next paste.
 """
 

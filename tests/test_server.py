@@ -9,6 +9,7 @@ import os
 import socket
 import subprocess
 import sys
+import shutil
 import tempfile
 import threading
 import time
@@ -205,7 +206,11 @@ class ConversationsHttpTest(unittest.TestCase):
         self.assertEqual(status, 200)
         path = Path(answer["path"])
         self.assertEqual((path.name, path.read_bytes()), ("My_notes_v2_.md", b"# Think different\n"))
-        self.assertTrue(path.is_relative_to(self.tmp / "pasted" / conversation["id"]))
+        pasted_dir = self.tmp.with_name(f"{self.tmp.name}-pasted")
+        self.addCleanup(shutil.rmtree, pasted_dir, True)
+        # Outside the data folder, which the agents may not read.
+        self.assertTrue(path.is_relative_to(pasted_dir / conversation["id"]))
+        self.assertFalse(path.is_relative_to(self.tmp))
         self.assertEqual((path.stat().st_mode & 0o777, path.parent.stat().st_mode & 0o777), (0o600, 0o700))
         self.assertEqual(self.call("POST", route, {"name": "x.md", "data": "not base64!"})[0], 400)
         self.assertEqual(self.call("POST", route, {"name": "x.md", "data": ""})[0], 400)
@@ -394,7 +399,12 @@ class ConversationsHttpTest(unittest.TestCase):
         self.assertNotIn(self.httpd.hook_token, command, "the token goes through a file, not the command line")
         # Ziggy One's data (token, keys) out of reach of the agent's file tools.
         data = f"/{self.httpd.data_dir.resolve()}/**"
-        self.assertEqual(json.loads(settings.read_text())["permissions"]["deny"], [f"Read({data})", f"Edit({data})"])
+        permissions = json.loads(settings.read_text())["permissions"]
+        self.assertEqual(permissions["deny"], [f"Read({data})", f"Edit({data})"])
+        # Except the files you pasted into the terminal, kept next to it (not inside: a deny has no exception).
+        pasted_dir = self.httpd.pasted.folder.resolve()
+        self.assertEqual(permissions["allow"], [f"Read(/{pasted_dir}/**)"])
+        self.assertFalse(pasted_dir.is_relative_to(self.httpd.data_dir.resolve()))
         # Agent settings: applied at the next opening, on the same session.
         session = "11111111-2222-4333-8444-555555555555"
         self.httpd.conversations.get(opened["id"]).adopt_session(session)
