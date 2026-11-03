@@ -6,8 +6,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 - **Terminal: pasting a file:** a file copied in the Finder (a `.md`, a PDF…) and pasted into an agent's terminal
-  now gives Claude Code the file itself: Ziggy One saves it (private folder, kept 7 days) and types its path, as a
-  terminal does. Before, Claude Code got the file's icon as an image. Pasted screenshots still go through ^V.
+  now gives Claude Code the file itself: Ziggy One saves it (private folder `ziggy-one-pasted` next to its data
+  folder, kept 7 days) and types its path, as a terminal does. Before, Claude Code got the file's icon as an image.
+  Pasted screenshots still go through ^V.
 - **A damaged Kanban file no longer stops the server:** `kanbans.json` with a list or an object where a board, a
   column or a list of tickets was expected now loads with defaults instead of crashing at start. Found by fuzzing.
 - **Review skill for contributors:** `/review-pr <number>` in Claude Code reviews a pull request of Ziggy One
