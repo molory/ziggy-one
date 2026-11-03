@@ -54,6 +54,7 @@ import agent_mcp
 from storage import default_data_dir, is_agent_key, persistent_token, write_private
 import logo
 from onboarding import Onboarding
+from pasted import PastedFiles
 from pins import Pins
 from settings import Settings
 from sound import FinishSound
@@ -113,7 +114,7 @@ KANBAN_FILE_ROUTE = re.compile(r"^/api/kanbans/tickets/([0-9a-f]{12})/files/([0-
 KANBAN_FILE_DELETE_ROUTE = re.compile(r"^/api/kanbans/tickets/([0-9a-f]{12})/files/([0-9a-f]{16})/delete$")
 KANBAN_WORKSPACE_ROUTE = re.compile(r"^/api/kanbans/workspaces/([0-9a-f]{12})/(update|add|remove|delete)$")
 CONVERSATION_ROUTE = re.compile(
-    r"^/api/conversations/([0-9a-f]{12})/(delete|shell|shell-stop|terminal-start|terminal-input|terminal-resize|terminal-stop)$"
+    r"^/api/conversations/([0-9a-f]{12})/(delete|shell|shell-stop|terminal-start|terminal-input|terminal-resize|terminal-stop|paste-file)$"
 )
 HOOK_ROUTE = re.compile(r"^/hooks/(session|prompt|stop|notify|tool)$")
 # Notification hook: what Claude Code waits for from you (the rest, like "idle_prompt", is ignored).
@@ -348,6 +349,7 @@ class ZiggyServer(ThreadingHTTPServer):
         # Private folder (token, sessions, keys), even if it was created before with wider permissions.
         data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.onboarding = Onboarding(data_dir / "onboarding.json")
+        self.pasted = PastedFiles(data_dir / "pasted")
         try:
             data_dir.chmod(0o700)
         except OSError:
@@ -878,7 +880,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         try:
             limit = (MAX_FILE_BODY if path == "/api/files/write" else MAX_PDF_BODY if path == "/api/pdf"
-                     else MAX_KANBAN_FILE_BODY if KANBAN_FILES_ROUTE.match(path)
+                     else MAX_KANBAN_FILE_BODY if KANBAN_FILES_ROUTE.match(path) or path.endswith("/paste-file")
                      else MAX_SOUND_BODY if path == "/api/sound" else MAX_BODY)
             body = self._read_json(limit)
         except ValueError as exc:
@@ -1013,6 +1015,16 @@ class Handler(BaseHTTPRequestHandler):
                 elif action == "terminal-stop":
                     self.server.terminals.stop(conversation_id)
                     return self._json(200, {"ok": True})
+                elif action == "paste-file":
+                    # File pasted into the terminal: saved, its path is typed by the browser (see pasted.py).
+                    try:
+                        data = base64.b64decode(body.get("data") or "", validate=True)
+                        path = self.server.pasted.save(conversation_id, body.get("name"), data)
+                    except binascii.Error:
+                        return self._json(400, {"error": tr("Invalid file")})
+                    except ValueError as exc:
+                        return self._json(400, {"error": str(exc)})
+                    return self._json(200, {"path": path})
                 elif action == "shell":
                     # "!! command" in the Conversation: console in the agent's folder, without Claude.
                     run_id = self.server.shell.start(conversation_id, conversation.cwd, body.get("command"))

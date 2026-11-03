@@ -18,6 +18,17 @@ const THEME = {
   selectionBackground: "#3b4048",
 };
 
+const MAX_PASTED_FILE = 25 * 1024 * 1024; // as on the server (pasted.py)
+
+/** @param {File} file */
+const readBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result).split(",", 2)[1] ?? ""));
+    reader.addEventListener("error", () => reject(new Error(t("Cannot read {name}", { name: file.name }))));
+    reader.readAsDataURL(file);
+  });
+
 /** @type {Promise<void> | undefined} */
 let xtermLoading;
 
@@ -247,14 +258,17 @@ export function mountTerminalView(root, deps) {
       }
       return true;
     });
-    // Clipboard without text (a copied image): Claude Code reads it itself on ^V, as in a terminal.
+    // Clipboard without text. Only images (a screenshot): Claude Code reads them itself on ^V, as in a
+    // terminal. Other files (copied in the Finder): the clipboard also holds their icon, which ^V would give
+    // Claude Code as an image; they are saved by the server instead and their path is typed, as a terminal does.
     host.addEventListener("paste", (event) => {
       if (event.clipboardData?.getData("text/plain")) return;
-      if (event.clipboardData?.files.length) {
-        event.preventDefault();
-        event.stopPropagation();
-        sendInput(id, entry, "\x16");
-      }
+      const pasted = [...(event.clipboardData?.files ?? [])];
+      if (!pasted.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (pasted.every((file) => file.type.startsWith("image/"))) sendInput(id, entry, "\x16");
+      else pasteFiles(id, entry, pasted);
     }, true);
     /** @type {number | undefined} */
     let resizeTimer;
@@ -268,6 +282,30 @@ export function mountTerminalView(root, deps) {
       if (!host.hidden && host.clientWidth) fit.fit();
     }).observe(host);
     return entry;
+  }
+
+  /**
+   * Files pasted into the terminal: saved by the server, then their paths typed (separated by spaces).
+   *
+   * @param {string} id
+   * @param {any} entry
+   * @param {File[]} pasted
+   */
+  async function pasteFiles(id, entry, pasted) {
+    const paths = [];
+    for (const file of pasted) {
+      if (file.size > MAX_PASTED_FILE) {
+        flash(t("\"{name}\" is too large (25 MB max).", { name: file.name }));
+        continue;
+      }
+      try {
+        const { path } = await api(`/api/conversations/${id}/paste-file`, { name: file.name, data: await readBase64(file) });
+        paths.push(path);
+      } catch (err) {
+        flash(err instanceof Error ? err.message : String(err));
+      }
+    }
+    if (paths.length) sendInput(id, entry, `${paths.join(" ")} `);
   }
 
   /** @type {number | undefined} */
