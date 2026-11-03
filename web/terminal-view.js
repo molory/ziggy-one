@@ -6,7 +6,7 @@
 
 import { t } from "./i18n.js";
 import { createRecolor } from "./terminal-colors.js";
-import { typedText } from "./terminal-input.js";
+import { pastedAsText, pastedText, typedText } from "./terminal-input.js";
 
 const XTERM_SCRIPTS = ["/vendor/xterm/xterm.js", "/vendor/xterm/addon-fit.js"];
 const NONCE = document.querySelector('meta[name="csp-nonce"]')?.getAttribute("content") ?? "";
@@ -260,7 +260,7 @@ export function mountTerminalView(root, deps) {
     });
     // Clipboard without text. Only images (a screenshot): Claude Code reads them itself on ^V, as in a
     // terminal. Other files (copied in the Finder): the clipboard also holds their icon, which ^V would give
-    // Claude Code as an image; they are saved by the server instead and their path is typed, as a terminal does.
+    // Claude Code as an image; they are pasted as text or by their path instead (pasteFiles).
     host.addEventListener("paste", (event) => {
       if (event.clipboardData?.getData("text/plain")) return;
       const pasted = [...(event.clipboardData?.files ?? [])];
@@ -285,7 +285,9 @@ export function mountTerminalView(root, deps) {
   }
 
   /**
-   * Files pasted into the terminal: saved by the server, then their paths typed (separated by spaces).
+   * Files pasted into the terminal. A text file: its content, as a paste (Claude Code shows a long one as
+   * "[Pasted text #1 +N lines]"). Any other file: saved by the server, then its path typed. Paths: separated
+   * by spaces, after the pasted texts.
    *
    * @param {string} id
    * @param {any} entry
@@ -294,6 +296,19 @@ export function mountTerminalView(root, deps) {
   async function pasteFiles(id, entry, pasted) {
     const paths = [];
     for (const file of pasted) {
+      // Only into a bracketed paste: otherwise each line break of the file would send a message.
+      if (pastedAsText(file) && entry.term.modes.bracketedPasteMode) {
+        let text;
+        try {
+          text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+        } catch {
+          text = undefined; // not UTF-8 text after all: sent as a file
+        }
+        if (text !== undefined) {
+          entry.term.paste(pastedText(text)); // bracketed if Claude Code asked for it; goes out through onData
+          continue;
+        }
+      }
       if (file.size > MAX_PASTED_FILE) {
         flash(t("\"{name}\" is too large (25 MB max).", { name: file.name }));
         continue;
