@@ -197,6 +197,20 @@ class ConversationsHttpTest(unittest.TestCase):
         self.assertEqual(self.hook("session", me["id"], {}, token="wrong")[0], 403)
         self.assertEqual(self.call("POST", "/api/agents/role", {"agent": teams["id"], "role": 3})[0], 400)
 
+    def test_paste_file_saves_it_privately_and_gives_its_path(self):
+        _, conversation = self.call("POST", "/api/conversations", {})
+        route = f"/api/conversations/{conversation['id']}/paste-file"
+        data = base64.b64encode(b"# Think different\n").decode()
+        status, answer = self.call("POST", route, {"name": "../My notes (v2).md", "data": data})
+        self.assertEqual(status, 200)
+        path = Path(answer["path"])
+        self.assertEqual((path.name, path.read_bytes()), ("My_notes_v2_.md", b"# Think different\n"))
+        self.assertTrue(path.is_relative_to(self.tmp / "pasted" / conversation["id"]))
+        self.assertEqual((path.stat().st_mode & 0o777, path.parent.stat().st_mode & 0o777), (0o600, 0o700))
+        self.assertEqual(self.call("POST", route, {"name": "x.md", "data": "not base64!"})[0], 400)
+        self.assertEqual(self.call("POST", route, {"name": "x.md", "data": ""})[0], 400)
+        self.assertEqual(self.call("POST", "/api/conversations/0123456789ab/paste-file", {"data": data})[0], 404)
+
     def test_open_and_delete(self):
         status, first = self.call("POST", "/api/conversations", {})
         self.assertEqual((status, first["busy"], first["sessionId"]), (200, False, None))
