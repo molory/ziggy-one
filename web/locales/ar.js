@@ -820,4 +820,5 @@ export default {
   "Delete {name}?": "حذف {name}؟",
   "Its token is removed from this machine. It stays valid on Anthropic's side until it expires.": "يُزال رمزه من هذا الجهاز. ويظل صالحًا لدى Anthropic حتى تنتهي صلاحيته.",
   "Checking the token with Claude…": "جارٍ التحقق من الرمز لدى Claude…",
+  "Rename {name}": "إعادة تسمية {name}",
 };

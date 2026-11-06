@@ -942,6 +942,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, self.server.account_info())
             if path == "/api/accounts/add":
                 return self._json(200, self.server.accounts.add(body.get("name"), body.get("token")))
+            if path == "/api/accounts/rename":
+                return self._json(200, self.server.accounts.rename(body.get("id"), body.get("name")))
             if path == "/api/accounts/delete":
                 return self._json(200, self.server.accounts.delete(body.get("id")))
             if path == "/api/accounts/switch":

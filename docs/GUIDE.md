@@ -77,7 +77,7 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   account: work, personal…), checked with a short call to Claude before it is saved. "Use" saves the choice and goes through the same clean restart: at the start, the server
   puts the token of the chosen profile in its environment (`CLAUDE_CODE_OAUTH_TOKEN`), so every `claude` it starts
   uses it (terminals, usage, commit messages), and the terminals reopen on their conversations (the history stays in
-  `~/.claude`, whatever the account). Cancelling the restart keeps the account in use. The tokens stay in
+  `~/.claude`, whatever the account). Cancelling the restart keeps the account in use. "Rename" changes only a profile's name, even the one in use. The tokens stay in
   `accounts.json` (0600, data folder) and never go to a browser; a token gives no email, so the account window shows
   the profile's name.
 - **Language** (`settings.py`, `i18n.py`, `web/i18n.js`): the interface is in English by default; Chinese,
