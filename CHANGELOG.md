@@ -9,7 +9,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   profiles, each a long-lived token made by `claude setup-token` (one per account), next to the login of the machine.
   "Use" switches every terminal at once through the clean restart: they reopen on their conversations with the new
   account. A token is checked with Claude before it is saved; tokens stay in `accounts.json` (0600) and never go
-  to a browser.
+  to a browser. A profile can be renamed, even the one in use.
 - **Terminal: pasting a file:** a file copied in the Finder (a `.md`, a PDF…) and pasted into an agent's terminal
   now gives Claude Code the file itself. A text file (`.md`, `.txt`, `.csv`, code…, up to 512 KB) is pasted as its
   content, shown by Claude Code as `[Pasted text #1 +N lines]`. Any other file (a PDF…) is saved (private folder

@@ -96,6 +96,26 @@ class AccountsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             store.delete(work)
 
+    def test_rename_keeps_the_token_and_the_account_in_use(self):
+        store = self.make()
+        work = store.add("wrok", TOKEN)["profiles"][0]["id"]
+        store.add("personal", OTHER)
+        store.select(work)
+        environ = {}
+        accounts.apply(self.path, environ)
+        running = self.make(environ)
+        for name in ("", "a\nb", "x" * 61, "personal"):  # invalid, or the other one's name
+            with self.assertRaises(ValueError, msg=name):
+                store.rename(work, name)
+        with self.assertRaises(ValueError):
+            store.rename("000000000000", "work")
+        snapshot = store.rename(work, " work ")
+        self.assertEqual([p["name"] for p in snapshot["profiles"]], ["work", "personal"])
+        self.assertEqual(snapshot["active"], work)
+        self.assertEqual(json.loads(self.path.read_text())["profiles"][0]["token"], TOKEN)
+        self.assertEqual(running.running_name(), "work")  # read again: renamed by the other instance
+        store.rename(work, "work")  # same name: allowed
+
     def test_damaged_file(self):
         self.path.write_text(json.dumps({"active": "ffffffffffff", "profiles": [
             {"id": "aaaaaaaaaaaa", "name": "ok", "token": TOKEN},
@@ -178,6 +198,15 @@ class AccountsHttpTest(unittest.TestCase):
             self.call("POST", "/api/accounts/switch", {"id": None})
             restart.request.assert_not_called()
             restart.cancel.assert_not_called()
+
+    def test_rename_route(self):
+        work = json.loads(self.call("POST", "/api/accounts/add", {"name": "wrok", "token": TOKEN})[1])["profiles"][0]["id"]
+        self.assertEqual(self.call("POST", "/api/accounts/rename", {"id": work, "name": " "})[0], 400)
+        self.assertEqual(self.call("POST", "/api/accounts/rename", {"id": None, "name": "x"})[0], 400)
+        status, raw = self.call("POST", "/api/accounts/rename", {"id": work, "name": "work"})
+        self.assertEqual(status, 200)
+        self.assertNotIn(TOKEN, raw)
+        self.assertEqual(json.loads(raw)["profiles"][0]["name"], "work")
 
     def test_cancelled_restart_drops_the_switch(self):
         work = json.loads(self.call("POST", "/api/accounts/add", {"name": "work", "token": TOKEN})[1])["profiles"][0]["id"]

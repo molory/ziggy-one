@@ -52,6 +52,13 @@ def _active(raw, profiles):
     return active if any(p["id"] == active for p in profiles) else None
 
 
+def _clean_name(name):
+    name = name.strip() if isinstance(name, str) else ""
+    if not name or len(name) > MAX_NAME or any(c in name for c in "\r\n\t"):
+        raise ValueError(tr("Invalid name"))
+    return name
+
+
 def apply(path, environ=None):
     """At the start, before any `claude`: the token of the active profile in the environment, or none.
 
@@ -106,16 +113,15 @@ class Accounts:
 
     def running_name(self):
         with self._lock:
+            self._load()  # renamed meanwhile, here or by the other server
             return next((p["name"] for p in self._profiles if p["id"] == self.running), None)
 
     def _publish(self):
         self._bus.publish("accounts", self.snapshot())
 
     def add(self, name, token):
-        name = name.strip() if isinstance(name, str) else ""
+        name = _clean_name(name)
         token = token.strip() if isinstance(token, str) else ""
-        if not name or len(name) > MAX_NAME or any(c in name for c in "\r\n\t"):
-            raise ValueError(tr("Invalid name"))
         if not TOKEN_RE.match(token):
             raise ValueError(tr("Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)"))
         # Before saving: with a token, `claude auth status` says "logged in" without asking, so a dead token would
@@ -130,6 +136,21 @@ class Accounts:
             if any(p["name"] == name for p in self._profiles):
                 raise ValueError(tr("An account already has this name"))
             self._profiles.append({"id": secrets.token_hex(6), "name": name, "token": token, "added": time.time()})
+            self._save()
+        self._publish()
+        return self.snapshot()
+
+    def rename(self, profile_id, name):
+        """Only the name changes: the token, and the account in use or chosen, stay as they are."""
+        name = _clean_name(name)
+        with self._lock:
+            self._load()
+            profile = next((p for p in self._profiles if p["id"] == profile_id), None)
+            if profile is None:
+                raise ValueError(tr("Unknown account"))
+            if any(p["name"] == name and p is not profile for p in self._profiles):
+                raise ValueError(tr("An account already has this name"))
+            profile["name"] = name
             self._save()
         self._publish()
         return self.snapshot()

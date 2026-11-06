@@ -456,6 +456,9 @@ function accountsSection() {
 /** @param {Accounts} data */
 function renderAccounts(data) {
   knownAccounts = data;
+  // The account window shows the name of the profile in use: renamed, it follows.
+  const runningName = data.profiles.find((profile) => profile.id === data.running)?.name ?? null;
+  if (account && !account.error && account.profile !== runningName) renderAccount({ ...account, profile: runningName });
   if (!accountsList) return;
   const rows = [{ id: null, name: t("Login of this machine (/login)"), added: 0 }, ...data.profiles];
   accountsList.replaceChildren(...rows.map((profile) => {
@@ -478,6 +481,12 @@ function renderAccounts(data) {
       use.setAttribute("type", "button");
       use.addEventListener("click", () => switchAccount(profile.id, profile.name));
       item.append(use);
+    }
+    if (profile.id) {
+      const rename = el("button", "link-button small", t("Rename"));
+      rename.setAttribute("type", "button");
+      rename.addEventListener("click", () => renameAccount(profile.id, profile.name));
+      item.append(rename);
     }
     if (profile.id && !chosen && !running) {
       const remove = el("button", "link-button small browser-sign-out", t("Delete"));
@@ -551,6 +560,28 @@ async function switchAccount(id, label) {
     renderAccounts(answer.accounts);
     renderRestartBanner();
     if (panelView?.kind === "settings") renderSettingsPanel();
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+}
+
+/** Only the name changes: the token and the account in use stay as they are. @param {string} id @param {string} label */
+async function renameAccount(id, label) {
+  const form = el("div", "settings-section account-form");
+  const name = /** @type {HTMLInputElement} */ (el("input", "text-input"));
+  name.value = label;
+  name.maxLength = 60;
+  form.append(name);
+  const confirmed = await confirmDialog({
+    title: t("Rename {name}", { name: label }),
+    message: "",
+    confirmLabel: t("Rename"),
+    content: form,
+    canConfirm: () => Boolean(name.value.trim()) && name.value.trim() !== label,
+  });
+  if (!confirmed) return;
+  try {
+    renderAccounts(await api("/api/accounts/rename", { id, name: name.value }));
   } catch (err) {
     showToast(/** @type {Error} */ (err).message);
   }
