@@ -2472,6 +2472,8 @@ kbd {
 .settings-button + .settings-button { margin-top: 0.5rem; }
 .share-login { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem; }
 .share-login .text-input { width: 100%; padding: 0.4rem 0.6rem; font: 0.78rem var(--mono); }
+/* Configuration › Server › Add an account: name and token across the window. */
+.account-form .text-input { width: 100%; box-sizing: border-box; }
 /* Signed-in browsers: one line each, this browser marked. */
 .browser-list { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
 /* Configuration › Server: title and list share one width, "Sign out the others" at its right end. */

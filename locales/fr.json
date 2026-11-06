@@ -179,5 +179,11 @@
   "Invalid file": "Fichier invalide",
   "Sound too large (2 MB max)": "Son trop lourd (2 Mo au plus)",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "Ce n'est pas un fichier audio (MP3, WAV, OGG, M4A, AAC ou FLAC)",
-  "Unknown color: {name}": "Couleur inconnue : {name}"
+  "Unknown color: {name}": "Couleur inconnue : {name}",
+  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)": "Jeton invalide : collez celui qu'affiche `claude setup-token` (sk-ant-oat01-…)",
+  "Too many accounts": "Trop de comptes",
+  "An account already has this name": "Un compte porte déjà ce nom",
+  "This account is in use: switch to another one first": "Ce compte est utilisé : passez d'abord à un autre",
+  "Unknown account": "Compte inconnu",
+  "Claude refused this token: {error}": "Claude refuse ce jeton : {error}"
 }
