@@ -819,4 +819,5 @@ export default {
   "Switch and restart": "बदलें और पुनः आरंभ करें",
   "Delete {name}?": "{name} हटाएँ?",
   "Its token is removed from this machine. It stays valid on Anthropic's side until it expires.": "इसका टोकन इस मशीन से हटा दिया जाता है। समाप्त होने तक यह Anthropic की ओर से मान्य रहता है।",
+  "Checking the token with Claude…": "Claude के साथ टोकन की जाँच हो रही है…",
 };

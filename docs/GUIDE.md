@@ -74,7 +74,7 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   reloads by itself and a green banner confirms: time, version, reopened terminals.
   Same tab, "Claude account of the terminals" (`accounts.py`): the login of the machine (`/login`), or profiles of
   your own, each a long-lived token made by `claude setup-token` in a terminal signed in to that account (one per
-  account: work, personal…). "Use" saves the choice and goes through the same clean restart: at the start, the server
+  account: work, personal…), checked with a short call to Claude before it is saved. "Use" saves the choice and goes through the same clean restart: at the start, the server
   puts the token of the chosen profile in its environment (`CLAUDE_CODE_OAUTH_TOKEN`), so every `claude` it starts
   uses it (terminals, usage, commit messages), and the terminals reopen on their conversations (the history stays in
   `~/.claude`, whatever the account). Cancelling the restart keeps the account in use. The tokens stay in

@@ -180,9 +180,10 @@
   "Sound too large (2 MB max)": "声音文件过大（最大 2 MB）",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "不是音频文件（MP3、WAV、OGG、M4A、AAC 或 FLAC）",
   "Unknown color: {name}": "未知颜色：{name}",
-  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-…)": "令牌无效：请粘贴 `claude setup-token` 输出的令牌（sk-ant-…）",
+  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)": "令牌无效：请粘贴 `claude setup-token` 输出的令牌（sk-ant-oat01-…）",
   "Too many accounts": "账户过多",
   "An account already has this name": "已有同名账户",
   "This account is in use: switch to another one first": "此账户正在使用：请先切换到其他账户",
-  "Unknown account": "未知账户"
+  "Unknown account": "未知账户",
+  "Claude refused this token: {error}": "Claude 拒绝了此令牌：{error}"
 }

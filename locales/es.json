@@ -180,9 +180,10 @@
   "Sound too large (2 MB max)": "Sonido demasiado grande (2 MB máx.)",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "No es un archivo de audio (MP3, WAV, OGG, M4A, AAC o FLAC)",
   "Unknown color: {name}": "Color desconocido: {name}",
-  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-…)": "Token no válido: pegue el que muestra `claude setup-token` (sk-ant-…)",
+  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)": "Token no válido: pegue el que muestra `claude setup-token` (sk-ant-oat01-…)",
   "Too many accounts": "Demasiadas cuentas",
   "An account already has this name": "Ya hay una cuenta con este nombre",
   "This account is in use: switch to another one first": "Esta cuenta está en uso: cambie primero a otra",
-  "Unknown account": "Cuenta desconocida"
+  "Unknown account": "Cuenta desconocida",
+  "Claude refused this token: {error}": "Claude rechaza este token: {error}"
 }

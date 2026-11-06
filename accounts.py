@@ -26,7 +26,8 @@ ENV_TOKEN = "CLAUDE_CODE_OAUTH_TOKEN"
 # Set with the token: the profile applied (its id). On a relaunch (same process, same environment), it tells
 # that the token is ours, to remove it before applying the new choice; a token set outside Ziggy One is kept.
 ENV_PROFILE = "ZIGGY_ONE_ACCOUNT"
-TOKEN_RE = re.compile(r"^sk-ant-[A-Za-z0-9_-]{16,500}$")
+# What `claude setup-token` prints (sk-ant-oat01-…); an API key (sk-ant-api…) is refused by Claude Code here.
+TOKEN_RE = re.compile(r"^sk-ant-oat[0-9]{2}-[A-Za-z0-9_-]{16,500}$")
 ID_RE = re.compile(r"^[0-9a-f]{12}$")
 MAX_NAME = 60
 MAX_PROFILES = 20
@@ -72,18 +73,26 @@ class Accounts:
     """Profiles of accounts (accounts.json). Event: accounts.
 
     `running`: the profile applied at the start of this process (see apply); `active`: the one chosen, which
-    applies at the next start (they differ while a switch waits for its restart)."""
+    applies at the next start (they differ while a switch waits for its restart).
 
-    def __init__(self, bus, path, environ=None):
+    The file is read again before each change: two servers may share the data folder (one per port), and neither
+    must drop a profile that the other added. `check(token)`: None if Claude accepts the token, else the error.
+    """
+
+    def __init__(self, bus, path, environ=None, check=None):
         self._bus = bus
         self._path = path
+        self._check = check
         self._lock = threading.Lock()
-        raw = read_json(path, {})
-        self._profiles = _profiles(raw)
-        self._active = _active(raw, self._profiles)
+        self._load()
         environ = os.environ if environ is None else environ
         running = environ.get(ENV_PROFILE)
         self.running = running if any(p["id"] == running for p in self._profiles) else None
+
+    def _load(self):
+        raw = read_json(self._path, {})
+        self._profiles = _profiles(raw)
+        self._active = _active(raw, self._profiles)
 
     def _save(self):
         write_json(self._path, {"active": self._active, "profiles": self._profiles})
@@ -91,6 +100,7 @@ class Accounts:
     def snapshot(self):
         """For the browser: names and dates, never the tokens."""
         with self._lock:
+            self._load()
             return {"active": self._active, "running": self.running,
                     "profiles": [{"id": p["id"], "name": p["name"], "added": p["added"]} for p in self._profiles]}
 
@@ -107,8 +117,14 @@ class Accounts:
         if not name or len(name) > MAX_NAME or any(c in name for c in "\r\n\t"):
             raise ValueError(tr("Invalid name"))
         if not TOKEN_RE.match(token):
-            raise ValueError(tr("Invalid token: paste the one that `claude setup-token` prints (sk-ant-…)"))
+            raise ValueError(tr("Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)"))
+        # Before saving: with a token, `claude auth status` says "logged in" without asking, so a dead token would
+        # only show up after the switch, in every terminal at once.
+        error = self._check(token) if self._check else None
+        if error:
+            raise ValueError(tr("Claude refused this token: {error}", error=error))
         with self._lock:
+            self._load()
             if len(self._profiles) >= MAX_PROFILES:
                 raise ValueError(tr("Too many accounts"))
             if any(p["name"] == name for p in self._profiles):
@@ -120,6 +136,7 @@ class Accounts:
 
     def delete(self, profile_id):
         with self._lock:
+            self._load()
             if profile_id in (self._active, self.running):
                 raise ValueError(tr("This account is in use: switch to another one first"))
             kept = [p for p in self._profiles if p["id"] != profile_id]
@@ -133,6 +150,7 @@ class Accounts:
     def select(self, profile_id):
         """Chosen for the next start; None: the login of the machine. True if the choice changed."""
         with self._lock:
+            self._load()
             if profile_id is not None and not any(p["id"] == profile_id for p in self._profiles):
                 raise ValueError(tr("Unknown account"))
             changed = profile_id != self._active
@@ -144,4 +162,5 @@ class Accounts:
     def pending(self):
         """A switch waits for its restart."""
         with self._lock:
+            self._load()
             return self._active != self.running

@@ -180,9 +180,10 @@
   "Sound too large (2 MB max)": "ध्वनि फ़ाइल बहुत बड़ी है (अधिकतम 2 MB)",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "ऑडियो फ़ाइल नहीं है (MP3, WAV, OGG, M4A, AAC या FLAC)",
   "Unknown color: {name}": "अज्ञात रंग: {name}",
-  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-…)": "अमान्य टोकन: `claude setup-token` जो टोकन दिखाता है वही चिपकाएँ (sk-ant-…)",
+  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-oat01-…)": "अमान्य टोकन: `claude setup-token` जो टोकन दिखाता है वही चिपकाएँ (sk-ant-oat01-…)",
   "Too many accounts": "बहुत अधिक खाते",
   "An account already has this name": "इस नाम का खाता पहले से है",
   "This account is in use: switch to another one first": "यह खाता उपयोग में है: पहले किसी दूसरे खाते पर जाएँ",
-  "Unknown account": "अज्ञात खाता"
+  "Unknown account": "अज्ञात खाता",
+  "Claude refused this token: {error}": "Claude ने यह टोकन अस्वीकार किया: {error}"
 }

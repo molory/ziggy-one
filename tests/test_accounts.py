@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -30,8 +31,9 @@ class AccountsTest(unittest.TestCase):
 
     def test_add_validates_and_never_shows_the_token(self):
         store = self.make()
+        api_key = "sk-ant-api03-" + "c" * 40  # an API key, not a token of `claude setup-token`
         for name, token in (("", TOKEN), ("a\nb", TOKEN), ("x" * 61, TOKEN), ("work", "nope"),
-                            ("work", TOKEN + "\nX"), ("work", None)):
+                            ("work", TOKEN + "\nX"), ("work", None), ("work", api_key)):
             with self.assertRaises(ValueError, msg=(name, token)):
                 store.add(name, token)
         snapshot = store.add(" work ", f"  {TOKEN}\n")
@@ -41,6 +43,25 @@ class AccountsTest(unittest.TestCase):
             store.add("work", OTHER)  # same name
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(json.loads(self.path.read_text())["profiles"][0]["token"], TOKEN)
+
+    def test_token_refused_by_claude_is_not_saved(self):
+        checked = []
+        store = accounts.Accounts(self.bus, self.path, environ={},
+                                  check=lambda token: checked.append(token) or "401 OAuth access token is invalid")
+        with self.assertRaises(ValueError) as caught:
+            store.add("work", TOKEN)
+        self.assertIn("401", str(caught.exception))
+        self.assertEqual(checked, [TOKEN])
+        self.assertFalse(self.path.exists())
+
+    def test_two_servers_on_one_data_folder_keep_each_others_profiles(self):
+        first, second = self.make(), self.make()
+        first.add("work", TOKEN)
+        second.add("personal", OTHER)
+        work = next(p["id"] for p in second.snapshot()["profiles"] if p["name"] == "work")
+        second.select(work)
+        self.assertEqual([p["name"] for p in first.snapshot()["profiles"]], ["work", "personal"])
+        self.assertEqual(first.snapshot()["active"], work)
 
     def test_apply_sets_then_removes_our_token_only(self):
         store = self.make()
@@ -105,6 +126,9 @@ class AccountsHttpTest(unittest.TestCase):
                         "Cookie": f"{self.httpd.cookie_name}={self.httpd.sessions.create()}"}
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
         self.addCleanup(self.httpd.shutdown)
+        patcher = mock.patch.object(server, "check_token", return_value=None)  # no real `claude` call
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def call(self, method, path, body=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -137,6 +161,24 @@ class AccountsHttpTest(unittest.TestCase):
             self.assertNotIn(TOKEN, raw, path)
         self.assertIn('"profile": null', self.call("GET", "/api/state")[1])
 
+    def test_switching_back_cancels_the_restart_of_the_switch_only(self):
+        work = json.loads(self.call("POST", "/api/accounts/add", {"name": "work", "token": TOKEN})[1])["profiles"][0]["id"]
+        restart = mock.Mock(last=None)  # server.info() reads it
+        restart.snapshot.return_value = None
+        restart.request.return_value = {"requestedAt": 1.0}
+        with mock.patch.object(self.httpd, "restart", restart):
+            self.call("POST", "/api/accounts/switch", {"id": work})
+            restart.snapshot.return_value = {"phase": "waiting", "requestedAt": 1.0}
+            self.call("POST", "/api/accounts/switch", {"id": None})
+            restart.cancel.assert_called_once()
+            # A restart asked for otherwise (button, agent) is left alone.
+            restart.reset_mock()
+            restart.snapshot.return_value = {"phase": "waiting", "requestedAt": 2.0}
+            self.call("POST", "/api/accounts/switch", {"id": work})
+            self.call("POST", "/api/accounts/switch", {"id": None})
+            restart.request.assert_not_called()
+            restart.cancel.assert_not_called()
+
     def test_cancelled_restart_drops_the_switch(self):
         work = json.loads(self.call("POST", "/api/accounts/add", {"name": "work", "token": TOKEN})[1])["profiles"][0]["id"]
         with mock.patch.object(self.httpd.restart, "request"):
@@ -148,6 +190,29 @@ class AccountsHttpTest(unittest.TestCase):
     def test_without_origin_refused(self):
         del self.headers["Origin"]
         self.assertEqual(self.call("POST", "/api/accounts/add", {"name": "work", "token": TOKEN})[0], 403)
+
+
+# Fake `claude -p` for check_token: accepts only the token "good", like the real one answers (result event).
+FAKE_PROBE = f"""#!{sys.executable}
+import json, os
+bad = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") != "sk-ant-oat01-good"
+print(json.dumps({{"type": "system", "subtype": "init"}}))
+print(json.dumps({{"type": "result", "is_error": bad,
+                  "result": "Failed to authenticate. API Error: 401 OAuth access token is invalid." if bad else "ok"}}))
+"""
+
+
+class CheckTokenTest(unittest.TestCase):
+    def test_runs_claude_with_the_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / "claude"
+            fake.write_text(FAKE_PROBE)
+            fake.chmod(0o700)
+            path = f"{directory}{os.pathsep}{os.environ['PATH']}"
+            with mock.patch.dict(os.environ, {"PATH": path, accounts.ENV_TOKEN: "sk-ant-oat01-good"}):
+                self.assertIn("401", server.check_token("sk-ant-oat01-other"))  # the one given, not the server's
+                os.environ[accounts.ENV_TOKEN] = "sk-ant-oat01-other"
+                self.assertIsNone(server.check_token("sk-ant-oat01-good"))
 
 
 if __name__ == "__main__":

@@ -175,6 +175,24 @@ def read_account():
     return account
 
 
+def check_token(token):
+    """None if Claude Code works with this account token, else the error: the minimal probe call, with the token."""
+    env = {key: value for key, value in os.environ.items() if key not in (accounts.ENV_TOKEN, accounts.ENV_PROFILE)}
+    env[accounts.ENV_TOKEN] = token
+    try:
+        result = subprocess.run(
+            PROBE_CMD, capture_output=True, text=True, timeout=90,
+            cwd=tempfile.gettempdir(), stdin=subprocess.DEVNULL, env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return tr("The claude call failed: {error}", error=exc)
+    for line in result.stdout.splitlines():
+        event = parse_json_line(line)
+        if event and event.get("type") == "result":
+            return str(event.get("result") or tr("Unreadable answer"))[:300] if event.get("is_error") else None
+    return result.stderr.strip()[:500] or tr("Unreadable answer")
+
+
 def pid_alive(pid):
     try:
         os.kill(pid, 0)
@@ -384,7 +402,9 @@ class ZiggyServer(ThreadingHTTPServer):
         self.activity = SharedActivity(data_dir / "activity.json", self.workspaces.workspace_for, self.agents.name_for)
         self.account = account
         # Claude account of the terminals: the profile applied at this start (accounts.apply, in main()).
-        self.accounts = accounts.Accounts(self.bus, data_dir / "accounts.json")
+        # check: looked up at each call, so the tests can replace it.
+        self.accounts = accounts.Accounts(self.bus, data_dir / "accounts.json", check=lambda token: check_token(token))
+        self._switch_restart = None  # requestedAt of the restart that a switch asked for, while it waits
         # Token kept from one start to the next: open tabs stay signed in after a relaunch.
         self.token = persistent_token(data_dir / "token", renew=renew_token)
         self.logins = login_links.LoginLinks(self.token, data_dir / "used-login-links.json")
@@ -627,11 +647,18 @@ class ZiggyServer(ThreadingHTTPServer):
     def switch_account(self, profile_id):
         """Account chosen for the terminals: applied by a clean restart, which reopens them on their sessions."""
         self.accounts.select(profile_id)
+        state = self.restart.snapshot()
         if self.accounts.pending():
-            try:
-                self.restart.request()
-            except RuntimeError:
-                pass  # a restart is already requested: the choice applies with it
+            if state is None:
+                try:
+                    self._switch_restart = self.restart.request()["requestedAt"]
+                except RuntimeError:
+                    pass  # requested meanwhile: the choice applies with it
+            # Otherwise a restart is already requested: the choice applies with it.
+        elif state and state["phase"] == "waiting" and state["requestedAt"] == self._switch_restart:
+            # Back to the account in use while the switch's restart waits: it is no longer needed.
+            self._switch_restart = None
+            self.restart.cancel()
 
     def info(self):
         """What the Configuration screen shows about the server: start, version, ongoing or last restart.

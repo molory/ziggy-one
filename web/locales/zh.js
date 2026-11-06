@@ -819,4 +819,5 @@ export default {
   "Switch and restart": "切换并重启",
   "Delete {name}?": "删除 {name}？",
   "Its token is removed from this machine. It stays valid on Anthropic's side until it expires.": "其令牌会从本机删除，但在过期前在 Anthropic 端仍然有效。",
+  "Checking the token with Claude…": "正在向 Claude 验证令牌…",
 };

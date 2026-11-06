@@ -819,4 +819,5 @@ export default {
   "Switch and restart": "Changer et redémarrer",
   "Delete {name}?": "Supprimer {name} ?",
   "Its token is removed from this machine. It stays valid on Anthropic's side until it expires.": "Son jeton est retiré de cette machine. Il reste valide chez Anthropic jusqu'à son expiration.",
+  "Checking the token with Claude…": "Vérification du jeton auprès de Claude…",
 };

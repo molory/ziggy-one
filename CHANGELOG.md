@@ -8,7 +8,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Switch the Claude account of every terminal:** Configuration › Server › "Claude account of the terminals" keeps
   profiles, each a long-lived token made by `claude setup-token` (one per account), next to the login of the machine.
   "Use" switches every terminal at once through the clean restart: they reopen on their conversations with the new
-  account. The tokens stay in `accounts.json` (0600) and never go to a browser.
+  account. A token is checked with Claude before it is saved; tokens stay in `accounts.json` (0600) and never go
+  to a browser.
 - **Terminal: pasting a file:** a file copied in the Finder (a `.md`, a PDF…) and pasted into an agent's terminal
   now gives Claude Code the file itself. A text file (`.md`, `.txt`, `.csv`, code…, up to 512 KB) is pasted as its
   content, shown by Claude Code as `[Pasted text #1 +N lines]`. Any other file (a PDF…) is saved (private folder

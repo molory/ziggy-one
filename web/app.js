@@ -518,6 +518,7 @@ async function addAccount() {
   const values = { name: name.value, token: token.value };
   token.value = "";
   if (!confirmed) return;
+  showToast(t("Checking the token with Claude…")); // a short call to Claude, a few seconds
   try {
     renderAccounts(await api("/api/accounts/add", values));
   } catch (err) {
