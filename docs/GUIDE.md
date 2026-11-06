@@ -72,6 +72,14 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
   most; "Force now" or "Cancel" in the banner at the top), notes what must be reopened (`restart.json`), restarts
   itself with the same command (same process), reopens the terminals and makes the paused agents resume. The page
   reloads by itself and a green banner confirms: time, version, reopened terminals.
+  Same tab, "Claude account of the terminals" (`accounts.py`): the login of the machine (`/login`), or profiles of
+  your own, each a long-lived token made by `claude setup-token` in a terminal signed in to that account (one per
+  account: work, personal…). "Use" saves the choice and goes through the same clean restart: at the start, the server
+  puts the token of the chosen profile in its environment (`CLAUDE_CODE_OAUTH_TOKEN`), so every `claude` it starts
+  uses it (terminals, usage, commit messages), and the terminals reopen on their conversations (the history stays in
+  `~/.claude`, whatever the account). Cancelling the restart keeps the account in use. The tokens stay in
+  `accounts.json` (0600, data folder) and never go to a browser; a token gives no email, so the account window shows
+  the profile's name.
 - **Language** (`settings.py`, `i18n.py`, `web/i18n.js`): the interface is in English by default; Chinese,
   Hindi, Spanish, Arabic and French are available (the most spoken languages). Arabic is shown right to left
   (`<html dir="rtl">`, logical CSS properties; code, terminals and paths stay left to right). The language is chosen in the global Configuration ("General" tab) and saved by the server in
@@ -313,5 +321,8 @@ The tests use a fake `claude` executable (interactive, in a real pseudo-terminal
 - Strict CSP (`default-src 'self'`, no inline script), no CDN, and no content is inserted via `innerHTML`.
   Styles accept a nonce, new at every page load, given to the `<style>` tags that xterm.js creates: injected markup
   would stay blocked.
+- Account profiles (`accounts.json`, 0600): their tokens never leave the server, but the `claude` processes get the
+  active one in their environment, as Claude Code needs it there; the commands an agent runs can read it, as they
+  can read the machine's own login.
 - Claude Code's permissions are approved in its Terminal, as in any terminal. To approve fewer by hand:
   `--permission-mode auto` or `--allowed-tools`, or the agent's settings.

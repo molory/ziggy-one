@@ -179,5 +179,10 @@
   "Invalid file": "ملف غير صالح",
   "Sound too large (2 MB max)": "الصوت كبير جدًا (2 MB كحد أقصى)",
   "Not an audio file (MP3, WAV, OGG, M4A, AAC or FLAC)": "ليس ملفًا صوتيًا (MP3 أو WAV أو OGG أو M4A أو AAC أو FLAC)",
-  "Unknown color: {name}": "لون غير معروف: {name}"
+  "Unknown color: {name}": "لون غير معروف: {name}",
+  "Invalid token: paste the one that `claude setup-token` prints (sk-ant-…)": "رمز غير صالح: الصق الرمز الذي يعرضه `claude setup-token` (sk-ant-…)",
+  "Too many accounts": "عدد الحسابات كبير جدًا",
+  "An account already has this name": "يوجد حساب بهذا الاسم بالفعل",
+  "This account is in use: switch to another one first": "هذا الحساب قيد الاستخدام: انتقل إلى حساب آخر أولًا",
+  "Unknown account": "حساب غير معروف"
 }

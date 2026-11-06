@@ -30,6 +30,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import urlopen
 import webbrowser
 
+import accounts
 import media
 import transcripts
 from activity import SHARED_TAG, SharedActivity
@@ -382,6 +383,8 @@ class ZiggyServer(ThreadingHTTPServer):
         self.context_windows = ContextWindows(data_dir / "context-windows.json")
         self.activity = SharedActivity(data_dir / "activity.json", self.workspaces.workspace_for, self.agents.name_for)
         self.account = account
+        # Claude account of the terminals: the profile applied at this start (accounts.apply, in main()).
+        self.accounts = accounts.Accounts(self.bus, data_dir / "accounts.json")
         # Token kept from one start to the next: open tabs stay signed in after a relaunch.
         self.token = persistent_token(data_dir / "token", renew=renew_token)
         self.logins = login_links.LoginLinks(self.token, data_dir / "used-login-links.json")
@@ -617,6 +620,19 @@ class ZiggyServer(ThreadingHTTPServer):
         conversation = conversations.open(cwd=cwd, label=hidden.get("label") or "")
         self._session_started(key, conversation.id)
 
+    def account_info(self):
+        """`claude auth status`, plus the name of the Ziggy One profile in use (a token gives no email)."""
+        return {**(self.account or {}), "profile": self.accounts.running_name()}
+
+    def switch_account(self, profile_id):
+        """Account chosen for the terminals: applied by a clean restart, which reopens them on their sessions."""
+        self.accounts.select(profile_id)
+        if self.accounts.pending():
+            try:
+                self.restart.request()
+            except RuntimeError:
+                pass  # a restart is already requested: the choice applies with it
+
     def info(self):
         """What the Configuration screen shows about the server: start, version, ongoing or last restart.
 
@@ -781,7 +797,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 self.server.name_agents(sessions)  # before copying the settings, to have the names in them
                 return self._json(200, {
-                    "account": self.server.account,
+                    "account": self.server.account_info(),
                     "usage": self.server.usage.snapshot(),
                     "defaultCwd": conversations.default_cwd,
                     "defaults": {k: self.server.defaults[k] for k in ("model", "permissionMode", "chrome")},
@@ -802,6 +818,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"sessions": sessions})
             if url.path == "/api/server":
                 return self._json(200, self.server.info())
+            if url.path == "/api/accounts":
+                return self._json(200, self.server.accounts.snapshot())
             if url.path == "/api/browsers":
                 return self._json(200, {"browsers": self.server.sessions.list(current=self.session)})
             if url.path == "/api/terminals":
@@ -894,7 +912,17 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/account/check":
                 # Claude Code installed or signed in since the start: checked again, without restarting.
                 self.server.account = read_account()
-                return self._json(200, self.server.account)
+                return self._json(200, self.server.account_info())
+            if path == "/api/accounts/add":
+                return self._json(200, self.server.accounts.add(body.get("name"), body.get("token")))
+            if path == "/api/accounts/delete":
+                return self._json(200, self.server.accounts.delete(body.get("id")))
+            if path == "/api/accounts/switch":
+                profile_id = body.get("id")
+                if profile_id is not None and not isinstance(profile_id, str):
+                    return self._json(400, {"error": tr("Unknown account")})
+                self.server.switch_account(profile_id)
+                return self._json(200, {"accounts": self.server.accounts.snapshot(), "server": self.server.info()})
             if path == "/api/usage/refresh":
                 error = self.server.usage.probe()
                 if error:
@@ -913,6 +941,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.server.restart.force()
                 elif action == "cancel":
                     self.server.restart.cancel()
+                    self.server.accounts.select(self.server.accounts.running)  # a switch waiting for it is dropped
                 else:
                     return self._json(400, {"error": tr("Unknown action (start, force or cancel)")})
                 return self._json(200, self.server.info())
@@ -1543,6 +1572,8 @@ def main():
                         help="prints a single-use sign-in link instead of opening the browser (for another browser)")
     args = parser.parse_args()
 
+    # Before any `claude` (read_account just below): the token of the chosen account, if any.
+    accounts.apply(default_data_dir() / "accounts.json")
     try:
         server = ZiggyServer(
             port=args.port,

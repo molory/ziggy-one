@@ -146,7 +146,7 @@ function formatReset(epochSeconds) {
 
 // --- account, usage and preferences: the gauge of the top bar opens the details ---------
 
-const AUTH_LABELS = { "claude.ai": t("claude.ai account"), api_key: t("API key") };
+const AUTH_LABELS = { "claude.ai": t("claude.ai account"), api_key: t("API key"), oauth_token: t("long-lived token") };
 const PLAN_LABELS = { pro: "Pro", max: "Max", team: "Team", enterprise: "Enterprise" };
 const STATUS_LABELS = { allowed: t("Within limits"), allowed_warning: t("Close to the limit"), rejected: t("Limit reached") };
 const OVERAGE_REASONS = {
@@ -174,12 +174,13 @@ const claudeSetup = mountClaudeSetup({
 function renderAccount(data) {
   account = data;
   const connected = Boolean(data && !data.error && data.loggedIn);
-  const initial = connected ? (data.email || "?").charAt(0).toUpperCase() : "?";
+  const initial = connected ? (data.email || data.profile || "?").charAt(0).toUpperCase() : "?";
   $("avatar").textContent = initial;
   $("account-avatar").textContent = initial;
-  $("account-email").textContent = connected ? data.email || "—" : data?.error || t("Not logged in");
+  // A token (account profile of Ziggy One) gives no email: the name of the profile instead.
+  $("account-email").textContent = connected ? data.email || data.profile || "—" : data?.error || t("Not logged in");
   $("account-sub").textContent = connected
-    ? [data.orgName, data.subscriptionType && t("{plan} plan", { plan: PLAN_LABELS[data.subscriptionType] || data.subscriptionType }), AUTH_LABELS[data.authMethod] || data.authMethod]
+    ? [data.email && data.profile, data.orgName, data.subscriptionType && t("{plan} plan", { plan: PLAN_LABELS[data.subscriptionType] || data.subscriptionType }), AUTH_LABELS[data.authMethod] || data.authMethod]
       .filter(Boolean).join(" · ")
     : "";
   renderUsageButtonLabel();
@@ -425,6 +426,146 @@ async function signOutBrowser(id) {
       return;
     }
     renderBrowsers(answer.browsers);
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+}
+
+/** @typedef {{active: string | null, running: string | null, profiles: {id: string, name: string, added: number}[]}} Accounts */
+/** Last list received (the Server tab is redrawn often). @type {Accounts | null} */
+let knownAccounts = null;
+/** List of the section shown (Configuration › Server), if any. @type {HTMLElement | null} */
+let accountsList = null;
+
+/** Configuration › Server: the Claude account of the terminals, the machine's login or a token of `claude setup-token`. */
+function accountsSection() {
+  const section = el("div", "settings-section browsers-section");
+  const head = el("div", "account-section-head");
+  const add = el("button", "link-button small", t("Add an account…"));
+  add.setAttribute("type", "button");
+  add.addEventListener("click", addAccount);
+  head.append(el("h3", "settings-title", t("Claude account of the terminals")), add);
+  accountsList = el("ul", "browser-list");
+  section.append(head, accountsList, el("p", "muted small",
+    t("Switching account restarts the server cleanly: the terminals reopen on their conversations, with the new account. To add one, run `claude setup-token` in a terminal signed in to it, then paste the token here.")));
+  if (knownAccounts) renderAccounts(knownAccounts);
+  loadAccounts();
+  return section;
+}
+
+/** @param {Accounts} data */
+function renderAccounts(data) {
+  knownAccounts = data;
+  if (!accountsList) return;
+  const rows = [{ id: null, name: t("Login of this machine (/login)"), added: 0 }, ...data.profiles];
+  accountsList.replaceChildren(...rows.map((profile) => {
+    const running = profile.id === data.running;
+    const chosen = profile.id === data.active;
+    const item = el("li", running ? "browser-item current" : "browser-item");
+    const who = el("div", "browser-who");
+    const name = el("span", "browser-name", profile.name);
+    if (running) name.append(el("span", "browser-current", t("in use")));
+    if (chosen && !running) name.append(el("span", "browser-current", t("after the restart")));
+    who.append(name);
+    if (profile.added) {
+      who.append(el("span", "muted small", t("added on {date}", {
+        date: new Date(profile.added * 1000).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }),
+      })));
+    }
+    item.append(who);
+    if (!chosen) {
+      const use = el("button", "link-button small", t("Use"));
+      use.setAttribute("type", "button");
+      use.addEventListener("click", () => switchAccount(profile.id, profile.name));
+      item.append(use);
+    }
+    if (profile.id && !chosen && !running) {
+      const remove = el("button", "link-button small browser-sign-out", t("Delete"));
+      remove.setAttribute("type", "button");
+      remove.addEventListener("click", () => deleteAccount(profile.id, profile.name));
+      item.append(remove);
+    }
+    return item;
+  }));
+}
+
+async function loadAccounts() {
+  try {
+    renderAccounts(await api("/api/accounts"));
+  } catch {
+    // Signed out meanwhile: api() already shows the sign-in screen.
+  }
+}
+
+async function addAccount() {
+  const form = el("div", "settings-section account-form");
+  const name = /** @type {HTMLInputElement} */ (el("input", "text-input"));
+  name.placeholder = t("Name (for example: work)");
+  name.maxLength = 60;
+  const token = /** @type {HTMLInputElement} */ (el("input", "text-input"));
+  token.type = "password"; // never shown on screen
+  token.autocomplete = "off";
+  token.placeholder = "sk-ant-oat01-…";
+  form.append(name, token, el("p", "muted small",
+    t("The token stays on this machine (data folder, 0600) and is never sent back to a browser.")));
+  const confirmed = await confirmDialog({
+    title: t("Add a Claude account"),
+    message: t("In a terminal signed in to that account, run `claude setup-token` and paste the token it prints."),
+    confirmLabel: t("Add"),
+    content: form,
+    canConfirm: () => Boolean(name.value.trim() && token.value.trim()),
+  });
+  const values = { name: name.value, token: token.value };
+  token.value = "";
+  if (!confirmed) return;
+  try {
+    renderAccounts(await api("/api/accounts/add", values));
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+}
+
+/** @param {string | null} id @param {string} label */
+async function switchAccount(id, label) {
+  const working = [...conversations.values()].filter((c) => c.busy).map((c) => c.id);
+  const restartNeeded = id !== knownAccounts?.running;
+  if (restartNeeded) {
+    const confirmed = await confirmDialog({
+      title: t("Switch to {name}?", { name: label }),
+      message: `${working.length
+        ? tn(
+          working.length,
+          "{n} agent is working ({names}): it will get a pause request and the server will wait for the end of its step (20 min at most).",
+          "{n} agents are working ({names}): they will get a pause request and the server will wait for the end of their step (20 min at most).",
+          { names: agentNames(working) },
+        )
+        : t("No agent is working: the server restarts right away.")}\n\n${t("Open terminals will be reopened on their conversations, with this account.")}`,
+      confirmLabel: t("Switch and restart"),
+    });
+    if (!confirmed) return;
+  }
+  try {
+    const answer = await api("/api/accounts/switch", { id });
+    serverInfo = answer.server;
+    renderAccounts(answer.accounts);
+    renderRestartBanner();
+    if (panelView?.kind === "settings") renderSettingsPanel();
+  } catch (err) {
+    showToast(/** @type {Error} */ (err).message);
+  }
+}
+
+/** @param {string} id @param {string} label */
+async function deleteAccount(id, label) {
+  const confirmed = await confirmDialog({
+    title: t("Delete {name}?", { name: label }),
+    message: t("Its token is removed from this machine. It stays valid on Anthropic's side until it expires."),
+    confirmLabel: t("Delete"),
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    renderAccounts(await api("/api/accounts/delete", { id }));
   } catch (err) {
     showToast(/** @type {Error} */ (err).message);
   }
@@ -1836,7 +1977,7 @@ function serverPane() {
     if (confirmed) restartAction("start");
   });
   card.append(how, button);
-  pane.append(card, browsersSection());
+  pane.append(card, accountsSection(), browsersSection());
   return pane;
 }
 
@@ -3563,6 +3704,7 @@ function connect() {
     else renderRestartBanner();
     if (panelView?.kind === "settings") renderSettingsPanel();
   });
+  on("accounts", renderAccounts);
   on("usage", renderUsage);
   on("status", (status) => {
     if (panelView?.kind === "settings") window.setTimeout(renderSettingsPanel); // agent state changed
